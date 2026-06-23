@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Model weights (downloaded automatically by ultralytics on first run)
+*.pt
+
+# Generated outputs
+*.calib.json
+out.json
+heatmaps/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
