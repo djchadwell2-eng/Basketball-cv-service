@@ -1,0 +1,88 @@
+================================================================================
+STAGE-0 SPIKE: can camera tracking carry a landmark across frames accurately?
+(read-mostly; no project code changed; multi-frame calibration NOT built)
+================================================================================
+Generated: 2026-06-24   Clip: HARD.mp4   All pixels in 960x540 space (~x2 full-res)
+
+GOAL: test the foundation of multi-frame calibration -- does the existing camera
+tracking (camera_tracking.py, unmodified) accurately carry a clicked landmark
+from a late frame back to frame 0? If error compounds, stitched landmarks land
+wrong and the approach fails.
+
+WHAT WAS CLICKED (by the user):
+  - FT-far corner @ frame 600   (a landmark whose TRUE frame-0 position is known
+                                 from HARD's calibration -> ground truth)
+  - center "M" logo @ frame 900  (clean, logo fully in view)
+  - center "M" logo @ frame 1200 (logo at the extreme LEFT edge, partly cut)
+  - frame 1800 click was discarded (M had panned off-screen)
+
+RESULTS
+  1) GROUND TRUTH, FT-far @ frame 600 -> frame 0:  drift = 7.4 px.
+     BUT: the camera is essentially still at frame 600 (≈ frame 0), so this only
+     shows tracking doesn't drift when the camera barely moves. It does NOT test
+     carrying across a real pan. Weak as a distance test.
+
+  2) center "M": projecting the two clicks back to frame 0 disagree by 384 px.
+     The frame-1200 click was at the extreme frame edge (logo cut off), so that
+     projection is unreliable. So a DECISIVE, click-robust check was run:
+
+  3) DECISIVE CHECK -- carry the CLEAN M@900 click FORWARD to frame 1200 using
+     only the tracking, and compare to where the "M" actually is at frame 1200
+     (visually confirmed at the far-left edge, x~20):
+        tracking predicts the M at (260, 317)
+        the M is actually at ~(20, 320)
+        => tracking is ~240 px WRONG by frame 1200.
+     The drift appears during the FAST pan from center-court (f900) to the
+     right-basket view (f1200); the near-static stretch (f0..600) was fine.
+     (See diagnostics/stage0_verify_900to1200.jpg and stage0_landmark_projection.jpg)
+
+  tracking lost_lock = 0 throughout (lock was never lost -- the drift is silent,
+  exactly the dangerous mode).
+
+CRITICAL CONFOUND -- THIS TEST RAN WITHOUT PLAYER MASKING
+  The spike used the tracker with NO player masking (empty boxes), for speed.
+  We ALREADY proved (drift_masked_report.txt) that masking removes most player-
+  induced drift when players move through frame -- on the Loveland huddle it cut
+  drift from ~300 px to ~30 px. Frames 900..1200 here are live play with players
+  moving across the court, so a large share of this 240 px may be player-induced
+  and removable by masking. The real multi-frame calibrator would mask.
+
+DECISION-GATE RESULT -- MASKED forward check (YOLO masking ON, ran 2026-06-24):
+  MASKED predicted M@1200 = (214, 340);  real M ~ (13, 343)  =>  201 px off.
+  Unmasked was 248 px off. Masking improved it by only ~47 px -- it did NOT fix
+  it. Both predictions land ~200 px to the right of the real M, on open floor.
+  (See diagnostics/stage0_masked_verify_900to1200.jpg.)
+  => The drift is NOT player-induced; it is the frame-to-frame tracking chain
+     accumulating error across the fast pan. lost_lock = 0 (silent).
+
+FINAL VERDICT (one line):
+  PROJECTION DRIFTS SIGNIFICANTLY -- camera-tracking error compounds across fast
+  pans (~200 px / ~400 px full-res by frame 1200, even WITH masking). The
+  foundation as-built does NOT hold. Multi-frame calibration on follow-cam
+  footage needs a rethink BEFORE building -- do not build it on the current
+  frame-to-frame chaining.
+
+WHY THIS SPIKE PAID OFF: a ~200 px landmark error is a large fraction of the
+court; stitched landmarks would land badly wrong and corrupt the homography.
+We found this with ~5 clicks and two short runs, before building anything.
+
+RETHINK OPTIONS (notes only -- do NOT build yet):
+  - Avoid pure frame-to-frame chaining (that's what accumulates). Match each
+    frame to a REFERENCE keyframe / keyframe graph, or run a global optimization
+    (SLAM-style bundle adjustment + loop closure) to bound drift.
+  - Stronger registration per step: sub-pixel features, many more features,
+    stricter RANSAC -- but this likely only reduces, not removes, accumulation.
+  - Constrain scope: only stitch landmarks from frames CLOSE to a calibrated
+    anchor (small pan). Note the failure mode bites exactly when crossing center
+    court (a fast pan) -- which is when you'd want the center landmark -- so this
+    constraint may not help follow-cam footage much.
+  - Different approach entirely: per-frame court-LINE detection / court
+    registration model instead of relative tracking (heavier; was previously
+    out of scope as "auto-calibration").
+  - Re-confirm: drift was tiny on the near-static stretch (FT@600 = 7 px), so the
+    problem is specifically fast camera motion, not tracking in general.
+
+TODO (notes only): also redo the ground-truth test across a REAL pan (e.g. a late
+frame where the left basket returns to view) and use landmarks NOT at the frame
+edge, so click precision doesn't muddy the measurement.
+================================================================================

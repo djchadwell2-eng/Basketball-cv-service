@@ -24,6 +24,7 @@ def build_output(
     frames_processed: int,
     players_dropped_off_court: int,
     team_stats: dict,
+    camera_motion_lost_frames: int = 0,
 ) -> dict:
     """Assemble the full output dictionary in the agreed schema."""
     return {
@@ -40,6 +41,9 @@ def build_output(
         "meta": {
             "frames_processed": frames_processed,
             "players_dropped_off_court": players_dropped_off_court,
+            # Frames where camera motion couldn't be measured (blur/few features)
+            # and we assumed the camera held still. High counts => shakier map.
+            "camera_motion_lost_frames": camera_motion_lost_frames,
         },
         # --- RESERVED FOR LATER STEPS -- do NOT populate now ------------------
         # A future step will add an individual-player layer. It will go in NEW

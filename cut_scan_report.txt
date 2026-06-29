@@ -1,0 +1,132 @@
+================================================================================
+CAMERA-TRACKING FAILURE-MAP REPORT  (read-only diagnosis -- no code changed)
+================================================================================
+Generated: 2026-06-23
+Scope: run the EXISTING src/camera_tracking.py (CameraTracker, unmodified) over
+       the non-EASY clips and report WHERE the court-map tracking holds and where
+       it breaks. No fixes, no re-calibration, no cut-handling were built. Any
+       fix ideas are left as TODO notes only.
+
+Clips live in C:\Users\djcha\Downloads (there is no ./clips folder).
+
+--------------------------------------------------------------------------------
+HOW TO READ THIS / METHOD + CAVEATS  (important -- the numbers need context)
+--------------------------------------------------------------------------------
+* Overlay videos are in ./diagnostics/<CLIP>_courtmap_overlay.mp4. Each draws a
+  tracking PROBE anchored on the window's first frame -- a red court-region box,
+  a cyan center-reference line, and a yellow dot grid -- then rides it with the
+  tracker. The diagnostic question is simply: does the probe stay GLUED to the
+  same floor spots as the camera moves? If it slides off the painted lines, the
+  map is drifting and any team stat built on it is silently wrong.
+  (It is NOT a calibrated court map -- per-clip calibration was out of scope.)
+
+* "Hard cut" detection = independent frame-to-frame appearance-difference spikes
+  (sudden whole-frame change => feed cut to another angle). Reported by
+  frame/timestamp.
+
+* "Lost lock" = the tracker's OWN internal signal (it could not estimate camera
+  motion that frame and assumed the camera held still).
+
+* CAVEAT 1 -- WINDOWS, NOT WHOLE CLIPS, for the Tactical files. They are FULL
+  GAMES (83-100 min; 148,800-179,859 frames). An exhaustive per-frame overlay of
+  a 100-min clip is hours of compute and multi-GB video, and the tracker must see
+  consecutive frames so it can't be subsampled. So each Tactical clip was scanned
+  on a representative 90-second window starting at 03:00. HARD (91s) was scanned
+  in FULL. Whole-game passes are deferred (see TODO-A).
+
+* CAVEAT 2 -- NO PLAYER MASKING in this diagnostic (it ran without YOLO, for
+  speed). The real pipeline masks players out before tracking, which should
+  REDUCE drift somewhat. So Tactical drift in production may be a bit better than
+  shown here -- but the drift behavior itself is real.
+
+* CAVEAT 3 -- drift is assessed VISUALLY from the overlays (no calibrated ground
+  truth per clip). Treat drift magnitudes as approximate.
+
+================================================================================
+PER-CLIP RESULTS
+================================================================================
+
+CLIP: HARD.mp4
+  camera type      : broadside follow-cam (same gym/style as EASY.mp4)
+  window           : FULL clip, 00:00.00 - 01:31.50 (2746 frames)
+  suspected cuts   : 0
+  lost-lock frames : 0  (0.00%)
+  max frame-diff   : 23.9  (low; smooth motion, no cut-like spikes)
+  drift            : not directly measurable here -- the anchored region pans out
+                     of frame as the camera follows play -- but the propagated
+                     overlay stayed COHERENT (clean perspective quad, no smear/
+                     jump) throughout. Behaves like the validated EASY case.
+  VERDICT          : HOLDS THROUGHOUT.
+
+CLIP: Milford vs Loveland - Tactical (1).mp4   [LOVELAND_Tactical_1]
+  camera type      : wide elevated auto-cam (whole court + center logo visible);
+                     PANS and ZOOMS aggressively to follow play
+  window           : 03:00.00 - 04:30.00 (2700 frames of a ~83-min full game)
+  suspected cuts   : 0
+  lost-lock frames : 0  (0.00%)
+  max frame-diff   : 33.0  (no cut spikes, but more background motion than HARD)
+  drift            : YES, GRADUAL. At 03:00 the cyan line sits exactly on the
+                     painted center line through the "M"; by 03:45 it is slightly
+                     left of it; by 04:30 (after an aggressive zoom-in on the left
+                     basket) it has slipped clearly LEFT of the true center line
+                     (~150-250 px, a meaningful fraction of court width). No jump
+                     -- it accumulates, worst during fast zoom/pan.
+  VERDICT          : HOLDS LOCK BUT DRIFTS -- map silently slips off the court
+                     over time. Team stats would be progressively wrong.
+
+CLIP: Milford vs Loveland - Tactical.mp4   [LOVELAND_Tactical_2]
+  NOTE             : Appears to be a DUPLICATE of Tactical (1) -- identical
+                     resolution, frame count, metrics, and pixel-identical
+                     overlay frames. Same findings as LOVELAND_Tactical_1.
+  suspected cuts   : 0
+  lost-lock frames : 0  (0.00%)
+  VERDICT          : HOLDS LOCK BUT DRIFTS (same as Tactical (1)).
+
+CLIP: Milford vs Princeton - Tactical.mp4   [PRINCETON_Tactical]
+  camera type      : wide elevated auto-cam (different gym, green "W" court);
+                     pans and zooms
+  window           : 03:00.00 - 04:30.00 (2700 frames of a ~100-min full game)
+  suspected cuts   : 0
+  lost-lock frames : 0  (0.00%)
+  max frame-diff   : 22.5  (no cut spikes)
+  drift            : YES, GRADUAL. Same pattern as the Loveland Tactical clip:
+                     cyan line starts on the painted center line through the "W";
+                     by 04:30 it has slipped ~150 px to the RIGHT of true center.
+                     Accumulating, no jump.
+  VERDICT          : HOLDS LOCK BUT DRIFTS.
+
+================================================================================
+FAILURE MAP / HEADLINE
+================================================================================
+* GOOD NEWS: NO hard cuts and ZERO lost-lock frames in ANY clip or window. The
+  feared "feed cuts to another angle and the chain explodes" did NOT occur in
+  any sampled footage. All four files are single continuous shots in their
+  scanned windows. The tracker never silently flat-lined.
+
+* THE REAL RISK IS DRIFT, NOT CUTS. On the wide Tactical auto-cam footage (which
+  pans AND zooms hard), the map holds lock but slowly slides off the true court
+  over ~90 s -- and it does so SILENTLY (lost-lock = 0, no alarm). This is
+  exactly the "every team stat is quietly wrong" failure you were worried about,
+  but the mechanism is accumulated drift, not a cut.
+    - broadside follow-cam (EASY, HARD): drift is modest -> usable now.
+    - wide Tactical auto-cam: drift is significant within 90 s and would be much
+      worse over an 83-100 min game -> NOT trustworthy for stats as-is.
+
+* DUPLICATE: the two "Loveland ... Tactical" files are the same video.
+
+================================================================================
+TODO NOTES (ideas only -- DO NOT implement as part of this task)
+================================================================================
+TODO-A: Whole-game scan. These Tactical files are full games; only 90-s windows
+        were scanned. Run an exhaustive (or coarsely time-sampled) cut sweep +
+        drift check across the entire game before trusting any full-game stats.
+TODO-B: Drift mitigation for the Tactical wide cam (do NOT build now): options to
+        evaluate later include (a) re-running with player masking ON, since the
+        real pipeline masks players and that should cut some drift; (b) periodic
+        re-anchoring / re-detection of court lines to reset accumulated error;
+        (c) anchoring each frame's homography to a stored keyframe instead of
+        chaining frame-to-frame. Decide AFTER a whole-game drift measurement.
+TODO-C: Add an automatic drift/health flag to output (e.g. compare tracked court
+        landmarks against detected court lines) so a drifting clip is FLAGGED
+        rather than silently producing wrong stats.
+================================================================================

@@ -1,0 +1,7 @@
+Stage 1 -- keyframe separation vs accuracy (exclusion applied)
+video: C:\Users\djcha\Downloads\HARD.mp4
+exclude_regions: [(7.5, 891.0, 327.0, 1063.5)]
+
+  sep      A      B  matches  inliers  inlier_ratio  mean_err  max_err
+----------------------------------------------------------------------
+  360    760   1120      873      623         0.714      7.87    10.85

@@ -1,0 +1,29 @@
+Stage 4 -- pixel->court homography + full-clip court overlay
+court model: HIGH SCHOOL 84x50 ft, 12-ft lane (y 19-31), FT 19 ft, circle r6
+reference frame: 900
+
+H_court (frame-900 px -> court feet):
+[[  -0.262537   -0.839905  468.354494]
+ [  -0.113109    0.473462 -376.713686]
+ [  -0.000173   -0.018776    1.      ]]
+reprojection residual on landmarks: mean=0.94 ft, max=1.49 ft
+    LB_side_far         0.81 ft
+    L_FT_far            1.49 ft
+    L_FT_near           1.17 ft
+    L_lane_base_far     0.70 ft
+    L_lane_base_near    0.97 ft
+    RB_side_far         1.05 ft
+    R_FT_far            1.31 ft
+    R_FT_near           1.03 ft
+    R_lane_base_far     0.78 ft
+    R_lane_base_near    0.83 ft
+    center_far          1.46 ft
+    center_logo         0.23 ft
+    center_near         0.32 ft
+    circle_bottom       0.47 ft
+    circle_left         1.31 ft
+    circle_right        1.04 ft
+    circle_top          0.93 ft
+
+overlay video: C:\Users\djcha\New folder\basketball-cv-service\spikes\out\HARD_stage4_courtmap_overlay.mp4
+stills: 9 at frames [300, 600, 750, 900, 1050, 1200, 1500, 2000, 2700]

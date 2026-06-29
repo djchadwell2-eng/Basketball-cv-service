@@ -1,0 +1,5 @@
+Stage 7 -- per-view court homographies (+ HS 3-point line)
+court homography: PER-KEYFRAME (was ONE global). residual per keyframe 0.20-0.56 ft (mean 0.28) vs OLD global 0.94 ft
+reused unchanged: best-match anchoring, sign-fix, HS court model + 3pt arc
+frames: 2746  rendered: 2746 (100.0%)  no-match: 0
+seam (visible court shift at keyframe switches): mean=127.4px max=439.9px

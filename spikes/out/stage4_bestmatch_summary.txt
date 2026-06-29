@@ -1,0 +1,5 @@
+Stage 4 best-match overlay -- per-frame anchoring to best keyframe
+keyframes (unchanged): [600, 700, 800, 900, 1000, 1100, 1200]
+H_court residual: mean=0.94 ft, max=1.49 ft (unchanged -- same landmarks/optimization)
+frames: 2746   frames with NO confident match: 0 (0.0%)
+per-frame best-keyframe inlier ratio: min=0.58  mean=0.83  (high+everywhere => full coverage)

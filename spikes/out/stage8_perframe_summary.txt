@@ -1,0 +1,6 @@
+Stage 8 -- per-frame POOLED court homography (tight + smooth)
+each frame fit from ALL matching keyframes' landmarks (pooled), RANSAC, sign-fixed; HS court model + 3pt arc; no hard keyframe switch
+frames: 2746  rendered: 2746 (100.0%)  no-fit: 0
+pool per frame: correspondences median=21 (range 21-60), RANSAC inliers median=15
+SMOOTHNESS (frame-to-frame move of court point (42,25); pops would be isolated spikes): median=2.3px 95th=13.3px max=25.6px
+  (vs Stage 7 per-view which popped 30-190px at keyframe switches)

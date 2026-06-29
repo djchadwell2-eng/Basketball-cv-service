@@ -60,21 +60,34 @@ COURT_BOUNDS_MARGIN_FT = 3.0
 # and its known court coordinate in feet. The user clicks the ones that are
 # visible (skip the rest); we need at least 4 total.
 #
-# Order goes left baseline -> center -> right baseline so the on-screen prompt
-# walks across the court in a natural sweep.
+# WHY this particular order: in real broadside/half-court footage the outer
+# court corners are often hidden behind the scorer's table or crowd, while the
+# painted lane ("the paint"/"the key") is almost always fully visible. So we
+# LEAD with the four corners of the near lane plus center court -- five crisp,
+# easy-to-click points that alone give a usable homography -- and only then ask
+# for the harder full-court corners, which the user can skip when occluded.
+#
+# "near" = the sideline closest to the camera; "far" = the sideline by the crowd.
+# The lane is modeled 16 ft wide (y = 17..33) and 19 ft deep (x = 0..19).
+# TODO(later step): these are NBA-ish dimensions; a high-school court is ~84 ft
+# long with a 12 ft lane. Good enough for approximate team stats now; revisit if
+# absolute court coordinates need to be exact.
 COURT_LANDMARKS = [
-    # name (shown to user)                          (court_x, court_y)
-    ("LEFT baseline @ near sideline",               (0.0, 0.0)),
-    ("LEFT baseline @ far sideline",                (0.0, 50.0)),
-    ("LEFT free-throw line @ near lane edge",       (19.0, 17.0)),
-    ("LEFT free-throw line @ far lane edge",        (19.0, 33.0)),
-    ("CENTER line @ near sideline",                 (47.0, 0.0)),
-    ("CENTER line @ far sideline",                  (47.0, 50.0)),
-    ("CENTER court (tip-off circle middle)",        (47.0, 25.0)),
-    ("RIGHT free-throw line @ near lane edge",      (75.0, 17.0)),
-    ("RIGHT free-throw line @ far lane edge",       (75.0, 33.0)),
-    ("RIGHT baseline @ near sideline",              (94.0, 0.0)),
-    ("RIGHT baseline @ far sideline",               (94.0, 50.0)),
+    # name (shown to user)                                         (court_x, court_y)
+    ("LEFT paint: corner nearest the HOOP, NEAR (camera) side",    (0.0, 17.0)),
+    ("LEFT paint: corner nearest the HOOP, FAR (crowd) side",      (0.0, 33.0)),
+    ("LEFT paint: FREE-THROW-line corner, NEAR (camera) side",     (19.0, 17.0)),
+    ("LEFT paint: FREE-THROW-line corner, FAR (crowd) side",       (19.0, 33.0)),
+    ("CENTER court: middle of the center logo / circle",           (47.0, 25.0)),
+    # --- everything below is optional: press 's' if hidden/off-screen ---------
+    ("LEFT baseline @ NEAR court corner (skip if hidden)",         (0.0, 0.0)),
+    ("LEFT baseline @ FAR court corner (skip if hidden)",          (0.0, 50.0)),
+    ("CENTER line @ NEAR sideline (skip if hidden)",               (47.0, 0.0)),
+    ("CENTER line @ FAR sideline (skip if hidden)",                (47.0, 50.0)),
+    ("RIGHT paint: FREE-THROW-line corner, NEAR side (skip)",      (75.0, 17.0)),
+    ("RIGHT paint: FREE-THROW-line corner, FAR side (skip)",       (75.0, 33.0)),
+    ("RIGHT baseline @ NEAR court corner (skip if hidden)",        (94.0, 0.0)),
+    ("RIGHT baseline @ FAR court corner (skip if hidden)",         (94.0, 50.0)),
 ]
 
 

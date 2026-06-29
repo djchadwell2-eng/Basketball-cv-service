@@ -1,0 +1,27 @@
+CLIP: HARD
+  source: HARD.mp4
+  window: start_frame=0 (00:00.00), frames_processed=2746
+  suspected_hard_cuts: 0
+  tracker_lost_lock_frames: 0 (0.00% of window)
+  max_frame_diff: 23.9
+
+CLIP: LOVELAND_Tactical_1
+  source: Milford High School vs Loveland High School Womens Varsity Basketball - Tactical (1).mp4
+  window: start_frame=5400 (03:00.00), frames_processed=2700
+  suspected_hard_cuts: 0
+  tracker_lost_lock_frames: 0 (0.00% of window)
+  max_frame_diff: 33.0
+
+CLIP: LOVELAND_Tactical_2
+  source: Milford High School vs Loveland High School Womens Varsity Basketball - Tactical.mp4
+  window: start_frame=5400 (03:00.00), frames_processed=2700
+  suspected_hard_cuts: 0
+  tracker_lost_lock_frames: 0 (0.00% of window)
+  max_frame_diff: 33.0
+
+CLIP: PRINCETON_Tactical
+  source: Milford vs Princeton - Tactical.mp4
+  window: start_frame=5400 (03:00.00), frames_processed=2700
+  suspected_hard_cuts: 0
+  tracker_lost_lock_frames: 0 (0.00% of window)
+  max_frame_diff: 22.5

@@ -1,0 +1,110 @@
+================================================================================
+MASKED vs UNMASKED CAMERA-TRACKING DRIFT  (read-only diagnosis -- no code changed)
+================================================================================
+Generated: 2026-06-23
+The ONE change vs the previous scan: player MASKING is ON before the camera-
+motion estimate (real YOLOv8m@1280 boxes passed to CameraTracker.update, which
+already masks them). camera_tracking.py was NOT modified. Same clips/windows/
+probe/resolution (960x540) as the last scan -> apples-to-apples.
+
+Question being answered: of the drift the last scan found on the Tactical wide
+auto-cam clips, how much was the no-masking shortcut vs a real tracking limit?
+
+Method note: in the same pass we ran a MASKED tracker and an UNMASKED tracker on
+identical frames, and recorded the probe-center pixel position from each at
+matching checkpoints. The unmasked column reproduces the previous scan (sanity
+check passed). "Offset from true center" is the horizontal gap between the probe-
+center and the painted center line through the gym's center logo (read visually
+from the overlay stills); it is approximate.
+
+Clips: Loveland Tactical (1) and Princeton Tactical. (Loveland Tactical -- the
+2nd file -- is a pixel-identical duplicate of Loveland (1); not re-run.)
+
+--------------------------------------------------------------------------------
+CLIP: Loveland Tactical (1)   window 03:00.00 - 04:30.00 (2700 frames)
+--------------------------------------------------------------------------------
+  lost-lock (masked): 0  (0.00%)        [unchanged -- still rock solid]
+
+  probe-center drift vs the true center line ("M" logo), masked vs unmasked:
+    t         masked offset     unmasked offset    masked-vs-unmasked delta
+    03:00     0  (on line)      0  (on line)         0 px
+    03:22     ~small            ~small               21 px
+    03:45     ~60 px right      ~50 px left         122 px
+    04:07     ~near center      ~300 px left        334 px
+    04:30     ~30 px off "M"    ~300 px left        337 px
+
+  WHAT HAPPENED: the worst unmasked drift coincides with a TIMEOUT HUDDLE -- a
+  tight cluster of players fills the lower-left of frame from ~04:00 on. Unmasked,
+  that moving blob dominated the feature matches and dragged the camera-motion
+  estimate ~300 px off. With those players MASKED OUT, the estimate locks onto the
+  actual floor/background and the center-line overlay sits right next to the "M"
+  again (small ~30 px residual).
+
+  VERDICT: MASKING LARGELY FIXES DRIFT.
+           Here the drift was mostly the no-masking shortcut (player congestion),
+           not a tracking limit.
+
+--------------------------------------------------------------------------------
+CLIP: Princeton Tactical   window 03:00.00 - 04:30.00 (2700 frames)
+--------------------------------------------------------------------------------
+  lost-lock (masked): 0  (0.00%)        [unchanged]
+
+  probe-center drift vs the true center line ("W" logo), masked vs unmasked:
+    t         masked offset     unmasked offset    masked-vs-unmasked delta
+    03:00     0  (on line)      0  (on line)         0 px
+    03:22     ~small            ~small                7 px
+    03:45     ~small            ~small               23 px
+    04:07     ~mild             ~mild                14 px
+    04:30     ~135 px right     ~150 px right        14 px
+
+  WHAT HAPPENED: masking changed the estimate by only ~14 px the whole window.
+  Both masked and unmasked drift ~135-150 px right of the true center line by
+  04:30. Players here stay dispersed (no huddle dominating the view), so they were
+  never what corrupted the estimate. The residual drift comes from the CAMERA
+  itself -- a hard zoom over plain, low-texture wood floor gives weak/repetitive
+  features, so the frame-to-frame chain accumulates error that masking can't touch.
+
+  VERDICT: MASKING BARELY CHANGES IT.
+           Here the drift is a REAL camera-tracking limit, not the masking shortcut.
+
+================================================================================
+HEADLINE / ANSWER
+================================================================================
+* lost-lock stayed 0.00% on both clips with masking on -- masking does not hurt
+  lock, and there are still no cuts.
+
+* The answer is CLIP-DEPENDENT -- it is BOTH causes, in different proportions:
+    - When players CLUSTER in view (huddles, congestion) and dominate the frame,
+      most of the unmasked drift was the no-masking shortcut. Masking LARGELY
+      FIXES it.  (Loveland: ~300 px -> ~30 px.)
+    - When players are DISPERSED and the drift comes from hard zoom over low-
+      texture floor, masking BARELY HELPS -- it's a real tracking limit.
+      (Princeton: stays ~135-150 px regardless.)
+
+* So masking is necessary and clearly worth keeping (it already is, in the real
+  pipeline), and it rescues the player-congestion failure mode. But it is NOT a
+  complete fix: a residual ~135-150 px drift over 90 s remains on at least one
+  Tactical clip, and that would still make full-game team stats progressively
+  wrong on that footage.
+
+================================================================================
+TODO NOTES (ideas only -- NOT implemented; per read-only rules)
+================================================================================
+TODO-A: The residual Princeton-style drift needs a real fix, NOT more masking:
+        e.g. periodic re-anchoring / re-detecting court lines to reset
+        accumulated error, or anchoring each frame to a stored keyframe instead
+        of pure frame-to-frame chaining. Decide after a whole-game measurement.
+TODO-B: Whole-game drift still unmeasured (only 90-s windows). Residual drift
+        compounds, so a full-game pass is needed before trusting Tactical stats.
+TODO-C: Add an automatic drift/health flag to the pipeline output so a drifting
+        clip is FLAGGED rather than silently producing wrong stats.
+TODO-D: Drift is clearly worse during fast zoom segments -- worth logging a
+        per-frame zoom/motion magnitude so high-risk spans can be flagged.
+
+ARTIFACTS:
+  diagnostics/LOVELAND_Tactical_1_courtmap_overlay_masked.mp4
+  diagnostics/PRINCETON_Tactical_courtmap_overlay_masked.mp4
+  diagnostics/sample_*_masked_*.jpg          (checkpoint stills, masked)
+  diagnostics/metrics_masked.txt             (raw probe-center numbers)
+  Compare against the unmasked overlays/stills from the previous scan.
+================================================================================

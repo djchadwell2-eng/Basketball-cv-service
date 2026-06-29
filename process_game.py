@@ -27,6 +27,7 @@ import cv2
 
 from src.court_mapping import calibrate
 from src.detection import iter_tracked_frames
+from src.camera_tracking import CameraTracker
 from src.schema import build_output, write_output
 from src.team_assignment import TeamColorModel
 from src.team_stats import TeamStatsAccumulator
@@ -64,6 +65,12 @@ def main():
     # --- 1. Court calibration (click once, cached) ---------------------------
     mapper = calibrate(args.video, force_recalibrate=args.recalibrate)
 
+    # The calibration is only valid for the frame you clicked on. Real footage
+    # pans/zooms, so we let the court map FOLLOW the camera: the tracker measures
+    # background motion each frame and updates the homography accordingly. Seeded
+    # with the click-time homography (frame 0).
+    camera = CameraTracker(mapper.H)
+
     # --- 2-4. Detect/track, map to court, sample jersey colors ----------------
     team_colors = TeamColorModel()
     stats = TeamStatsAccumulator(fps=fps)
@@ -80,6 +87,10 @@ def main():
     print("Running detection + tracking (this can take a while)...")
     for frame_index, frame_bgr, detections in iter_tracked_frames(args.video):
         frames_processed += 1
+
+        # Update the court map to THIS frame's camera view before mapping anyone.
+        # Players are masked out so only the fixed background drives the estimate.
+        mapper.H = camera.update(frame_bgr, [d.bbox for d in detections])
 
         on_court_here: list[tuple[int, float, float]] = []
         for det in detections:
@@ -145,12 +156,14 @@ def main():
         frames_processed=frames_processed,
         players_dropped_off_court=players_dropped_off_court,
         team_stats=team_stats,
+        camera_motion_lost_frames=camera.frames_motion_lost,
     )
     write_output(output, args.output)
 
     print(f"\nDone. Wrote {args.output}")
     print(f"  frames processed:            {frames_processed}")
     print(f"  off-court detections dropped: {players_dropped_off_court}")
+    print(f"  camera-motion-lost frames:   {camera.frames_motion_lost}")
     print(f"  approx possessions:          {len(possessions)} "
           f"({team_stats['pace_possessions_per_minute']}/min)")
     print("Render heatmaps with:  python render_heatmaps.py --input "

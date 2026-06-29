@@ -1,0 +1,35 @@
+Stage 5 -- both-basket court overlay (global H_court + SIGN FIX)
+
+ROOT CAUSE (revised): the Stage-4 "blank right half" was NOT a single-reference
+representation limit. It was a homography SIGN-convention bug. A homography is
+defined only up to sign; for right-basket views findHomography returned the
+transform with the sign flipped, so the visible court points came out with w<0
+and the draw guard (w<=0 -> skip) dropped them -- even though they divide to the
+CORRECT pixels. Sign-normalizing the court->frame transform (flip so a central
+court point (42,25) has w>0) renders both baskets from the existing GLOBAL
+H_court. The per-view rework was therefore NOT built -- it was unnecessary.
+
+per-frame anchoring : best-match keyframe (Stage-4 coverage fix)
+court model         : ONE global H_court, frame-900 space (Stages 2-4, unchanged)
+global H_court resid : mean=0.94 ft, max=1.49 ft (unchanged)
+
+frames: 2746   RENDERED court: 2746 (100.0%)   no-match: 0
+  (Stage 4 rendered the right half blank; this renders BOTH baskets.)
+  confirmed in stills: LEFT basket (f650), CENTER (f900/1050/1100),
+  center->right TRANSITION (f1050 kf900 -> f1100 kf1100), RIGHT basket (f1200/2000/2700).
+
+SEAM disagreement -- there are NO per-view seams (one global court model). The
+only seams are best-match keyframe SWITCHES. Measured as the shift of the
+VISIBLE (on-screen) court drawing when a frame is anchored to its 2nd-best
+keyframe instead of its best:
+  mean ~5 px (~0.2 ft);  worst ~75 px (~3 ft) at the center->right switch (f~1090).
+  => transitions are smooth; one switch shows a modest ~3 ft worst-case shift.
+
+NOTE: the render-time seam figure (max 38103 px) is a MEASUREMENT ARTIFACT -- it
+included far OFF-SCREEN court points (e.g. the opposite baseline) that project to
+extreme coordinates from the other-side keyframe. It does not reflect the visible
+drawing. The on-screen numbers above are the meaningful ones.
+
+artifacts:
+  HARD_stage5_courtmap_overlay.mp4
+  HARD_stage5_still_{00650,00900,01050,01100,01200,01500,02000,02700}.jpg

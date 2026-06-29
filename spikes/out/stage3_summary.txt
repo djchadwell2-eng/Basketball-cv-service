@@ -1,0 +1,31 @@
+Stage 3 -- global bundle-adjustment refinement
+keyframes: [600, 700, 800, 900, 1000, 1100, 1200]   reference (fixed): 900
+observations: 60  landmarks: 17  variables: 82
+
+optimizer: scipy least_squares (trf)  converged=True  status=2  nfev=7
+  message: `ftol` termination condition is satisfied.
+  cost: 292.7 -> 63.1
+
+shared-landmark consistency (px):
+  metric          BEFORE     AFTER
+  mean spread       6.94      3.37
+  max spread       12.88      6.67
+
+per-landmark spread (px)  BEFORE -> AFTER:
+  LB_side_far           6.7 ->    3.7
+  L_FT_far             11.0 ->    4.3
+  L_FT_near             9.6 ->    2.7
+  L_lane_base_far       9.9 ->    2.7
+  L_lane_base_near     12.9 ->    2.2
+  RB_side_far           1.8 ->    3.2
+  R_FT_far             10.5 ->    6.7
+  R_FT_near             5.7 ->    2.6
+  R_lane_base_far       8.5 ->    3.7
+  center_far            4.7 ->    4.0
+  center_logo           5.0 ->    4.3
+  circle_bottom         5.5 ->    1.6
+  circle_left           6.0 ->    3.1
+  circle_right          4.3 ->    4.6
+  circle_top            1.9 ->    1.4
+
+assembly extent (px)  BEFORE: 4398x766  AFTER: 4528x779  (should stay similar -- guard against collapse/explode)

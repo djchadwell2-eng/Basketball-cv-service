@@ -24,6 +24,12 @@ build first.
    clicks and cache them so you don't re-click on reprocess. Anything mapping
    **outside the court bounds is dropped** (the "13-person rule" fix that removes
    bench / refs / crowd). See [src/court_mapping.py](src/court_mapping.py).
+2b. **Camera tracking** — real footage pans/zooms to follow the ball, so the
+   click-once map would slide off the court. The tracker measures background
+   motion each frame (ORB features + RANSAC, players masked out) and updates the
+   homography so the map **follows the camera**. Works for a single continuous
+   shot; a hard cut to another angle would break it. See
+   [src/camera_tracking.py](src/camera_tracking.py).
 3. **Team stats from positions** (no identity):
    - team assignment by **jersey-color clustering** (just "team A vs team B"),
      [src/team_assignment.py](src/team_assignment.py)
@@ -131,7 +137,17 @@ basketball-cv-service/
 └── src/
     ├── detection.py       # YOLOv8m + ByteTrack (validated config)
     ├── court_mapping.py   # homography + on-court filtering
+    ├── camera_tracking.py # follows a panning/zooming camera frame-to-frame
     ├── team_assignment.py # jersey-color clustering -> team A / team B
     ├── team_stats.py      # heatmaps, coverage, spacing, possessions/pace
     └── schema.py          # builds/writes the output JSON
 ```
+
+## Footage requirements
+
+- **Single continuous camera** (no hard cuts to other angles). Panning and
+  zooming are fine — the camera tracker handles them.
+- A reasonably stable wide/broadside view where you can identify court landmarks
+  on the first frame to calibrate.
+- Calibration is cached per video file (`<video>.calib.json`); delete it or pass
+  `--recalibrate` to redo the clicks.
