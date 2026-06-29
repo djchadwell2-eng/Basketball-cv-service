@@ -18,13 +18,18 @@ matchers, no web/API. Run from CONFIG; reproducible (RANSAC RNG seed is fixed).
 """
 
 import os
+import sys
 import cv2
 import numpy as np
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import clips_config as cfg            # per-clip CONFIG (STEP 0 de-hardcode)
+
 # ==============================================================================
 # CONFIG  -- edit, then re-run. Runs are reproducible (fixed RANSAC seed).
+# Per-clip values (video, scorebug) come from clips_config.py (cfg.active()).
 # ==============================================================================
-VIDEO_PATH = r"C:\Users\djcha\Downloads\HARD.mp4"
+VIDEO_PATH = cfg.active()["video_path"]
 
 # Keyframe pairs at INCREASING separation (close -> very far). Separation is just
 # |b - a| frames. Larger separation = less view overlap = the thing we're testing.
@@ -45,9 +50,7 @@ RATIO_TEST = 0.75          # Lowe's ratio: keep match if best < 0.75 * second-be
 # Pixel rectangles (x1, y1, x2, y2) in NATIVE frame coords. These are masked out
 # of BOTH frames before SIFT so no keypoints are detected inside them.
 # Leave EMPTY to click them once (prints a block to paste here). HARD-specific.
-EXCLUDE_REGIONS = [
-    (7.5, 891.0, 327.0, 1063.5),   # scorebug box you clicked earlier (bottom-left)
-]
+EXCLUDE_REGIONS = cfg.active()["exclude_regions"]   # per-clip scorebug box(es)
 EXCLUDE_REF_FRAME = 900     # frame shown for the exclude-region click session
 
 # Independent validation landmarks, keyed PER PAIR: same physical COURT point's

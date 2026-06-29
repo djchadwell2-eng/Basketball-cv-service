@@ -29,7 +29,8 @@ import stage5_courtmap as s5          # reuse signfix + sift_of (sign-fix unchan
 
 NFEAT, RATIO, RANSAC_PX, MIN_INLIERS = 1500, 0.75, 3.0, 30
 OUT_DIR, VIDEO = s2.OUT_DIR, s2.VIDEO_PATH
-STILLS = [650, 900, 1100, 1500, 2000, 2700]   # left, center, mid, right x3
+CLIP_NAME = s2.cfg.ACTIVE                       # output filename prefix (per clip)
+STILLS = s2.cfg.active()["stills"]              # preview frames (per clip)
 ARC_COLOR = (255, 0, 255)                      # magenta, to distinguish the 3pt line
 
 # --- HS 3-point geometry, in court feet --------------------------------------
@@ -95,7 +96,7 @@ def main():
     cap = cv2.VideoCapture(VIDEO)
     total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
-    out_path = os.path.join(OUT_DIR, "HARD_arc_overlay.mp4")
+    out_path = os.path.join(OUT_DIR, f"{CLIP_NAME}_arc_overlay.mp4")
     W, H = 960, 540
     writer = cv2.VideoWriter(out_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (W, H))
 
@@ -134,7 +135,7 @@ def main():
         cv2.putText(frame, txt, (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.0,
                     (255, 255, 255), 2)
         if f in STILLS:
-            sp = os.path.join(OUT_DIR, f"HARD_arc_still_{f:05d}.jpg")
+            sp = os.path.join(OUT_DIR, f"{CLIP_NAME}_arc_still_{f:05d}.jpg")
             cv2.imwrite(sp, cv2.resize(frame, (W, H))); stills.append(sp)
         writer.write(cv2.resize(frame, (W, H)))
         if f % 200 == 0:
@@ -153,7 +154,7 @@ def main():
     summary = "\n".join(lines)
     print("\n================ SUMMARY ================\n" + summary +
           "\n=========================================")
-    sp = os.path.join(OUT_DIR, "stage6_arc_summary.txt")
+    sp = os.path.join(OUT_DIR, f"{CLIP_NAME}_stage6_arc_summary.txt")
     with open(sp, "w", encoding="utf-8") as fh:
         fh.write(summary + "\n")
     print(f"saved summary: {sp}")

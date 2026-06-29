@@ -48,11 +48,12 @@ VIDEO = s2.VIDEO_PATH
 #    HS-vs-NBA MATTERS for: court length (center x, right-side x) and lane width
 #    (lane/FT y). It does NOT change the left-baseline tags.
 # ---------------------------------------------------------------------------
-COURT_LEN, COURT_WID = 84.0, 50.0
-LANE_Y0, LANE_Y1 = 19.0, 31.0          # 12-ft lane centered on 25
-FT_X = 19.0                            # left FT line; right FT at LEN-19 = 65
-CIRCLE_R = 6.0
-CX, CY = COURT_LEN / 2.0, COURT_WID / 2.0   # center (42, 25)
+_COURT = s2.cfg.active()["court"]      # per-clip court dims (STEP 0)
+COURT_LEN, COURT_WID = _COURT["length"], _COURT["width"]
+LANE_Y0, LANE_Y1 = _COURT["lane_y0"], _COURT["lane_y1"]   # lane centered on 25
+FT_X = _COURT["ft_x"]                   # left FT line; right FT at LEN-FT_X
+CIRCLE_R = _COURT["circle_r"]
+CX, CY = COURT_LEN / 2.0, COURT_WID / 2.0   # center (42, 25) for HS
 
 COURT_MODEL = {
     "LB_side_near": (0.0, 0.0),          "LB_side_far": (0.0, 50.0),
