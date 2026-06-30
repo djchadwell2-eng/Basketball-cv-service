@@ -49,6 +49,7 @@ import stage1_keyframe_match as s1         # noqa: E402  validated SIFT matcher
 import stage2_multikeyframe as s2          # noqa: E402  per-clip CONFIG + helpers
 import stage4_courtmap as s4               # noqa: E402  H_court + court drawing
 
+import refit_keyframes                     # noqa: E402  consistency-refit keyframes
 from ultralytics import YOLO               # noqa: E402
 
 # ==============================================================================
@@ -94,8 +95,8 @@ def build_court_anchor():
         reproj_px  = mean reprojection error of the inliers
         kf         = which keyframe the frame anchored to
     """
-    print("Recovering validated landmarks + H_court (Stage-3 fit)...")
-    KF, ref_pos, Hs_opt, L_opt, tags = s4.run_optimization()
+    print("Recovering consistency-refit keyframes + H_court...")
+    KF, ref_pos, Hs_opt, L_opt, tags = refit_keyframes.refit()   # mutually-consistent
     H_court, per_err, mean_err, max_err = s4.compute_H_court(L_opt, tags)
     print(f"  H_court reprojection: mean={mean_err:.2f} ft  max={max_err:.2f} ft "
           f"(ref keyframe {KF[ref_pos]})")
