@@ -73,14 +73,14 @@ Reads team_events JSON only. NO new perception, NO identity, NO LLM. ~16 sampled
 frames => proves RENDER + zone-mapping correctness, not real basketball numbers.
 FRAME TRUST: skip homography_confidence.state=="low_confidence" AND explicitly skip
 frame 450 (hardcoded; known bad ORB-chain homography scored "ok" — see DECISIONS.md).
-- [ ] 3a ZONES: map court_feet -> standard half-court zones (paint, corners, wings,
-      top-of-key, perimeter), folded to nearest basket. Print boundaries + spot checks.
-- [ ] 3b STATS: per-zone occupancy + mean on-court count per frame over trusted
-      frames. NO possessions/pace/shooting %. Print skipped frames + occupancy table.
-- [ ] 3c HEATMAP: top-down court diagram (correct dims) + position heatmap over
-      trusted frames, zones visible. Save to phase1/out/. Validate by eye.
-- [ ] 3d DEMO: one clean coach-legible image (heatmap + small text summary). The
-      Phase 1 validation gate. STOP for user confirm.
+- [x] 3a ZONES: `phase1/zones.py` — half-court zones folded to nearest basket;
+      boundaries tied to FT line + 3pt arc-top; spot checks pass.
+- [x] 3b STATS: `phase1/stage3_team_stats.py` — trust filter (low_confidence +
+      explicit 450) -> 15 trusted frames; per-zone occupancy + mean on-court 12.8.
+- [x] 3c HEATMAP: `phase1/stage3_heatmap.py` — geometrically-correct court + 2D
+      occupancy heatmap + zone guides -> phase1/out/TEST1_stage3_heatmap.png.
+- [x] 3d DEMO: `phase1/stage3_demo.py` — coach-legible artifact
+      `phase1/out/TEST1_phase1_demo.png` (heatmap + summary). STOP for user confirm.
 - Commit before + after each sub-stage. Do NOT compute possessions/pace/shooting,
   assign identity/team, build a DB, touch web/API/mask/margins/homography, or fix 450.
 
@@ -94,4 +94,12 @@ frame 450 (hardcoded; known bad ORB-chain homography scored "ok" — see DECISIO
    existing `src/`+`process_game.py` draft untouched (not deleted, not imported).
 
 ## Review
-(to be filled in after work)
+- Phase 1 spine built staged: Stage 1 (court ROI mask), Stage 2 (identity-free
+  team_event schema + JSON), Stage 3 (zones + occupancy + heatmap + coach demo).
+- All reads deterministic over `phase1/out/TEST1_team_events.json`. No identity,
+  no LLM, no DB, no web/API. Validated clip = TEST1.
+- Frame 450 carried as a known-bad explicit skip (see DECISIONS.md); confidence
+  guardrail in schema for the dense pipeline.
+- ~16 sampled frames => the heatmap/zone mapping is PROVEN to render correctly;
+  the numbers are not real basketball stats (dense pipeline produces those later).
+- Coach demo gate: `phase1/out/TEST1_phase1_demo.png`.
