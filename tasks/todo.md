@@ -98,16 +98,18 @@ Diagnostic proved the ORB chain is broadly unreliable (74% of frames >40px off,
 catastrophic mid-interval). Swap the per-frame court homography source from the
 accumulated ORB chain to DIRECT nearest-keyframe SIFT match. DO NOT touch ROI mask
 logic, schema, stats, or zone mapping — only WHERE the homography comes from.
-- [ ] A: `build_court_anchor()` in stage1_court_roi — per frame, SIFT-match to
-      nearest keyframe, compose with that kf's court homography (Hs_opt). No chain.
-      Return per-frame inliers/reproj/kf. Update mask-render + event-gen call sites.
-- [ ] B: confidence from the SAME direct match (now honest). Threshold from observed
-      inlier distribution (printed). Verify frame 450 now CORRECT (not just flagged);
-      confirm stage3 450-skip is redundant but DO NOT remove it.
-- [ ] C: MEASURE smoothness at keyframe-handoff frames (corner pop). Report, no fix.
-- [ ] D: re-run the sweep with live=direct; confirm broad unreliability gone
-      (>5/15/40/100px threshold counts).
-- [ ] E: re-render heatmap + demo over a dense sweep (whole pan, not just 16).
+- [x] A: `build_court_anchor()` — direct nearest-kf SIFT, no chain. Previously
+      catastrophic frames (330=1191px, 350/550) now glued; on-court mean 12.9.
+- [x] B: confidence from the same match. Inlier floor 1103 (median 2557);
+      threshold 150 -> 0 flagged. Frame 450 now CORRECT (inl=2568, kf=420); stage3
+      450-skip confirmed redundant, LEFT in place. 47-frame events regenerated.
+- [x] C: handoff pops MEASURED (same frame, two anchors): max 515px @171 (120->220),
+      else 37-137px. NOT auto-fixed — flagged for user decision (smoothing/keyframe
+      consistency is separate). Means the keyframes aren't perfectly mutually consistent.
+- [x] D: old live(chain) was 74% of frames >40px off vs direct; new live = direct,
+      fits every frame at reproj 0.00-0.72px (47/47 ok). Broad unreliability gone.
+- [x] E: heatmap + demo re-rendered over 46 trusted frames (was 15); whole-pan
+      coverage. phase1/out/TEST1_phase1_demo.png. STOP for user eyeball.
 - Commit before + after each stage. No temporal smoothing, no schema/stats/zone/mask
   changes, no Phase 2, do not remove the 450 skip yet.
 
