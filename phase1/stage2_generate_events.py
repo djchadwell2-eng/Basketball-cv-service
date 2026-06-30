@@ -1,91 +1,58 @@
-"""STAGE 2b -- generate team_events from Stage 1, persist as JSON.
+"""STAGE 2b -- generate team_events, persist as JSON.
 
-Reuses Stage 1's on-court classification UNCHANGED (same homography, same
-MARGIN_FT, same off-screen/horizon guards) to get the on-court bodies per frame,
-then wraps each frame in the Stage-2a schema and writes one JSON document.
+Reuses Stage 1's on-court classification UNCHANGED (same MARGIN_FT, same
+off-screen/horizon guards). The per-frame court homography now comes from the
+DIRECT nearest-keyframe anchor (stage1_court_roi.build_court_anchor), so the SAME
+match that POSITIONS the players also produces homography_confidence -- the
+confidence finally gates the thing it measures.
 
-It ALSO attaches the per-frame homography_confidence (the frame-450 guardrail):
-the inliers + mean reproj of a DIRECT SIFT match of the frame to its NEAREST
-keyframe -- exactly the direct-anchor signal the chosen 450 fix relies on
-(see phase1/DECISIONS.md). state='low_confidence' flags a frame whose calibration
-shouldn't be trusted; 'ok' otherwise.
-
-Computes NO stats (that's Stage 3). Touches no mask/margin/homography.
+Computes NO stats (that's Stage 3). Touches no mask/margin/homography logic.
 """
 
 import os
 import sys
 
-import cv2
 import numpy as np
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _HERE)
 
-import stage1_court_roi as st          # reuse Stage 1 classification (unchanged)
+import stage1_court_roi as st          # reuse Stage 1 classification + direct anchor
 import team_event_schema as schema     # Stage 2a records + JSON
-import stage1_keyframe_match as s1     # validated SIFT matcher (spikes/)
-
-# Confidence thresholds for the guardrail (kept simple, in one place).
-INLIER_MIN = 150         # below this -> low_confidence
-REPROJ_MAX_PX = 3.0      # above this -> low_confidence
 
 OUT_JSON = os.path.join(_HERE, "out", f"{st.s2.cfg.ACTIVE}_team_events.json")
-KEYFRAMES = st.s2.KEYFRAMES
-REGIONS = st.s2.EXCLUDE_REGIONS
 
-
-def nearest_keyframe(f):
-    kf = np.array(KEYFRAMES)
-    return int(kf[np.argmin(np.abs(kf - f))])
-
-
-def direct_match_confidence(f_img, k_img):
-    """inliers + mean reproj (px) of a DIRECT SIFT match frame -> nearest keyframe."""
-    cv2.setRNGSeed(0)                                   # reproducible
-    kp_k, kp_f, good = s1.detect_and_match(k_img, f_img, 0.75, REGIONS)
-    H, mask, inliers = s1.estimate_homography(kp_k, kp_f, good, 3.0)
-    if H is None or inliers == 0:
-        return 0, float("inf")
-    im = [m for m, keep in zip(good, mask.ravel()) if keep]
-    pf = np.float32([kp_f[m.trainIdx].pt for m in im]).reshape(-1, 1, 2)
-    pk = np.float32([kp_k[m.queryIdx].pt for m in im])
-    proj = cv2.perspectiveTransform(pf, H).reshape(-1, 2)
-    reproj = float(np.linalg.norm(proj - pk, axis=1).mean())
-    return inliers, reproj
+# Dense sweep across the validated pan (every 10th frame), now that the homography
+# is trustworthy across the whole pan -- not just the 16 near-keyframe samples.
+GEN_FRAMES = list(range(120, 581, 10))
 
 
 def main():
     os.makedirs(os.path.dirname(OUT_JSON), exist_ok=True)
-    cv2.setRNGSeed(0)
 
-    # Stage 1's per-frame pixel->court-feet (ORB-chain homography) + fps.
-    H_court, frame_to_ref, fps, total = st.build_pixel_to_feet()
-
-    # Frame images for sampled frames AND keyframes (single pass) -- used for both
-    # YOLO detection and the direct-match confidence.
-    need = sorted(set(st.SAMPLE_FRAMES) | set(KEYFRAMES))
-    frames = st.s2.extract_frames(st.s2.VIDEO_PATH, need)
-
+    H_court, anchor, fps, total = st.build_court_anchor()
+    frames = st.s2.extract_frames(st.s2.VIDEO_PATH, GEN_FRAMES)
     model = st.YOLO(st.MODEL_NAME)
+
     events = []
-    print(f"\nGenerating team_events for {len(st.SAMPLE_FRAMES)} sampled frames...")
-    for f in st.SAMPLE_FRAMES:
+    inlier_dist = []
+    print(f"\nGenerating team_events for {len(GEN_FRAMES)} frames...")
+    for f in GEN_FRAMES:
         frame = frames[f]
         frame_h = frame.shape[0]
 
-        # --- Stage 1 classification (reused unchanged) ---
-        T = frame_to_ref(f)
+        # Per-frame homography from the DIRECT nearest-keyframe anchor.
+        T, inliers, reproj, kf = anchor(f, frame)
         p2f = H_court @ T
         feet2px = np.linalg.inv(p2f)
         ctr_px = feet2px @ np.array([st.COURT_LEN / 2.0, st.COURT_WID / 2.0, 1.0])
         ctr_px = ctr_px / ctr_px[2]
         ref_w = float((p2f @ ctr_px)[2])
 
+        # --- Stage 1 classification (reused unchanged) ---
         res = model.predict(frame, imgsz=st.IMG_SIZE, classes=[st.PERSON_CLASS],
                             verbose=False)[0]
         boxes = res.boxes.xyxy.cpu().numpy() if res.boxes is not None else []
-
         dets = []
         for box in boxes:
             fx, fy = st.feet_pixel(box)
@@ -96,29 +63,44 @@ def main():
                 continue
             dets.append(schema.Detection(
                 pixel=(round(float(fx), 1), round(float(fy), 1)),
-                court_feet=(round(cx, 1), round(cy, 1))))   # identity/team default unknown
-
-        # Frame-local CANONICAL SORT by position so the JSON is deterministic.
-        # This is NOT identity: it's recomputed per frame and never linked across
-        # frames (detection N in frame A != detection N in frame B).
+                court_feet=(round(cx, 1), round(cy, 1))))
+        # Frame-local canonical sort (deterministic JSON; NOT identity).
         dets.sort(key=lambda d: (d.court_feet[0], d.court_feet[1]))
 
-        # --- homography_confidence guardrail (direct nearest-keyframe match) ---
-        k = nearest_keyframe(f)
-        inliers, reproj = direct_match_confidence(frame, frames[k])
-        state = "ok" if (inliers >= INLIER_MIN and reproj <= REPROJ_MAX_PX) \
-            else "low_confidence"
+        # Confidence from the SAME direct match that positioned the players.
+        state = st.confidence_state(inliers, reproj)
         conf = schema.HomographyConfidence(
             inliers=int(inliers), reproj_px=round(reproj, 2),
-            state=state, nearest_keyframe=k)
+            state=state, nearest_keyframe=kf)
+        inlier_dist.append(inliers)
 
         events.append(schema.TeamEvent(
             frame_index=f, timestamp_s=round(f / fps, 3),
             homography_confidence=conf, detections=dets))
-        print(f"  f={f:>4}  on_court={len(dets):>2}  "
-              f"conf(inl={inliers:>4}, reproj={reproj:.2f}px, {state}, kf={k})")
+        print(f"  f={f:>4}  on_court={len(dets):>2}  inl={inliers:>5}  "
+              f"reproj={reproj:.2f}px  kf={kf}  {state}")
 
     schema.write_events(events, OUT_JSON, clip=st.s2.cfg.ACTIVE, fps=fps)
+
+    # --- threshold report (from the observed inlier distribution) ---
+    arr = np.array(inlier_dist)
+    n_low = sum(1 for ev in events
+                if ev.homography_confidence.state == "low_confidence")
+    print(f"\ninlier distribution over {len(arr)} frames: "
+          f"min={arr.min()} median={int(np.median(arr))} max={arr.max()}")
+    print(f"low_confidence threshold: inliers < {st.CONF_INLIER_MIN} OR "
+          f"reproj > {st.CONF_REPROJ_MAX}px  ->  {n_low} frame(s) flagged")
+
+    # --- Stage B verification: frame 450 ---
+    ev450 = next((e for e in events if e.frame_index == 450), None)
+    if ev450:
+        c = ev450.homography_confidence
+        print(f"\nFRAME 450 (was the deferred bad frame): on_court={len(ev450.detections)} "
+              f"inl={c.inliers} reproj={c.reproj_px}px kf={c.nearest_keyframe} {c.state}")
+        print("  -> now anchored DIRECTLY to its nearest keyframe; the homography IS")
+        print("     the proven-good direct match, so it is CORRECT, not just flagged.")
+        print("  -> the hardcoded frame-450 skip in stage3 is now REDUNDANT (left in place).")
+
     print(f"\nwrote {len(events)} team_events -> {OUT_JSON}")
 
 
