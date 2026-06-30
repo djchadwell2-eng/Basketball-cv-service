@@ -1,60 +1,71 @@
-# Generalization test — court-calibration engine across gyms
+# Phase 1 — Team Stats (the reliable spine, no player identity)
 
-**Goal:** Map the *operating envelope* of the EXISTING engine (direct keyframe→keyframe
-SIFT+RANSAC homographies → landmarks in one shared coord system → global
-`least_squares` fit). DIAGNOSTIC ONLY. Do NOT change the engine/math/matcher/optimizer.
-HARD.mp4 is the validated baseline (~0.95 ft, arcs glued). The per-clip LOG is the deliverable.
+Goal: cheapest useful layer. CV emits structured **team_events** (per-frame on-court
+positions in court-feet). Deterministic code computes zone occupancy/heatmaps, team
+possession counts, pace. NO LLM, NO player identity, NO track IDs, NO jersey OCR, NO
+shot/made-missed, NO database, NO web/API. Single offline Python tool, CONFIG-driven,
+runs on ONE validated test clip. Validate each stage by eye before the next.
+
+(Prior task's court-calibration log archived in `tasks/calibration_generalization_log.md`.)
+
+## What already exists (and how it's used)
+- **Validated homography engine** (World A): `spikes/stage2..stage6` + `clips_config.py`
+  + `src/camera_tracking.py`. Produces `H_court` = ref-keyframe px -> court **feet**
+  (HS 84x50), mean ~0.25 ft (TEST1) / ~0.96 ft (HARD), arcs glued. **REUSE THIS.**
+- **Validated detector**: YOLOv8m @ imgsz=1280, person class. (Note: env torch is CPU
+  -> sample frames for the eyeball loop.)
+- **World B = earlier rough draft we are NOT using**: `process_game.py`,
+  `src/court_mapping.py` (weaker single-frame click, wrong 94x50 NBA court),
+  `src/detection.py` (track IDs), `src/team_assignment.py` (jersey k-means),
+  `src/team_stats.py`, `src/schema.py`, `render_heatmaps.py`, `out.json`, `heatmaps/`.
+  These conflict with the Phase-1 architecture rule. Leave untouched; do not import the
+  naive court_mapping. (team_stats/render logic may be cribbed later if clean.)
+
+## Key reuse: getting per-frame pixel->court-feet on the test clip
+Mirror `spikes/stage4_courtmap.py`:
+1. `run_optimization()` -> `H_court` (ref-keyframe px -> court feet) from the clip's
+   clicked landmarks in `clips_config.py`.
+2. Camera-track the whole clip; per frame f, `T = frame_to_ref(f)` (nearest-keyframe
+   anchored). Then **pix->feet for frame f = H_court @ T**.
+   (stage4 uses the inverse, feet->px, to DRAW the court. We want px->feet to LOCATE
+   players, so we use `H_court @ T` directly.)
 
 ---
 
-## Available clips (source: `C:\Users\djcha\Downloads\`, NOT `./clips` — no such dir)
-- `EASY.mp4`, `MEDIUM.mp4`, `HARD.mp4` — same source family (difficulty = pan/zoom severity).
-- `Milford vs Princeton - Tactical.mp4` (3.8 GB) — different gym. Old overlay exists in diagnostics/.
-- `Milford ... Loveland ... Tactical.mp4` (3.1 GB, x2) — different gym. Old overlay exists.
-- `Test1/2/3.mp4`, `1-Clip_at_20_20.mp4`, `1-Clip_at_32_32.mp4` — unidentified.
-- **No "Mason" clip exists.** Need user to map real clips → the 3 difficulty categories.
+## STAGE 1 — COURT ROI FILTER (riskiest; build + validate FIRST)
+The "13-person rule" fix: drop refs/bench/coaches/crowd, keep the ~10 on-court.
+- [ ] New script `phase1/stage1_court_roi.py` (CONFIG-driven, deterministic).
+- [ ] Build per-frame `pix->feet` from the validated engine (above).
+- [ ] Run YOLOv8m@1280 person detection per (sampled) frame. Feet pixel = bbox
+      bottom-center (ground-contact). Map -> court feet.
+- [ ] Court polygon = 84x50 rectangle + tunable `MARGIN_FT` (start ~3 ft). Classify
+      each detection on-court (inside) / off-court (discard).
+- [ ] **VALIDATION (by eye, mandatory):** render sampled frames with on-court boxes
+      GREEN, discarded RED; overlay the court polygon; print per-frame on-court count
+      (should hover ~10, not 13+). Save stills + a short overlay video.
+- [ ] Tune MARGIN_FT only after user sees where it leaks. **STOP for user confirm.**
 
-## STEP 0 — De-hardcode HARD-specific values into a per-clip CONFIG  ✔ DONE
-Moved into new `spikes/clips_config.py` (per-clip dict, `ACTIVE` selector, `active()`):
-- [x] `VIDEO_PATH` — stage1 + stage2 now read `cfg.active()["video_path"]`
-- [x] `KEYFRAMES`, `REFERENCE_POS` — stage2 reads from cfg
-- [x] `EXCLUDE_REGIONS` (scorebug px) — stage1 + stage2 read from cfg (per-gym)
-- [x] court dims — stage4 reads `cfg.active()["court"]` (length/width/lane/ft/circle)
-- [x] `LANDMARKS` clicked-pixel dict — moved to cfg, stage2 reads it
-- [x] output filenames — stage6 now prefixes with `cfg.ACTIVE` (HARD→same names; new clip→own files)
-- [x] **Regression gate PASSED:** refactored HARD fit = mean 0.96 / max 1.75 ft, per-landmark
-      residuals identical to committed baseline. Overlay logic untouched (only filename prefix).
-- Note: stage2's display-only LANDMARK_TAGS palette + 94-ft ideal-draw left as-is (not used by
-  the fit; stage4 COURT_MODEL is the real model). stage1 FRAME_PAIRS/VALIDATION_POINTS are
-  standalone-diagnostic test data, not clip config — left in stage1.
+## STAGE 2 — TEAM_EVENT SCHEMA  (only after Stage 1 confirmed)
+- [ ] Per-frame `team_event`: frame_index, timestamp, detections[] each with
+      pixel_xy, court_xy (feet), state (confirmed/candidate/unknown — abstention is
+      first-class). No identity. Team A/B left **unknown** unless trivially reliable.
+- [ ] Write deterministically to JSON (no DB). Print schema + one example frame.
+- [ ] STOP for user confirm.
 
-## Per-clip workflow (mirror HARD exactly; nothing new)
-For each selected clip, in increasing-difficulty order, ONE at a time:
-- [ ] a. Set per-clip CONFIG (scorebug region, court dims, keyframes ~100–150 apart).
-- [ ] b. Surface each keyframe so user confirms scorebug box + usability BEFORE clicking;
-        user clicks landmarks via existing interactive tool.
-- [ ] c. Run existing global `least_squares`; print per-landmark residuals worst→best + mean ft.
-- [ ] d. Render court-map overlay (FT lines + arcs both ends); save for user to watch (the verdict).
-- [ ] e. LOG: keyframe matching health, landmark assembly sanity, mean vs 0.95, overlay
-        glue/slide/pop/shake + WHERE in pan it breaks + SPECIFIC cause. Honest uncertainty.
-- [ ] f. Commit after the clip is done and user-confirmed.
+## STAGE 3 — STATS + ZONE HEATMAPS (deterministic reads over Stage-2 events)
+- [ ] Map court-feet -> standard zones for HS 84x50. Compute zone occupancy heatmap,
+      (team) possession counts, pace — all deterministic.
+- [ ] VALIDATION: render heatmap over a court diagram; print possession/pace. User
+      eyeballs hot zones vs where play happened. STOP for user confirm.
 
-## Clip order (run fully, one at a time — do NOT batch)
-1. [ ] "Normal but different gym" (not low-texture, not odd scorebug) — does it generalize at all?
-2. [ ] Mason / odd-scorebug clip — is scorebug config the ONLY HARD assumption? (no Mason clip → TBD)
-3. [ ] Low-texture-floor clip — does SIFT survive? (riskiest; predicts auto-calib feasibility)
+## STAGE 4 — DEMO ARTIFACT (phase validation gate)
+- [ ] Coach-legible output: court heatmap image + team stat summary. STOP for user.
 
-## Hard constraints (do NOT, mid-test)
-- No LoFTR/SuperGlue/new matcher. No per-clip RANSAC/optimizer tuning. No auto court-line
-  detection. Do NOT "fix" a broken clip — LOG the break, move on. Fixes decided by user after.
-
-## Final deliverable
-- [ ] Per-clip envelope table: holds / partial / breaks · cause · mean error.
-
-## Decisions (confirmed by user)
-1. Clip #1 = `Test1.mp4`. Run ONLY clip #1 fully for now; decide #2/#3 after.
-2. Commit the confirmed HARD re-click cleanup as the validated baseline BEFORE refactoring. ✔
-3. STEP 0 config shape = new `spikes/clips_config.py` (one per-clip dict; stages import active clip).
+## Open decisions to confirm before Stage 1 (see check-in)
+1. **Which clip** is the Phase-1 test clip? (needs a validated homography) — recommend
+   HARD.mp4 (canonical baseline). Alt: Test1.mp4 (tighter 0.25 ft, different gym).
+2. **World B**: confirm we build Stage 1–4 fresh on the validated engine and leave the
+   existing `src/`+`process_game.py` draft untouched (not deleted, not imported).
 
 ## Review
 (to be filled in after work)
