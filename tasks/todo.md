@@ -93,6 +93,24 @@ frame 450 (hardcoded; known bad ORB-chain homography scored "ok" — see DECISIO
 2. **World B**: confirm we build Stage 1–4 fresh on the validated engine and leave the
    existing `src/`+`process_game.py` draft untouched (not deleted, not imported).
 
+## FIX — direct-anchor homography (component swap, pulled forward)
+Diagnostic proved the ORB chain is broadly unreliable (74% of frames >40px off,
+catastrophic mid-interval). Swap the per-frame court homography source from the
+accumulated ORB chain to DIRECT nearest-keyframe SIFT match. DO NOT touch ROI mask
+logic, schema, stats, or zone mapping — only WHERE the homography comes from.
+- [ ] A: `build_court_anchor()` in stage1_court_roi — per frame, SIFT-match to
+      nearest keyframe, compose with that kf's court homography (Hs_opt). No chain.
+      Return per-frame inliers/reproj/kf. Update mask-render + event-gen call sites.
+- [ ] B: confidence from the SAME direct match (now honest). Threshold from observed
+      inlier distribution (printed). Verify frame 450 now CORRECT (not just flagged);
+      confirm stage3 450-skip is redundant but DO NOT remove it.
+- [ ] C: MEASURE smoothness at keyframe-handoff frames (corner pop). Report, no fix.
+- [ ] D: re-run the sweep with live=direct; confirm broad unreliability gone
+      (>5/15/40/100px threshold counts).
+- [ ] E: re-render heatmap + demo over a dense sweep (whole pan, not just 16).
+- Commit before + after each stage. No temporal smoothing, no schema/stats/zone/mask
+  changes, no Phase 2, do not remove the 450 skip yet.
+
 ## Review
 - Phase 1 spine built staged: Stage 1 (court ROI mask), Stage 2 (identity-free
   team_event schema + JSON), Stage 3 (zones + occupancy + heatmap + coach demo).
