@@ -69,10 +69,20 @@ Architecture decisions captured in `phase1/DECISIONS.md` (read first).
   possessions/pace, assign identity/team, build a DB, or touch mask/margins/homography.
 
 ## STAGE 3 — STATS + ZONE HEATMAPS (deterministic reads over Stage-2 events)
-- [ ] Map court-feet -> standard zones for HS 84x50. Compute zone occupancy heatmap,
-      (team) possession counts, pace — all deterministic.
-- [ ] VALIDATION: render heatmap over a court diagram; print possession/pace. User
-      eyeballs hot zones vs where play happened. STOP for user confirm.
+Reads team_events JSON only. NO new perception, NO identity, NO LLM. ~16 sampled
+frames => proves RENDER + zone-mapping correctness, not real basketball numbers.
+FRAME TRUST: skip homography_confidence.state=="low_confidence" AND explicitly skip
+frame 450 (hardcoded; known bad ORB-chain homography scored "ok" — see DECISIONS.md).
+- [ ] 3a ZONES: map court_feet -> standard half-court zones (paint, corners, wings,
+      top-of-key, perimeter), folded to nearest basket. Print boundaries + spot checks.
+- [ ] 3b STATS: per-zone occupancy + mean on-court count per frame over trusted
+      frames. NO possessions/pace/shooting %. Print skipped frames + occupancy table.
+- [ ] 3c HEATMAP: top-down court diagram (correct dims) + position heatmap over
+      trusted frames, zones visible. Save to phase1/out/. Validate by eye.
+- [ ] 3d DEMO: one clean coach-legible image (heatmap + small text summary). The
+      Phase 1 validation gate. STOP for user confirm.
+- Commit before + after each sub-stage. Do NOT compute possessions/pace/shooting,
+  assign identity/team, build a DB, touch web/API/mask/margins/homography, or fix 450.
 
 ## STAGE 4 — DEMO ARTIFACT (phase validation gate)
 - [ ] Coach-legible output: court heatmap image + team stat summary. STOP for user.
