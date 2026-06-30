@@ -16,3 +16,6 @@ heatmaps/
 .DS_Store
 .vscode/
 .idea/
+phase1/out/
+__pycache__/
+*.pyc

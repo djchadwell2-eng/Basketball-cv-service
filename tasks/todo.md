@@ -34,16 +34,21 @@ Mirror `spikes/stage4_courtmap.py`:
 
 ## STAGE 1 — COURT ROI FILTER (riskiest; build + validate FIRST)
 The "13-person rule" fix: drop refs/bench/coaches/crowd, keep the ~10 on-court.
-- [ ] New script `phase1/stage1_court_roi.py` (CONFIG-driven, deterministic).
-- [ ] Build per-frame `pix->feet` from the validated engine (above).
-- [ ] Run YOLOv8m@1280 person detection per (sampled) frame. Feet pixel = bbox
-      bottom-center (ground-contact). Map -> court feet.
-- [ ] Court polygon = 84x50 rectangle + tunable `MARGIN_FT` (start ~3 ft). Classify
-      each detection on-court (inside) / off-court (discard).
-- [ ] **VALIDATION (by eye, mandatory):** render sampled frames with on-court boxes
-      GREEN, discarded RED; overlay the court polygon; print per-frame on-court count
-      (should hover ~10, not 13+). Save stills + a short overlay video.
-- [ ] Tune MARGIN_FT only after user sees where it leaks. **STOP for user confirm.**
+- [x] New script `phase1/stage1_court_roi.py` (CONFIG-driven, deterministic).
+- [x] Build per-frame `pix->feet` from the validated engine (H_court @ frame_to_ref).
+      Fit recovered at mean 0.25 ft / max 0.54 ft (matches validated TEST1).
+- [x] YOLOv8m@1280 person detection per sampled frame (16 frames, 120..570, the
+      validated pan). Feet pixel = bbox bottom-center. Map -> court feet.
+- [x] Court polygon = 84x50 + MARGIN_FT. Classify on/off court.
+- [x] Two leak fixes found by eye/coords: (a) horizon guard (reject feet mapping
+      behind the vanishing line, w-sign); (b) drop boxes clamped to the bottom
+      frame edge (feet off-screen = fake ground point). Margin 3 -> 1.5 ft.
+- [x] Render: on-court GREEN, discarded RED, court+margin overlay, per-frame count.
+      Result: on-court mean 18.2 -> 13.1 (most frames 10-15 = ~10 players + 2-3
+      on-court refs, which can't be removed without identity). Crowd/bench excluded.
+- [ ] **STOP for user eyeball confirm.** Open question: refs inflate count to ~13;
+      f=450/480 wide views run 14-19 — user to confirm those are real bodies, not
+      leaks, and whether MARGIN_FT=1.5 is right.
 
 ## STAGE 2 — TEAM_EVENT SCHEMA  (only after Stage 1 confirmed)
 - [ ] Per-frame `team_event`: frame_index, timestamp, detections[] each with

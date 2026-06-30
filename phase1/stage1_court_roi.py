@@ -1,0 +1,257 @@
+"""STAGE 1 -- Court ROI filter (the "13-person rule" fix).
+
+Raw person detection sees refs, bench, coaches, and crowd -- not just the 10
+on-court players. This stage uses the EXISTING, validated homography to decide,
+per detection, whether a body is standing ON the painted court (keep) or OFF it
+(discard the bench/crowd/refs).
+
+HOW IT REUSES THE VALIDATED ENGINE (World A, spikes/):
+  1. run_optimization()  -> H_court : reference-keyframe px -> court FEET
+     (from the clip's clicked landmarks in clips_config.py).
+  2. camera-track the clip so any frame f relates back to the reference keyframe:
+     T = frame_to_ref(f)  (nearest-keyframe anchored, exactly like stage4).
+  3. PER FRAME:  pixel -> court feet  =  H_court @ T
+     (stage4 uses the inverse, feet->px, to DRAW the court; we use px->feet to
+      LOCATE players. Same two matrices, opposite direction.)
+
+A detection's ground-contact point is the bottom-center of its box (the feet are
+on the floor; the head is well above the ground plane and would map wrong).
+
+THE FILTER: map feet->court-feet, keep it if it lands inside the 84x50 court
+rectangle plus a small MARGIN_FT of slack (feet positions wobble near the lines).
+
+VALIDATION IS BY EYE: we render sampled frames with on-court boxes GREEN and
+discarded boxes RED, overlay the court + margin envelope, and print the on-court
+count per frame (should hover near 10, not 13+). Tune MARGIN_FT only after seeing
+where it leaks.
+
+Detection config = the validated one: YOLOv8m @ imgsz=1280, person class only.
+NO tracking IDs (not needed to decide on/off court), NO team assignment here.
+Deterministic, CONFIG-driven, single offline tool.
+"""
+
+import os
+import sys
+
+import cv2
+import numpy as np
+
+# --- make the validated engine importable (spikes/ modules + src/) ------------
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_ROOT = os.path.dirname(_HERE)
+sys.path.insert(0, os.path.join(_ROOT, "spikes"))   # stage2/stage4 + clips_config
+sys.path.insert(0, _ROOT)                            # src/ (camera_tracking)
+
+import stage2_multikeyframe as s2          # noqa: E402  per-clip CONFIG + helpers
+import stage4_courtmap as s4               # noqa: E402  H_court + court drawing
+from src.camera_tracking import CameraTracker  # noqa: E402
+
+from ultralytics import YOLO               # noqa: E402
+
+# ==============================================================================
+# CONFIG (the only knobs)
+# ==============================================================================
+MARGIN_FT = 1.5          # slack outside the painted lines still counted on-court
+FRAME_EDGE_PX = 4        # box bottoms within this many px of the frame edge have
+                         # their FEET off-screen -> ground point unreliable, drop
+IMG_SIZE = 1280          # validated detector resolution
+MODEL_NAME = os.path.join(_ROOT, "yolov8m.pt")
+PERSON_CLASS = 0
+
+# Sample frames for the eyeball loop (CPU-only torch -> don't run YOLO on every
+# frame). Stay INSIDE the clip's validated pan range; clips_config notes TEST1's
+# clean L->C->R pan is ~100..585.
+SAMPLE_FRAMES = list(range(120, 581, 30))
+
+OUT_DIR = os.path.join(_HERE, "out")
+DISP_W, DISP_H = 1280, 720    # still/video output size
+
+COURT_LEN = s4.COURT_LEN      # 84 (HS), from the active clip's court dims
+COURT_WID = s4.COURT_WID      # 50
+
+
+# ==============================================================================
+def build_pixel_to_feet():
+    """Return (H_court, frame_to_ref, fps, total) for the ACTIVE clip.
+
+    H_court        : reference-keyframe px -> court feet (validated engine).
+    frame_to_ref(f): frame_f px -> reference-keyframe px (nearest-kf anchored),
+                     so  pixel->feet for frame f = H_court @ frame_to_ref(f).
+    """
+    print("Recovering validated landmarks + H_court (Stage-3 fit)...")
+    KF, ref_pos, Hs_opt, L_opt, tags = s4.run_optimization()
+    H_court, per_err, mean_err, max_err = s4.compute_H_court(L_opt, tags)
+    print(f"  H_court reprojection: mean={mean_err:.2f} ft  max={max_err:.2f} ft "
+          f"(ref keyframe {KF[ref_pos]})")
+
+    # Camera-track sequentially up to the last needed frame so every sampled
+    # frame relates back to the reference keyframe. ORB is cheap on CPU; we only
+    # run the expensive YOLO on sampled frames (done by the caller).
+    cap = cv2.VideoCapture(s2.VIDEO_PATH)
+    fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+    total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    last_needed = min(total - 1, max(max(SAMPLE_FRAMES), max(KF)))
+
+    tracker = CameraTracker(np.eye(3))       # returns A[f]: frame_f px -> frame0 px
+    A = {}
+    A_kf = {}
+    kf_set = set(KF)
+    print(f"Camera-tracking frames 0..{last_needed} ...")
+    for f in range(last_needed + 1):
+        ok, frame = cap.read()
+        if not ok:
+            break
+        A[f] = tracker.update(frame, []).copy()   # no player masking (validated path)
+        if f in kf_set:
+            A_kf[f] = A[f].copy()
+    cap.release()
+
+    KF_arr = np.array(KF)
+
+    def frame_to_ref(f):
+        k = int(KF_arr[np.argmin(np.abs(KF_arr - f))])   # nearest keyframe
+        pos = KF.index(k)
+        rel = np.linalg.inv(A_kf[k]) @ A[f]              # frame_f px -> keyframe_k px
+        return _norm(Hs_opt[pos] @ rel)                  # frame_f px -> reference px
+
+    return H_court, frame_to_ref, fps, total
+
+
+def _norm(H):
+    return H / H[2, 2] if H[2, 2] != 0 else H
+
+
+def feet_pixel(box):
+    """Ground-contact point of a person box = bottom-center (feet on the floor)."""
+    x1, y1, x2, y2 = box
+    return ((x1 + x2) / 2.0, y2)
+
+
+def pixel_to_feet(pix_to_feet, px, py):
+    """Map one pixel to court feet. Returns (cx, cy, w) where w is the homogeneous
+    depth -- its SIGN tells which side of the horizon the point is on."""
+    v = pix_to_feet @ np.array([px, py, 1.0])
+    w = v[2]
+    ws = w if w != 0 else 1e-9
+    return float(v[0] / ws), float(v[1] / ws), float(w)
+
+
+def on_court(cx, cy, w, ref_w):
+    """True if a court-feet point is inside the 84x50 rectangle + MARGIN_FT AND
+    in FRONT of the horizon (same depth-sign as a known on-court point).
+
+    The horizon guard kills the "past the vanishing line" trap: a body high in
+    the bleachers projects ABOVE the court's horizon, where the homogeneous depth
+    w flips sign and the point wraps to fake in-bounds court coords.
+    """
+    if w * ref_w <= 0:
+        return False
+    m = MARGIN_FT
+    return (-m <= cx <= COURT_LEN + m) and (-m <= cy <= COURT_WID + m)
+
+
+def draw_margin_envelope(frame, feet_to_px):
+    """Draw the on-court acceptance rectangle (court + MARGIN_FT) in yellow."""
+    m = MARGIN_FT
+    corners = [(-m, -m), (COURT_LEN + m, -m),
+               (COURT_LEN + m, COURT_WID + m), (-m, COURT_WID + m), (-m, -m)]
+    pts = [s4.to_px(feet_to_px, fx, fy) for (fx, fy) in corners]
+    for j in range(len(pts) - 1):
+        if pts[j] and pts[j + 1]:
+            cv2.line(frame, pts[j], pts[j + 1], (0, 255, 255), 2)
+
+
+# ==============================================================================
+def main():
+    os.makedirs(OUT_DIR, exist_ok=True)
+    cv2.setRNGSeed(0)
+
+    H_court, frame_to_ref, fps, total = build_pixel_to_feet()
+    model = YOLO(MODEL_NAME)
+
+    cap = cv2.VideoCapture(s2.VIDEO_PATH)
+    writer = cv2.VideoWriter(
+        os.path.join(OUT_DIR, f"{s2.cfg.ACTIVE}_stage1_roi.mp4"),
+        cv2.VideoWriter_fourcc(*"mp4v"), 6.0, (DISP_W, DISP_H))
+
+    sample_set = set(SAMPLE_FRAMES)
+    counts = []
+    print(f"\nDetecting + filtering on {len(SAMPLE_FRAMES)} sampled frames...")
+    for f in range(total):
+        ok, frame = cap.read()
+        if not ok:
+            break
+        if f not in sample_set:
+            continue
+
+        T = frame_to_ref(f)
+        p2f = H_court @ T                       # pixel -> court feet
+        feet2px = np.linalg.inv(p2f)            # court feet -> pixel (for drawing)
+
+        # Depth-sign of a definitely-on-court point (court center), to orient the
+        # horizon guard for THIS frame's homography.
+        ctr_px = feet2px @ np.array([COURT_LEN / 2.0, COURT_WID / 2.0, 1.0])
+        ctr_px = ctr_px / ctr_px[2]
+        ref_w = float((p2f @ ctr_px)[2])
+
+        # Court lines (boundary/lane/center/circle) + the margin envelope.
+        s4.draw_court(frame, feet2px)
+        draw_margin_envelope(frame, feet2px)
+
+        res = model.predict(frame, imgsz=IMG_SIZE, classes=[PERSON_CLASS],
+                            verbose=False)[0]
+        boxes = res.boxes.xyxy.cpu().numpy() if res.boxes is not None else []
+
+        frame_h = frame.shape[0]
+        on_ct = 0
+        for box in boxes:
+            fx, fy = feet_pixel(box)
+            # Feet clamped to the bottom frame edge -> off-screen ground point,
+            # don't trust it (these are cut-off foreground spectators/table).
+            feet_off_screen = fy >= frame_h - FRAME_EDGE_PX
+            cx, cy, w = pixel_to_feet(p2f, fx, fy)
+            keep = on_court(cx, cy, w, ref_w) and not feet_off_screen
+            color = (0, 255, 0) if keep else (0, 0, 255)   # green keep / red drop
+            x1, y1, x2, y2 = [int(v) for v in box]
+            cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+            cv2.circle(frame, (int(fx), int(fy)), 4, color, -1)
+            cv2.putText(frame, f"({cx:.0f},{cy:.0f})", (x1, y2 + 16),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 1)
+            if keep:
+                on_ct += 1
+        counts.append((f, on_ct, len(boxes)))
+
+        cv2.putText(frame, f"f={f}  on-court={on_ct}  total={len(boxes)}  "
+                           f"margin={MARGIN_FT:.1f}ft",
+                    (20, 38), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
+        out = cv2.resize(frame, (DISP_W, DISP_H))
+        cv2.imwrite(os.path.join(OUT_DIR, f"{s2.cfg.ACTIVE}_stage1_{f:05d}.jpg"), out)
+        writer.write(out)
+        print(f"  f={f:>4}  on-court={on_ct:>2}  total_detected={len(boxes):>2}")
+    writer.release()
+    cap.release()
+
+    # ---- summary -------------------------------------------------------------
+    lines = ["Stage 1 -- court ROI filter", f"clip: {s2.cfg.ACTIVE}  ({s2.VIDEO_PATH})",
+             f"margin: {MARGIN_FT} ft   court: {COURT_LEN:.0f}x{COURT_WID:.0f}",
+             f"sampled frames: {SAMPLE_FRAMES}", "",
+             "frame   on_court   total_detected"]
+    for (f, on_ct, tot) in counts:
+        lines.append(f"{f:>5}   {on_ct:>8}   {tot:>14}")
+    if counts:
+        on_vals = [c[1] for c in counts]
+        lines.append("")
+        lines.append(f"on-court count: min={min(on_vals)} max={max(on_vals)} "
+                     f"mean={sum(on_vals)/len(on_vals):.1f}  (target ~10)")
+    summary = "\n".join(lines)
+    spath = os.path.join(OUT_DIR, f"{s2.cfg.ACTIVE}_stage1_summary.txt")
+    with open(spath, "w", encoding="utf-8") as fh:
+        fh.write(summary + "\n")
+    print("\n================ SUMMARY ================")
+    print(summary)
+    print("=========================================")
+    print(f"saved stills + {s2.cfg.ACTIVE}_stage1_roi.mp4 + summary in {OUT_DIR}")
+
+
+if __name__ == "__main__":
+    main()
