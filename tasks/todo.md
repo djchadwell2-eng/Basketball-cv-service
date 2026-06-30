@@ -113,6 +113,21 @@ logic, schema, stats, or zone mapping — only WHERE the homography comes from.
 - Commit before + after each stage. No temporal smoothing, no schema/stats/zone/mask
   changes, no Phase 2, do not remove the 450 skip yet.
 
+## KEYFRAME-CONSISTENCY RE-FIT (fix the handoff pop at the cause)
+Cause: run_optimization ties keyframes only at sparse clicked landmarks (clustered
+on one basket), so keyframes diverge when extrapolated -> handoff pop. Fix: add
+DENSE adjacent-keyframe SIFT correspondences to the SAME global least_squares so
+keyframes agree across their overlap (one shared court coord system).
+- [ ] 1: `phase1/refit_keyframes.py` — global least_squares = landmark residuals
+      (as now) + dense adjacent-keyframe correspondence residuals. Print keyframe
+      mutual-consistency error before/after. Wire into build_court_anchor.
+- [ ] 2: re-measure the 5 handoff pops (before vs after). Target few px each.
+- [ ] 3: confirm per-frame accuracy didn't regress (reproj sweep + landmark fit ft).
+- [ ] 4: re-render full-pan overlay; eyeball glued + smooth. (user gate)
+- [ ] 5: remove now-redundant frame-450 skip in stage3; report if any stat changes.
+- Commit before + after each stage. No blending/smoothing, no mask/schema/stat/zone
+  edits, no Phase 2.
+
 ## Next sequence (decided)
 1. Demo Phase 1 to dad (artifact: phase1/out/TEST1_phase1_demo.png). His reaction
    may reorder the roadmap.
