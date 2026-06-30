@@ -30,12 +30,14 @@ These are DECIDED. Change them only with a new explicit decision.
   multi-keyframe calibration rebuild already fixed. It is transient/localized, not
   structural to wide views.
 
-## 3. Frame 450 fix — scheduled for the dense/continuous pipeline (NOT now)
+## 3. Frame 450 fix — DONE (direct nearest-keyframe anchoring)
 - **Anchor each frame by a DIRECT match to its nearest keyframe**, instead of the
-  accumulated ORB chain. 450's direct match is the best in the clip, so this makes
-  it correct outright. This is the **chosen structural fix**.
-- Temporal smoothing across neighbors is only the weaker symptom-level fallback;
-  direct anchoring is the real fix.
+  accumulated ORB chain. Implemented in `stage1_court_roi.build_court_anchor()`.
+  Verified: old chain was off >40px on 74% of frames; new live fits every swept
+  frame at 0.00-0.72px reproj. Frame 450 now correct (anchors to kf420).
+- Temporal smoothing across neighbors was the weaker symptom-level fallback;
+  direct anchoring was the real fix. The stage3 frame-450 skip is now redundant
+  but intentionally LEFT in place (remove only when convenient).
 
 ## 4. Camera-track confidence guardrail — abstention applied to calibration
 - The dense pipeline must carry a **per-frame homography quality signal** (inliers
@@ -53,3 +55,32 @@ These are DECIDED. Change them only with a new explicit decision.
 - Identity layers (`tracks`, `player_events`) **bolt on LATER as new top-level
   keys with zero rework** to team_events.
 - **Deterministic stats never pass through an LLM.** No LLM anywhere in Phase 1.
+
+## 6. Keyframe-handoff pop — fix scheduled BEFORE Phase 2 (not done yet)
+- **Issue (continuity, not accuracy):** direct anchoring (decision 3) made each
+  frame accurate *on its own*, but the keyframes are not mutually consistent. When
+  a mid-interval frame switches which keyframe it anchors to, the court polygon
+  jumps by however much those two keyframes disagree. MEASURED: 5 anchor-handoff
+  frames pop 37-515px (worst: 120<->220 at frame 171). Per-frame matching is fine;
+  the keyframes disagree with *each other*.
+- **Same class as an already-solved problem:** the keyframe-level version of the
+  landmark-consistency issue fixed in calibration Stage 3, where a global
+  least_squares tightened shared-landmark consistency (~7px -> ~3.4px). Locally
+  accurate, globally inconsistent anchors — same shape, one level up.
+- **CHOSEN FIX:** re-fit the keyframes for mutual consistency (the same global-
+  optimization move that worked at the landmark layer). Fixing the *cause*
+  (inconsistent keyframes) improves all 5 handoffs at once.
+- **REJECTED — blending across handoffs:** hides the pop by smearing a 515px jump
+  into a gradual 515px slide; the court is still wrong mid-transition. Confident-
+  wrong failure mode. **REJECTED — adding keyframes near the worst handoff:** a
+  band-aid that shortens the interval but leaves the inconsistency intact (OK as a
+  targeted patch, wrong as the general fix).
+- **Why it doesn't block the demo:** affects 5 of 46 frames; matters for video
+  overlay (jarring) and per-frame Phase 2 work (tracking hates discontinuities),
+  but does NOT meaningfully distort the static heatmap (an aggregate over frames).
+- **Validation gate for the fix:** after re-fitting, re-measure the 5 handoff jumps
+  (should drop to a few px), then watch the full-pan overlay — court stays glued
+  AND moves smoothly across the seams, no visible pops.
+- **SEQUENCE:** (1) demo Phase 1 to dad -> (2) keyframe-consistency re-fit ->
+  (3) Phase 2. Demo first (his reaction may reorder the roadmap); the re-fit is
+  required before Phase 2 regardless.

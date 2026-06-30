@@ -113,6 +113,15 @@ logic, schema, stats, or zone mapping — only WHERE the homography comes from.
 - Commit before + after each stage. No temporal smoothing, no schema/stats/zone/mask
   changes, no Phase 2, do not remove the 450 skip yet.
 
+## Next sequence (decided)
+1. Demo Phase 1 to dad (artifact: phase1/out/TEST1_phase1_demo.png). His reaction
+   may reorder the roadmap.
+2. Keyframe-consistency RE-FIT (fixes the handoff pop at the CAUSE — global
+   optimization over keyframes, like calibration Stage 3). REQUIRED before Phase 2.
+   Rejected: blending (confident-wrong), adding keyframes (band-aid). See DECISIONS.md §6.
+   Validation gate: 5 handoff jumps drop to a few px + full-pan overlay glued & smooth.
+3. Phase 2.
+
 ## Review
 - Phase 1 spine built staged: Stage 1 (court ROI mask), Stage 2 (identity-free
   team_event schema + JSON), Stage 3 (zones + occupancy + heatmap + coach demo).
