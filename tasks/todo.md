@@ -53,16 +53,18 @@ The "13-person rule" fix: drop refs/bench/coaches/crowd, keep the ~10 on-court.
 ## STAGE 2 — TEAM_EVENT SCHEMA  (Stage 1 signed off)
 Architecture decisions captured in `phase1/DECISIONS.md` (read first).
 - [x] Part A: `phase1/DECISIONS.md` — settled decisions for future sessions.
-- [ ] 2a SCHEMA: per-frame `team_event` = schema_version, frame_index, timestamp_s,
-      homography_confidence (inliers/reproj + ok/low_confidence — the 450 guardrail),
-      detections[] each {pixel, court_feet, identity_state="unknown", team="unknown"}.
-      IRON RULES: no track_id, no cross-frame link, order-independent list, never
-      guess team. Print schema + one fully-populated example. No stats.
-- [ ] 2b GENERATE: reuse Stage 1 on-court classification across sampled frames; emit
-      one team_event/frame; persist JSON in phase1/out/. Print frames + counts.
-- [ ] 2c ROUND-TRIP + identity-free proof: reload JSON, assert equality; tiny
-      throwaway counts bodies+zones using ONLY the JSON (no identity field). Print
-      "team stats computable without identity: YES/NO".
+- [x] 2a SCHEMA: `phase1/team_event_schema.py` — record + JSON (de)serialization,
+      prints schema + round-tripped example. No track_id, order-independent,
+      team/identity default "unknown". homography_confidence = the 450 guardrail.
+- [x] 2b GENERATE: `phase1/stage2_generate_events.py` — reuses Stage 1 unchanged;
+      16 team_events -> `phase1/out/TEST1_team_events.json`. Confidence from direct
+      nearest-keyframe SIFT match (all frames "ok"; 450 stays "ok" by direct match
+      — the documented guardrail limitation vs the ORB-chain positions).
+- [x] 2c ROUND-TRIP + identity-free proof: `phase1/stage2c_validate.py` — round-trip
+      PASS; counts bodies+zones from a positions-only view (no identity field at
+      all). "team stats computable without identity: YES".
+- Note: detection deterministic within a run; cross-run borderline flicker (CPU)
+  worst at the bad-homography frame 450 — flagged for the dense pipeline.
 - Commit before + after each sub-stage. Do NOT compute real stats/heatmaps/
   possessions/pace, assign identity/team, build a DB, or touch mask/margins/homography.
 
