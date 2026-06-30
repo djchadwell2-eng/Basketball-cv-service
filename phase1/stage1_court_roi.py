@@ -8,9 +8,12 @@ per detection, whether a body is standing ON the painted court (keep) or OFF it
 HOW IT REUSES THE VALIDATED ENGINE (World A, spikes/):
   1. run_optimization()  -> H_court : reference-keyframe px -> court FEET
      (from the clip's clicked landmarks in clips_config.py).
-  2. camera-track the clip so any frame f relates back to the reference keyframe:
-     T = frame_to_ref(f)  (nearest-keyframe anchored, exactly like stage4).
-  3. PER FRAME:  pixel -> court feet  =  H_court @ T
+  2. DIRECT-ANCHOR each frame: SIFT-match the frame to its NEAREST keyframe and
+     compose with that keyframe's known court homography (Hs_opt). This REPLACED
+     the old accumulated ORB consecutive-frame chain, which a diagnostic proved
+     broadly unreliable (74% of frames off >40px). The direct match was proven
+     glued on every swept frame (see phase1/DECISIONS.md). No chain, no drift.
+  3. PER FRAME:  pixel -> court feet  =  H_court @ T   (T = frame px -> reference px)
      (stage4 uses the inverse, feet->px, to DRAW the court; we use px->feet to
       LOCATE players. Same two matrices, opposite direction.)
 
@@ -42,9 +45,9 @@ _ROOT = os.path.dirname(_HERE)
 sys.path.insert(0, os.path.join(_ROOT, "spikes"))   # stage2/stage4 + clips_config
 sys.path.insert(0, _ROOT)                            # src/ (camera_tracking)
 
+import stage1_keyframe_match as s1         # noqa: E402  validated SIFT matcher
 import stage2_multikeyframe as s2          # noqa: E402  per-clip CONFIG + helpers
 import stage4_courtmap as s4               # noqa: E402  H_court + court drawing
-from src.camera_tracking import CameraTracker  # noqa: E402
 
 from ultralytics import YOLO               # noqa: E402
 
@@ -57,6 +60,14 @@ FRAME_EDGE_PX = 4        # box bottoms within this many px of the frame edge hav
 IMG_SIZE = 1280          # validated detector resolution
 MODEL_NAME = os.path.join(_ROOT, "yolov8m.pt")
 PERSON_CLASS = 0
+
+# Direct-anchor matcher settings (the same the validated diagnostic used).
+ANCHOR_RATIO = 0.75
+ANCHOR_RANSAC_PX = 3.0
+# Homography-confidence thresholds. The observed direct-match inlier floor on this
+# clip is ~1000; 150 flags only near-failed matches (an order of magnitude below).
+CONF_INLIER_MIN = 150
+CONF_REPROJ_MAX = 2.0    # mean reproj px on inliers (RANSAC caps inliers at 3px)
 
 # Sample frames for the eyeball loop (CPU-only torch -> don't run YOLO on every
 # frame). Stay INSIDE the clip's validated pan range; clips_config notes TEST1's
@@ -71,12 +82,17 @@ COURT_WID = s4.COURT_WID      # 50
 
 
 # ==============================================================================
-def build_pixel_to_feet():
-    """Return (H_court, frame_to_ref, fps, total) for the ACTIVE clip.
+def build_court_anchor():
+    """Return (H_court, anchor, fps, total) for the ACTIVE clip.
 
-    H_court        : reference-keyframe px -> court feet (validated engine).
-    frame_to_ref(f): frame_f px -> reference-keyframe px (nearest-kf anchored),
-                     so  pixel->feet for frame f = H_court @ frame_to_ref(f).
+    H_court : reference-keyframe px -> court feet (validated engine).
+    anchor(f, frame_bgr) -> (T, inliers, reproj_px, kf):
+        T          = frame px -> reference px, via a DIRECT SIFT match of the frame
+                     to its NEAREST keyframe composed with that keyframe's known
+                     transform (NO accumulated ORB chain).  pixel->feet = H_court @ T
+        inliers    = RANSAC inliers of that direct match (homography confidence)
+        reproj_px  = mean reprojection error of the inliers
+        kf         = which keyframe the frame anchored to
     """
     print("Recovering validated landmarks + H_court (Stage-3 fit)...")
     KF, ref_pos, Hs_opt, L_opt, tags = s4.run_optimization()
@@ -84,37 +100,39 @@ def build_pixel_to_feet():
     print(f"  H_court reprojection: mean={mean_err:.2f} ft  max={max_err:.2f} ft "
           f"(ref keyframe {KF[ref_pos]})")
 
-    # Camera-track sequentially up to the last needed frame so every sampled
-    # frame relates back to the reference keyframe. ORB is cheap on CPU; we only
-    # run the expensive YOLO on sampled frames (done by the caller).
     cap = cv2.VideoCapture(s2.VIDEO_PATH)
     fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
     total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    last_needed = min(total - 1, max(max(SAMPLE_FRAMES), max(KF)))
-
-    tracker = CameraTracker(np.eye(3))       # returns A[f]: frame_f px -> frame0 px
-    A = {}
-    A_kf = {}
-    kf_set = set(KF)
-    print(f"Camera-tracking frames 0..{last_needed} ...")
-    for f in range(last_needed + 1):
-        ok, frame = cap.read()
-        if not ok:
-            break
-        A[f] = tracker.update(frame, []).copy()   # no player masking (validated path)
-        if f in kf_set:
-            A_kf[f] = A[f].copy()
     cap.release()
 
+    kf_imgs = s2.extract_frames(s2.VIDEO_PATH, KF)   # keyframe images for matching
     KF_arr = np.array(KF)
 
-    def frame_to_ref(f):
-        k = int(KF_arr[np.argmin(np.abs(KF_arr - f))])   # nearest keyframe
+    def anchor(f, frame_bgr):
+        k = int(KF_arr[np.argmin(np.abs(KF_arr - f))])      # nearest keyframe
         pos = KF.index(k)
-        rel = np.linalg.inv(A_kf[k]) @ A[f]              # frame_f px -> keyframe_k px
-        return _norm(Hs_opt[pos] @ rel)                  # frame_f px -> reference px
+        cv2.setRNGSeed(0)                                   # reproducible RANSAC
+        # detect_and_match(A=keyframe, B=frame) -> estimate gives H: frame -> kf.
+        kp_k, kp_f, good = s1.detect_and_match(kf_imgs[k], frame_bgr,
+                                               ANCHOR_RATIO, s2.EXCLUDE_REGIONS)
+        H, mask, inliers = s1.estimate_homography(kp_k, kp_f, good, ANCHOR_RANSAC_PX)
+        if H is None or inliers == 0:
+            return None, 0, float("inf"), k
+        im = [m for m, keep in zip(good, mask.ravel()) if keep]
+        pf = np.float32([kp_f[m.trainIdx].pt for m in im]).reshape(-1, 1, 2)
+        pk = np.float32([kp_k[m.queryIdx].pt for m in im])
+        proj = cv2.perspectiveTransform(pf, H).reshape(-1, 2)
+        reproj = float(np.linalg.norm(proj - pk, axis=1).mean())
+        T = _norm(Hs_opt[pos] @ H)                          # frame px -> reference px
+        return T, int(inliers), reproj, k
 
-    return H_court, frame_to_ref, fps, total
+    return H_court, anchor, fps, total
+
+
+def confidence_state(inliers, reproj):
+    """Map a direct-match quality to the schema's ok/low_confidence state."""
+    return "ok" if (inliers >= CONF_INLIER_MIN and reproj <= CONF_REPROJ_MAX) \
+        else "low_confidence"
 
 
 def _norm(H):
@@ -166,7 +184,7 @@ def main():
     os.makedirs(OUT_DIR, exist_ok=True)
     cv2.setRNGSeed(0)
 
-    H_court, frame_to_ref, fps, total = build_pixel_to_feet()
+    H_court, anchor, fps, total = build_court_anchor()
     model = YOLO(MODEL_NAME)
 
     cap = cv2.VideoCapture(s2.VIDEO_PATH)
@@ -184,7 +202,7 @@ def main():
         if f not in sample_set:
             continue
 
-        T = frame_to_ref(f)
+        T, inliers, reproj, kf = anchor(f, frame)   # DIRECT nearest-keyframe match
         p2f = H_court @ T                       # pixel -> court feet
         feet2px = np.linalg.inv(p2f)            # court feet -> pixel (for drawing)
 
@@ -222,12 +240,13 @@ def main():
         counts.append((f, on_ct, len(boxes)))
 
         cv2.putText(frame, f"f={f}  on-court={on_ct}  total={len(boxes)}  "
-                           f"margin={MARGIN_FT:.1f}ft",
+                           f"anchor_kf={kf} inl={inliers}",
                     (20, 38), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
         out = cv2.resize(frame, (DISP_W, DISP_H))
         cv2.imwrite(os.path.join(OUT_DIR, f"{s2.cfg.ACTIVE}_stage1_{f:05d}.jpg"), out)
         writer.write(out)
-        print(f"  f={f:>4}  on-court={on_ct:>2}  total_detected={len(boxes):>2}")
+        print(f"  f={f:>4}  on-court={on_ct:>2}  total={len(boxes):>2}  "
+              f"anchor_kf={kf}  inl={inliers}  reproj={reproj:.2f}px")
     writer.release()
     cap.release()
 
