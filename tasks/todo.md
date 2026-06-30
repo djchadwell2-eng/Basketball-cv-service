@@ -50,12 +50,21 @@ The "13-person rule" fix: drop refs/bench/coaches/crowd, keep the ~10 on-court.
       f=450/480 wide views run 14-19 — user to confirm those are real bodies, not
       leaks, and whether MARGIN_FT=1.5 is right.
 
-## STAGE 2 — TEAM_EVENT SCHEMA  (only after Stage 1 confirmed)
-- [ ] Per-frame `team_event`: frame_index, timestamp, detections[] each with
-      pixel_xy, court_xy (feet), state (confirmed/candidate/unknown — abstention is
-      first-class). No identity. Team A/B left **unknown** unless trivially reliable.
-- [ ] Write deterministically to JSON (no DB). Print schema + one example frame.
-- [ ] STOP for user confirm.
+## STAGE 2 — TEAM_EVENT SCHEMA  (Stage 1 signed off)
+Architecture decisions captured in `phase1/DECISIONS.md` (read first).
+- [x] Part A: `phase1/DECISIONS.md` — settled decisions for future sessions.
+- [ ] 2a SCHEMA: per-frame `team_event` = schema_version, frame_index, timestamp_s,
+      homography_confidence (inliers/reproj + ok/low_confidence — the 450 guardrail),
+      detections[] each {pixel, court_feet, identity_state="unknown", team="unknown"}.
+      IRON RULES: no track_id, no cross-frame link, order-independent list, never
+      guess team. Print schema + one fully-populated example. No stats.
+- [ ] 2b GENERATE: reuse Stage 1 on-court classification across sampled frames; emit
+      one team_event/frame; persist JSON in phase1/out/. Print frames + counts.
+- [ ] 2c ROUND-TRIP + identity-free proof: reload JSON, assert equality; tiny
+      throwaway counts bodies+zones using ONLY the JSON (no identity field). Print
+      "team stats computable without identity: YES/NO".
+- Commit before + after each sub-stage. Do NOT compute real stats/heatmaps/
+  possessions/pace, assign identity/team, build a DB, or touch mask/margins/homography.
 
 ## STAGE 3 — STATS + ZONE HEATMAPS (deterministic reads over Stage-2 events)
 - [ ] Map court-feet -> standard zones for HS 84x50. Compute zone occupancy heatmap,
