@@ -62,6 +62,7 @@ class Identity:
     state: IdentityState = IdentityState.UNKNOWN
     track_id: int | None = None            # the ByteTrack id it currently follows
     evidence: dict = field(default_factory=dict)   # why it is in its current state
+    roster_number: int | None = None       # jersey number from the seed (position hypothesis)
     last_bbox: tuple | None = None
     last_seen_frame: int | None = None
     # centre history (frame, cx, cy) for the motion model used in relinking.
@@ -125,22 +126,43 @@ class IdentityStateMachine:
         ident.state = IdentityState.CONFIRMED
         ident.evidence = {"reason": f"confirmed via {provenance}"}
 
-    def seed(self, track_id: int, *, label: str | None = None) -> None:
-        """Human seed in post-processing (Stage 4). A real second signal."""
+    def seed(self, track_id: int, *, roster_number: int | None = None,
+             label: str | None = None) -> None:
+        """Human seed in post-processing. A real (first) signal. May carry the
+        player's jersey number, which position-continuity then keeps through breaks
+        so a later OCR read can AGREE/DISAGREE with it."""
         ident = self._by_track.get(track_id)
         if ident is not None:
             self.set_confirmed(ident, provenance="seed")
+            ident.roster_number = roster_number
             if label is not None:
                 ident.evidence["label"] = label
 
-    def promote_via_second_signal(self, ident: "Identity") -> None:
-        """SEAM for the next step (jersey OCR / re-ID). When a second signal agrees
-        with a CANDIDATE, it will confirm here via set_confirmed(provenance=
-        'second_signal'). UNIMPLEMENTED and never called in this build -- its
-        absence is exactly why no candidate can become confirmed yet."""
-        raise NotImplementedError(
-            "Second signal (jersey OCR) not built yet -- see Phase 2 next step. "
-            "Until it exists, candidates stay candidates by design.")
+    def promote_via_second_signal(self, ident: Identity, number, confidence) -> str:
+        """SANCTIONED second-signal path (jersey OCR). Applies the three outcomes to
+        the accumulated best on-roster read (`number`, `confidence`). AGREE is the
+        only NEW path to CONFIRMED; it goes through set_confirmed so the lock holds.
+        Returns: 'agree' | 'disagree' | 'no_confident_read' | 'no_position_hypothesis'.
+        """
+        from ocr_reader import OCR_CONFIRM_THRESHOLD          # the single autonomy dial
+        # Outcome 3: no confident on-roster read -> stay CANDIDATE (honest uncertainty).
+        if number is None or confidence is None or confidence < OCR_CONFIRM_THRESHOLD:
+            return "no_confident_read"
+        expected = ident.roster_number
+        if expected is None:
+            return "no_position_hypothesis"     # nothing to agree with -> stay CANDIDATE
+        if number == expected:                  # Outcome 1: AGREE -> confirm
+            self.set_confirmed(ident, provenance="second_signal")
+            ident.roster_number = number
+            ident.evidence = {"reason": "OCR agrees with position",
+                              "jersey": number, "confidence": round(confidence, 2)}
+            return "agree"
+        # Outcome 2: DISAGREE -> swap detector. NEVER silently resolve.
+        ident.state = IdentityState.UNKNOWN
+        ident.evidence = {"reason": "position/jersey disagreement -- possible swap",
+                          "position_says": expected, "ocr_read": number,
+                          "confidence": round(confidence, 2)}
+        return "disagree"
 
     # -- per-frame update (Stage 2: honest loss + candidate recovery) --------
     def update(self, frame_index: int, tracks) -> None:
