@@ -73,6 +73,27 @@ TEST1_CLIP = ClipConfig(
     tracks_cache_path=_cache("TEST1"),
 )
 
+# --- HARD: integration target. Frame range + tracking span INSIDE the calibrated
+#   pan (HARD keyframes are 600..1200). Roster is a TEST1-style STAND-IN to exercise
+#   the state machine (rigged-low; NOT a quality signal). Seed labels empty for now
+#   -- the safety run adds hand-verified ones. video_path MUST match the HARD entry
+#   in spikes/clips_config.py.
+HARD_CLIP = ClipConfig(
+    name="HARD",
+    video_path=r"C:\Users\djcha\Downloads\HARD.mp4",
+    event_frames=range(600, 1201, 20),         # P1 team-event sampling across the pan
+    render_sample_frames=range(600, 1201, 60),
+    tracking_span_start=800,                    # 120-frame span mid-pan (800..919)
+    tracking_span_len=120,
+    teams=(                                     # STAND-IN roster (same as TEST1)
+        Team("Milford (white)", "white", frozenset({13})),
+        Team("Little Miami (green)", "green", frozenset({5, 24})),
+    ),
+    seed_labels={4: 23, 10: 30},                # hand-verified by eye (t4=#23, t10=#30)
+    accumulation_window_seconds=2.0,
+    tracks_cache_path=_cache("HARD"),
+)
+
 # The clip the stage scripts operate on when run standalone. The combined entry
 # point (run_clip.py) sets this (and spikes/clips_config.ACTIVE) per run.
 ACTIVE_CLIP = TEST1_CLIP

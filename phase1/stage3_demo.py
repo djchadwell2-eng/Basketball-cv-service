@@ -18,12 +18,14 @@ import matplotlib.pyplot as plt
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _HERE)
+sys.path.insert(0, os.path.dirname(_HERE))                          # repo root (clip_config)
 
 import zones as Z
 import stage3_team_stats as S3
 import stage3_heatmap as HM
+from clip_config import ACTIVE_CLIP as CLIP
 
-OUT_PNG = os.path.join(_HERE, "out", "TEST1_phase1_demo.png")
+OUT_PNG = os.path.join(_HERE, "out", f"{CLIP.name}_phase1_demo.png")
 
 
 def _pretty(zone: str) -> str:

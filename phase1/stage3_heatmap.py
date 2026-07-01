@@ -20,11 +20,13 @@ import matplotlib.pyplot as plt
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _HERE)
+sys.path.insert(0, os.path.dirname(_HERE))                          # repo root (clip_config)
 
 import zones as Z
 import stage3_team_stats as S3
+from clip_config import ACTIVE_CLIP as CLIP
 
-OUT_PNG = os.path.join(_HERE, "out", "TEST1_stage3_heatmap.png")
+OUT_PNG = os.path.join(_HERE, "out", f"{CLIP.name}_stage3_heatmap.png")
 
 L, W = Z.LENGTH, Z.WIDTH                 # 84 x 50
 CX, CY = L / 2.0, W / 2.0

@@ -21,11 +21,13 @@ import sys
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _HERE)
+sys.path.insert(0, os.path.dirname(_HERE))                          # repo root (clip_config)
 
 import team_event_schema as schema
 import zones as Z
+from clip_config import ACTIVE_CLIP as CLIP
 
-JSON_PATH = os.path.join(_HERE, "out", "TEST1_team_events.json")
+JSON_PATH = os.path.join(_HERE, "out", f"{CLIP.name}_team_events.json")
 
 def load_trusted(path: str):
     """Return (trusted_events, skip_log). skip_log = list of (frame_index, reason)."""

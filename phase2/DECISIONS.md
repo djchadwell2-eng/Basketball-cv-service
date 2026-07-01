@@ -54,3 +54,15 @@ promote `CANDIDATE` → `CONFIRMED`.** Agreed design:
 - **Fixed 2.0s window** (`accumulation_window_seconds` — the containment-boundary /
   OCR-accumulation stand-in; code value is 2.0s, not the "~15s" earlier drafts said)
   → replace with **real possession detection**. Neither is final possession logic.
+
+## 4. KNOWN DEBT (logged, not fixed)
+- **stage2_generate_events reads clip identity from TWO objects.** Frame range +
+  output path come from `ACTIVE_CLIP` (clip_config), but the video path for frame
+  extraction (`st.s2.VIDEO_PATH`) and the clip label written into team_events
+  (`st.s2.cfg.ACTIVE`) still come from `spikes/clips_config.ACTIVE`. Currently
+  reconciled by `run_clip.py` setting `clips_config.ACTIVE = config.name` **plus a
+  loud assertion** that the two agree before any pipeline work (a desync would
+  extract team_events from the wrong video). **Standalone stage2 invocations bypass
+  that sync** — they inherit whatever `clips_config.ACTIVE` happens to be. Root fix
+  (later): make stage2/calibration read the video + clip name from `ACTIVE_CLIP`
+  (single source of truth). Logged as debt, not fixed now.
