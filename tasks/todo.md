@@ -134,6 +134,21 @@ keyframes agree across their overlap (one shared court coord system).
 - Commit before + after each stage. No blending/smoothing, no mask/schema/stat/zone
   edits, no Phase 2.
 
+## PHASE 2 OCR — jersey second signal (promote_via_second_signal seam)
+STRICT auto-confirm. EasyOCR installed + confirmed (reads #13@0.95, #5@0.98).
+Crop finding: legible when close+facing, NO number >half the time (turned/angled)
+-> read OPPORTUNISTICALLY ACROSS the window, accumulate best on-roster read.
+Partial CALIBRATION roster (not ground truth): {5,13,24} discovered by OCR.
+- [ ] roster.py (numbers + loose team color; hand-verified seed labels t17=13,t6=5)
+- [ ] ocr_reader.py: pluggable read_jersey(crop, roster) closed-set; ONE constant
+      OCR_CONFIRM_THRESHOLD (autonomy dial), easyocr lazy-imported.
+- [ ] identity.py: implement promote_via_second_signal -> 3 outcomes (AGREE->confirm
+      provenance=second_signal; DISAGREE->flag swap; NO-READ->stay candidate).
+- [ ] stage6 driver: temporal accumulation per candidate across window; measure
+      per-frame vs per-possession readability; auto-confirm list; queue before/after;
+      stills of OCR-confirmed players + disagreements + stayed-yellow.
+- set_confirmed lock intact (seed|second_signal only). Commit before+after.
+
 ## Next sequence (decided)
 1. Demo Phase 1 to dad (artifact: phase1/out/TEST1_phase1_demo.png). His reaction
    may reorder the roadmap.
