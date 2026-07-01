@@ -19,3 +19,4 @@ heatmaps/
 phase1/out/
 __pycache__/
 *.pyc
+phase2/out/
