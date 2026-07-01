@@ -152,7 +152,7 @@ IMPOSSIBLE until a second signal (OCR, later step) exists.
       (confirmed/lost/candidate/unknown) carried by every track every frame. IRON
       RULE in code: no candidate->confirmed auto path; promote_via_second_signal()
       stub unimplemented/unreachable. Print per-frame track states for a span.
-- [ ] 2: honest loss (occlusion->lost, attribute nothing) + candidate recovery
+- [x] 2: honest loss (occlusion->lost, attribute nothing) + candidate recovery
       (reappear->candidate w/ evidence: gap, distance, motion). No auto-confirm.
 - [ ] 3: per-possession (or fixed ~15s stand-in) re-seed boundary; contain errors.
 - [ ] 4: seeding (post-process, re-seed-on-loss) + coach review queue (all
