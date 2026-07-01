@@ -180,6 +180,7 @@ class IdentityStateMachine:
             old_track = ident.track_id
             ident.track_id = t.track_id
             ident.state = IdentityState.CANDIDATE       # the CEILING for continuity
+            ev["reappeared_frame"] = frame_index
             ident.evidence = ev
             ident.push(t.bbox, frame_index)
             self._by_track[t.track_id] = ident

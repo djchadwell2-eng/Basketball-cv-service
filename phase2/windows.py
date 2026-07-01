@@ -38,5 +38,8 @@ class WindowedIdentity:
         self._machine.update(frame_index, tracks)
         return win
 
+    def current_machine(self) -> idmod.IdentityStateMachine:
+        return self._machine
+
     def machines(self) -> dict[int, idmod.IdentityStateMachine]:
         return dict(self._machines)
