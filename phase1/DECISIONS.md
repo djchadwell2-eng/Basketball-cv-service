@@ -56,7 +56,20 @@ These are DECIDED. Change them only with a new explicit decision.
   keys with zero rework** to team_events.
 - **Deterministic stats never pass through an LLM.** No LLM anywhere in Phase 1.
 
-## 6. Keyframe-handoff pop — fix scheduled BEFORE Phase 2 (not done yet)
+## 6. Keyframe-handoff pop — FIXED (keyframe-consistency re-fit)
+**DONE.** Implemented in `phase1/refit_keyframes.py`: added dense adjacent-keyframe
+SIFT correspondences to the same global least_squares, so keyframes agree across
+their overlap (one shared court system), warm-started from the existing fit and
+wired into `build_court_anchor` via `refit()` (cached .npz). Results:
+- keyframe mutual-consistency: mean 8.1px -> 0.6px, max 41.3px -> 2.7px
+- handoff pops: 120<->220 515px -> 2.6px; all 5 handoffs now <=8.7px max
+- no accuracy tradeoff: landmark court-fit improved 0.25/0.54ft -> 0.14/0.37ft;
+  per-frame anchor reproj still 0.00-0.72px (0 frames >5px)
+- the redundant frame-450 skip in stage3 was REMOVED (450 now a normal trusted
+  frame; removing it shifts zone shares <1%, mean on-court unchanged at 13.0)
+The original problem statement + rejected options are kept below for the record.
+
+### (original entry) Keyframe-handoff pop — fix scheduled BEFORE Phase 2
 - **Issue (continuity, not accuracy):** direct anchoring (decision 3) made each
   frame accurate *on its own*, but the keyframes are not mutually consistent. When
   a mid-interval frame switches which keyframe it anchors to, the court polygon

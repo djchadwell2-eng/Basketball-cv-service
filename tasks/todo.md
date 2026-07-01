@@ -125,8 +125,12 @@ keyframes agree across their overlap (one shared court coord system).
       (<=3.1px mean). Target met.
 - [x] 3: per-frame accuracy held — anchor reproj 0.00-0.72px, 0 frames >5/15/40/100px;
       landmark court-fit improved 0.25->0.14 ft. No regression.
-- [ ] 4: re-render full-pan overlay; eyeball glued + smooth. (user gate)
-- [ ] 5: remove now-redundant frame-450 skip in stage3; report if any stat changes.
+- [x] 4: `phase1/stage4_overlay.py` — full-pan court overlay on refit homography
+      -> phase1/out/TEST1_stage4_overlay.mp4 + handoff stills. Seams glued (171/541
+      verified). USER EYEBALL GATE.
+- [x] 5: frame-450 skip REMOVED from stage3 (redundant). Effect: +1 frame (450),
+      +14 body-positions, zone shares shift <1%, mean on-court unchanged (13.0).
+      Nothing else surfaced. Demo/heatmap re-rendered over 47 frames.
 - Commit before + after each stage. No blending/smoothing, no mask/schema/stat/zone
   edits, no Phase 2.
 

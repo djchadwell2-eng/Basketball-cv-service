@@ -8,9 +8,10 @@ ONLY what ~16 sampled frames can honestly support:
 NO possessions, NO pace, NO shooting % -- those need dense frames or shot
 detection we don't have. NO identity. This module only reads positions.
 
-FRAME TRUST filter:
-  - skip any frame whose homography_confidence.state == "low_confidence"
-  - AND skip frame_index 450 explicitly (see the comment at SKIP_FRAMES).
+FRAME TRUST filter: skip any frame whose homography_confidence.state ==
+"low_confidence". (The former explicit frame-450 skip was removed: the
+keyframe-consistency re-fit + direct anchoring made 450's homography correct, so
+it is a normal trusted frame now -- see phase1/DECISIONS.md.)
 """
 
 from __future__ import annotations
@@ -26,12 +27,6 @@ import zones as Z
 
 JSON_PATH = os.path.join(_HERE, "out", "TEST1_team_events.json")
 
-# TEMP: frame 450 has a known bad ORB-chain homography that the current confidence
-# signal scores "ok" -- see phase1/DECISIONS.md. Remove this explicit skip once
-# direct-anchoring makes the confidence signal honest.
-SKIP_FRAMES = {450}
-
-
 def load_trusted(path: str):
     """Return (trusted_events, skip_log). skip_log = list of (frame_index, reason)."""
     events, meta = schema.read_events(path)
@@ -39,8 +34,6 @@ def load_trusted(path: str):
     for ev in events:
         if ev.homography_confidence.state == "low_confidence":
             skipped.append((ev.frame_index, "low_confidence homography"))
-        elif ev.frame_index in SKIP_FRAMES:
-            skipped.append((ev.frame_index, "explicit skip (known bad 450 homography)"))
         else:
             trusted.append(ev)
     return trusted, skipped, meta
