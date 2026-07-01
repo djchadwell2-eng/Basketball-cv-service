@@ -121,8 +121,10 @@ keyframes agree across their overlap (one shared court coord system).
 - [ ] 1: `phase1/refit_keyframes.py` — global least_squares = landmark residuals
       (as now) + dense adjacent-keyframe correspondence residuals. Print keyframe
       mutual-consistency error before/after. Wire into build_court_anchor.
-- [ ] 2: re-measure the 5 handoff pops (before vs after). Target few px each.
-- [ ] 3: confirm per-frame accuracy didn't regress (reproj sweep + landmark fit ft).
+- [x] 2: handoff pops re-measured. 120<->220: 515->2.6px; all 5 now <=8.7px max
+      (<=3.1px mean). Target met.
+- [x] 3: per-frame accuracy held — anchor reproj 0.00-0.72px, 0 frames >5/15/40/100px;
+      landmark court-fit improved 0.25->0.14 ft. No regression.
 - [ ] 4: re-render full-pan overlay; eyeball glued + smooth. (user gate)
 - [ ] 5: remove now-redundant frame-450 skip in stage3; report if any stat changes.
 - Commit before + after each stage. No blending/smoothing, no mask/schema/stat/zone
