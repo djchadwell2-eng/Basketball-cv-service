@@ -18,13 +18,14 @@ import sys
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _HERE)
+sys.path.insert(0, os.path.dirname(_HERE))                          # repo root (clip_config)
 sys.path.insert(0, os.path.join(os.path.dirname(_HERE), "spikes"))
 
-import clips_config as cfg
+from clip_config import ACTIVE_CLIP as CLIP
 import identity as idmod
 from tracking import Track
 
-TRACKS_JSON = os.path.join(_HERE, "out", f"{cfg.ACTIVE}_tracks_raw.json")
+TRACKS_JSON = CLIP.tracks_cache_path
 SAMPLE_SPAN = 12          # how many frames of per-track state to print
 
 

@@ -23,15 +23,16 @@ from collections import Counter, defaultdict
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _HERE)
+sys.path.insert(0, os.path.dirname(_HERE))                          # repo root (clip_config)
 sys.path.insert(0, os.path.join(os.path.dirname(_HERE), "spikes"))
 
-import clips_config as cfg
+from clip_config import ACTIVE_CLIP as CLIP
 import windows as winmod
 from tracking import Track
 
-TRACKS_JSON = os.path.join(_HERE, "out", f"{cfg.ACTIVE}_tracks_raw.json")
-OUT_JSON = os.path.join(_HERE, "out", f"{cfg.ACTIVE}_player_events.json")
-DEMO_WINDOW_SECONDS = 2.0
+TRACKS_JSON = CLIP.tracks_cache_path
+OUT_JSON = os.path.join(_HERE, "out", f"{CLIP.name}_player_events.json")
+DEMO_WINDOW_SECONDS = CLIP.accumulation_window_seconds
 
 
 def load(path):

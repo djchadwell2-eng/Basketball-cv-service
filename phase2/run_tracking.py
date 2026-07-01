@@ -17,14 +17,15 @@ import cv2
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _HERE)
+sys.path.insert(0, os.path.dirname(_HERE))                          # repo root (clip_config)
 sys.path.insert(0, os.path.join(os.path.dirname(_HERE), "spikes"))
 
 import tracking
-import clips_config as cfg
+from clip_config import ACTIVE_CLIP as CLIP
 
-SPAN_START = 300         # original frame index the span begins at
-SPAN_LEN = 120           # frames (~4s at 30fps) -- enough to show occlusions
-OUT_JSON = os.path.join(_HERE, "out", f"{cfg.ACTIVE}_tracks_raw.json")
+SPAN_START = CLIP.tracking_span_start        # per-clip ByteTrack span (was 300)
+SPAN_LEN = CLIP.tracking_span_len            # (was 120)
+OUT_JSON = CLIP.tracks_cache_path
 
 
 def extract_subclip(video_path, start, length):
@@ -35,7 +36,7 @@ def extract_subclip(video_path, start, length):
     h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     for _ in range(start):
         cap.grab()
-    tmp = os.path.join(tempfile.gettempdir(), f"{cfg.ACTIVE}_span_{start}_{length}.mp4")
+    tmp = os.path.join(tempfile.gettempdir(), f"{CLIP.name}_span_{start}_{length}.mp4")
     writer = cv2.VideoWriter(tmp, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
     n = 0
     while n < length:
@@ -51,8 +52,8 @@ def extract_subclip(video_path, start, length):
 
 def main():
     os.makedirs(os.path.dirname(OUT_JSON), exist_ok=True)
-    video = cfg.active()["video_path"]
-    print(f"Extracting span {SPAN_START}..{SPAN_START + SPAN_LEN} of {cfg.ACTIVE} ...")
+    video = CLIP.video_path
+    print(f"Extracting span {SPAN_START}..{SPAN_START + SPAN_LEN} of {CLIP.name} ...")
     subclip, fps, n = extract_subclip(video, SPAN_START, SPAN_LEN)
     print(f"  wrote {n} frames -> {subclip}")
 
@@ -66,7 +67,7 @@ def main():
         if i % 20 == 0:
             print(f"  ...{i}/{n}  ({len(tracks)} tracks)")
 
-    doc = {"clip": cfg.ACTIVE, "span_start": SPAN_START, "span_len": n, "fps": fps,
+    doc = {"clip": CLIP.name, "span_start": SPAN_START, "span_len": n, "fps": fps,
            "frames": frames_out}
     with open(OUT_JSON, "w", encoding="utf-8") as f:
         json.dump(doc, f, indent=2)

@@ -50,6 +50,7 @@ import stage2_multikeyframe as s2          # noqa: E402  per-clip CONFIG + helpe
 import stage4_courtmap as s4               # noqa: E402  H_court + court drawing
 
 import refit_keyframes                     # noqa: E402  consistency-refit keyframes
+from clip_config import ACTIVE_CLIP as CLIP  # noqa: E402  per-clip config
 from ultralytics import YOLO               # noqa: E402
 
 # ==============================================================================
@@ -73,7 +74,7 @@ CONF_REPROJ_MAX = 2.0    # mean reproj px on inliers (RANSAC caps inliers at 3px
 # Sample frames for the eyeball loop (CPU-only torch -> don't run YOLO on every
 # frame). Stay INSIDE the clip's validated pan range; clips_config notes TEST1's
 # clean L->C->R pan is ~100..585.
-SAMPLE_FRAMES = list(range(120, 581, 30))
+SAMPLE_FRAMES = list(CLIP.render_sample_frames)
 
 OUT_DIR = os.path.join(_HERE, "out")
 DISP_W, DISP_H = 1280, 720    # still/video output size

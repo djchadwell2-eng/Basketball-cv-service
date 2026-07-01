@@ -23,18 +23,19 @@ import cv2
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _HERE)
+sys.path.insert(0, os.path.dirname(_HERE))                          # repo root (clip_config)
 sys.path.insert(0, os.path.join(os.path.dirname(_HERE), "spikes"))
 
-import clips_config as cfg
+from clip_config import ACTIVE_CLIP as CLIP
 import ocr_reader
 import roster
 import windows as winmod
 from identity import IdentityState
 from tracking import Track
 
-TRACKS_JSON = os.path.join(_HERE, "out", f"{cfg.ACTIVE}_tracks_raw.json")
+TRACKS_JSON = CLIP.tracks_cache_path
 OUT_DIR = os.path.join(_HERE, "out")
-DEMO_WINDOW_SECONDS = 2.0
+DEMO_WINDOW_SECONDS = CLIP.accumulation_window_seconds
 MIN_OCR_HEIGHT = 90      # only attempt OCR on player boxes >= this tall (else unreadable)
 OCR_STRIDE = 2           # subsample the window's frames (CPU OCR is slow)
 MAX_ATTEMPTS = 10        # cap reads per candidate
@@ -66,7 +67,7 @@ def main():
     frames, doc = load(TRACKS_JSON)
     span_start, fps, clip = doc["span_start"], doc["fps"], doc["clip"]
     win_frames = int(round(DEMO_WINDOW_SECONDS * fps))
-    imgs = read_span_frames(cfg.active()["video_path"], span_start, doc["span_len"])
+    imgs = read_span_frames(CLIP.video_path, span_start, doc["span_len"])
 
     # --- windowed run + seed (roster labels give some identities a position number) ---
     wid = winmod.WindowedIdentity(span_start, win_frames)

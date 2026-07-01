@@ -17,14 +17,15 @@ import cv2
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _HERE)
+sys.path.insert(0, os.path.dirname(_HERE))                          # repo root (clip_config)
 sys.path.insert(0, os.path.join(os.path.dirname(_HERE), "spikes"))
 
-import clips_config as cfg
+from clip_config import ACTIVE_CLIP as CLIP
 import identity as idmod
 from identity import IdentityState
 from tracking import Track
 
-TRACKS_JSON = os.path.join(_HERE, "out", f"{cfg.ACTIVE}_tracks_raw.json")
+TRACKS_JSON = CLIP.tracks_cache_path
 OUT_DIR = os.path.join(_HERE, "out")
 DISP_W, DISP_H = 1280, 720
 
@@ -81,10 +82,10 @@ def draw(frame, machine, fidx):
 
 def main():
     frames, doc = load(TRACKS_JSON)
-    imgs = read_span_frames(cfg.active()["video_path"], doc["span_start"], doc["span_len"])
+    imgs = read_span_frames(CLIP.video_path, doc["span_start"], doc["span_len"])
 
     machine = idmod.IdentityStateMachine()
-    writer = cv2.VideoWriter(os.path.join(OUT_DIR, f"{cfg.ACTIVE}_stage2_recovery.mp4"),
+    writer = cv2.VideoWriter(os.path.join(OUT_DIR, f"{CLIP.name}_stage2_recovery.mp4"),
                              cv2.VideoWriter_fourcc(*"mp4v"), 8.0, (DISP_W, DISP_H))
     reappear_frames = set()
     for (fidx, tracks) in frames:
@@ -108,7 +109,7 @@ def main():
                     break
             snap = imgs[fidx].copy()
             draw(snap, m2, fidx)
-            cv2.imwrite(os.path.join(OUT_DIR, f"{cfg.ACTIVE}_stage2_reappear_{fidx}.jpg"),
+            cv2.imwrite(os.path.join(OUT_DIR, f"{CLIP.name}_stage2_reappear_{fidx}.jpg"),
                         cv2.resize(snap, (DISP_W, DISP_H)))
 
     # --- print every break ---
@@ -137,7 +138,7 @@ def main():
     print(f"\nfinal identity states: {dict(final)}")
     print("CONFIRMED count:", final.get("confirmed", 0),
           "(must be 0 -- no seed/second signal exists yet)")
-    print(f"\nsaved overlay: {cfg.ACTIVE}_stage2_recovery.mp4 (+ reappearance stills) in {OUT_DIR}")
+    print(f"\nsaved overlay: {CLIP.name}_stage2_recovery.mp4 (+ reappearance stills) in {OUT_DIR}")
 
 
 if __name__ == "__main__":

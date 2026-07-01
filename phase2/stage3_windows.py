@@ -16,20 +16,21 @@ from collections import Counter
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _HERE)
+sys.path.insert(0, os.path.dirname(_HERE))                          # repo root (clip_config)
 sys.path.insert(0, os.path.join(os.path.dirname(_HERE), "spikes"))
 
-import clips_config as cfg
+from clip_config import ACTIVE_CLIP as CLIP
 import identity as idmod
 import windows as winmod
 from tracking import Track
 
-TRACKS_JSON = os.path.join(_HERE, "out", f"{cfg.ACTIVE}_tracks_raw.json")
+TRACKS_JSON = CLIP.tracks_cache_path
 
 # ~15s is the STAND-IN for a real possession boundary (NOT final possession logic).
 STANDIN_WINDOW_SECONDS = 15.0
 # This validation span is only ~4s, so the DEMO window is shortened to fit >=2
 # boundaries and actually exercise the reset. Clearly a demo scaling, not the real value.
-DEMO_WINDOW_SECONDS = 2.0
+DEMO_WINDOW_SECONDS = CLIP.accumulation_window_seconds
 
 
 def load(path):

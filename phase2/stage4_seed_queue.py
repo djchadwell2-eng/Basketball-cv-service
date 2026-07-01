@@ -28,17 +28,18 @@ import cv2
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _HERE)
+sys.path.insert(0, os.path.dirname(_HERE))                          # repo root (clip_config)
 sys.path.insert(0, os.path.join(os.path.dirname(_HERE), "spikes"))
 
-import clips_config as cfg
+from clip_config import ACTIVE_CLIP as CLIP
 import windows as winmod
 from identity import IdentityState
 from tracking import Track
 
-TRACKS_JSON = os.path.join(_HERE, "out", f"{cfg.ACTIVE}_tracks_raw.json")
+TRACKS_JSON = CLIP.tracks_cache_path
 OUT_DIR = os.path.join(_HERE, "out")
-QUEUE_JSON = os.path.join(OUT_DIR, f"{cfg.ACTIVE}_review_queue.json")
-DEMO_WINDOW_SECONDS = 2.0        # matches Stage 3 demo scaling (real stand-in ~15s)
+QUEUE_JSON = os.path.join(OUT_DIR, f"{CLIP.name}_review_queue.json")
+DEMO_WINDOW_SECONDS = CLIP.accumulation_window_seconds   # per-clip window (demo stand-in = 2.0s)
 
 
 def load(path):
@@ -130,7 +131,7 @@ def main():
     print(f"\nsaved review queue -> {QUEUE_JSON}")
 
     # --- a still per window start: the first green (seeded=CONFIRMED) ---
-    cap = cv2.VideoCapture(cfg.active()["video_path"])
+    cap = cv2.VideoCapture(CLIP.video_path)
     for w, (sf, seeded) in seed_frames.items():
         cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
         for _ in range(sf):
@@ -148,7 +149,7 @@ def main():
                         cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 255, 0), 1)
         cv2.putText(frame, f"WINDOW {w} SEED f={sf}: {len(seeded)} confirmed via seed",
                     (20, 34), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
-        cv2.imwrite(os.path.join(OUT_DIR, f"{cfg.ACTIVE}_stage4_seed_w{w}_f{sf}.jpg"),
+        cv2.imwrite(os.path.join(OUT_DIR, f"{CLIP.name}_stage4_seed_w{w}_f{sf}.jpg"),
                     cv2.resize(frame, (1280, 720)))
     cap.release()
     print(f"saved seed stills (first green) in {OUT_DIR}")

@@ -16,15 +16,16 @@ import numpy as np
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _HERE)
+sys.path.insert(0, os.path.dirname(_HERE))                          # repo root (clip_config)
 
 import stage1_court_roi as st          # reuse Stage 1 classification + direct anchor
 import team_event_schema as schema     # Stage 2a records + JSON
+from clip_config import ACTIVE_CLIP as CLIP
 
-OUT_JSON = os.path.join(_HERE, "out", f"{st.s2.cfg.ACTIVE}_team_events.json")
+OUT_JSON = os.path.join(_HERE, "out", f"{CLIP.name}_team_events.json")
 
-# Dense sweep across the validated pan (every 10th frame), now that the homography
-# is trustworthy across the whole pan -- not just the 16 near-keyframe samples.
-GEN_FRAMES = list(range(120, 581, 10))
+# Per-clip frames Phase 1 samples for team_events (dense sweep across the pan).
+GEN_FRAMES = list(CLIP.event_frames)
 
 
 def main():

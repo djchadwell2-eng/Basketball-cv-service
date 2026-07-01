@@ -51,5 +51,6 @@ promote `CANDIDATE` → `CONFIRMED`.** Agreed design:
 - **Seed-everyone** (Stage 4 seeds every track present at a window start) → replace
   with **ROI-mask + per-game roster seeding**, so the box score covers the ~10
   on-court players, not the crowd/bench.
-- **~15s fixed window** (containment boundary stand-in) → replace with **real
-  possession detection**. Neither is final possession logic.
+- **Fixed 2.0s window** (`accumulation_window_seconds` — the containment-boundary /
+  OCR-accumulation stand-in; code value is 2.0s, not the "~15s" earlier drafts said)
+  → replace with **real possession detection**. Neither is final possession logic.

@@ -1,33 +1,21 @@
-"""Per-game roster -- the CLOSED SET jersey OCR matches against.
+"""Roster access -- the CLOSED SET jersey OCR matches against.
 
-This is a PARTIAL CALIBRATION roster for TEST1, built from jersey numbers that are
-actually legible in the footage (OCR discovery pass + visual verification). It is
-NOT full ground truth -- a real roster would be coach-entered (both full squads).
-Its job here is (a) turn open OCR into closed-set matching (a read only counts if
-it is a roster number), and (b) provide seed identities for the 3-outcome test.
-
-SEED_LABELS are a stand-in for the coach seeding a player BY EYE (a first signal
-INDEPENDENT of the automated OCR reader): I visually confirmed track 17 wears #13
-and track 6 wears #5 from the crops. Those seeds carry a jersey number that
-position-continuity then carries through breaks -- so a later OCR read can AGREE
-(confirm) or DISAGREE (swap flag) with what position says.
+The roster values themselves now live in the per-clip ClipConfig (clip_config.py):
+per-team numbers + jersey colour, and the hand-verified seed labels (a first signal
+independent of the automated OCR reader). This module is a thin accessor over the
+ACTIVE_CLIP so the OCR stage keeps its existing calls.
 """
 
-# Numbers discovered legibly by OCR on this footage (multi-sighting). #1/#23 were
-# seen once each and excluded as likely misreads -> kept STRICT.
-ROSTER_NUMBERS = {5, 13, 24}
+import os
+import sys
 
-# Loose team/color note (matching is by NUMBER; colour is not relied on).
-TEAMS = {
-    "Milford (white)": {13},
-    "Little Miami (green)": {5, 24},
-}
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo root
+from clip_config import ACTIVE_CLIP
 
-# track_id -> jersey number, hand-verified by eye (coach-seed stand-in, per clip).
-SEED_LABELS = {
-    "TEST1": {17: 13, 6: 5},
-}
+# Closed set of jersey numbers to match against (union of both teams' numbers).
+ROSTER_NUMBERS = ACTIVE_CLIP.roster_numbers()
 
 
 def seed_number_for(clip: str, track_id: int):
-    return SEED_LABELS.get(clip, {}).get(track_id)
+    """track_id -> jersey number for the active clip's hand-verified seeds."""
+    return ACTIVE_CLIP.seed_labels.get(track_id)
