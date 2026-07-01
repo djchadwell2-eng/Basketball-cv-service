@@ -157,7 +157,7 @@ IMPOSSIBLE until a second signal (OCR, later step) exists.
 - [x] 3: per-possession (or fixed ~15s stand-in) re-seed boundary; contain errors.
 - [x] 4: seeding (post-process, re-seed-on-loss) + coach review queue (all
       candidates/unknowns need one click). Queue will be LONG without OCR — correct.
-- [ ] 5: identity-stamped player_events; uncertainty propagates; box score trusts
+- [x] 5: identity-stamped player_events; uncertainty propagates; box score trusts
       'confirmed' only. Print states propagating onto events.
 - Commit before + after each stage. NO OCR/second signal, NO auto-promote, NO
   team_event/stat/calibration edits, NO LLM, do NOT shrink the queue by loosening.
