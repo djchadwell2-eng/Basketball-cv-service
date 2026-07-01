@@ -143,6 +143,25 @@ keyframes agree across their overlap (one shared court coord system).
    Validation gate: 5 handoff jumps drop to a few px + full-pan overlay glued & smooth.
 3. Phase 2.
 
+## PHASE 2 — individual player identity (abstention-first)
+Sits on NEW tracks + player_events layers ON TOP OF the identity-free team_event
+spine (do NOT modify team_events). No LLM. SAFETY: never silently attribute a stat
+to the wrong player. Silent promotion candidate->confirmed is STRUCTURALLY
+IMPOSSIBLE until a second signal (OCR, later step) exists.
+- [ ] 1: port YOLOv8m@1280+ByteTrack into phase2/; define IdentityState
+      (confirmed/lost/candidate/unknown) carried by every track every frame. IRON
+      RULE in code: no candidate->confirmed auto path; promote_via_second_signal()
+      stub unimplemented/unreachable. Print per-frame track states for a span.
+- [ ] 2: honest loss (occlusion->lost, attribute nothing) + candidate recovery
+      (reappear->candidate w/ evidence: gap, distance, motion). No auto-confirm.
+- [ ] 3: per-possession (or fixed ~15s stand-in) re-seed boundary; contain errors.
+- [ ] 4: seeding (post-process, re-seed-on-loss) + coach review queue (all
+      candidates/unknowns need one click). Queue will be LONG without OCR — correct.
+- [ ] 5: identity-stamped player_events; uncertainty propagates; box score trusts
+      'confirmed' only. Print states propagating onto events.
+- Commit before + after each stage. NO OCR/second signal, NO auto-promote, NO
+  team_event/stat/calibration edits, NO LLM, do NOT shrink the queue by loosening.
+
 ## Review
 - Phase 1 spine built staged: Stage 1 (court ROI mask), Stage 2 (identity-free
   team_event schema + JSON), Stage 3 (zones + occupancy + heatmap + coach demo).
