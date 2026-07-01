@@ -154,7 +154,7 @@ IMPOSSIBLE until a second signal (OCR, later step) exists.
       stub unimplemented/unreachable. Print per-frame track states for a span.
 - [x] 2: honest loss (occlusion->lost, attribute nothing) + candidate recovery
       (reappear->candidate w/ evidence: gap, distance, motion). No auto-confirm.
-- [ ] 3: per-possession (or fixed ~15s stand-in) re-seed boundary; contain errors.
+- [x] 3: per-possession (or fixed ~15s stand-in) re-seed boundary; contain errors.
 - [ ] 4: seeding (post-process, re-seed-on-loss) + coach review queue (all
       candidates/unknowns need one click). Queue will be LONG without OCR — correct.
 - [ ] 5: identity-stamped player_events; uncertainty propagates; box score trusts
