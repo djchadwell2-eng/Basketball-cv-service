@@ -20,3 +20,6 @@ phase1/out/
 __pycache__/
 *.pyc
 phase2/out/
+
+# Large derived overlay/diagnostic videos (exceed GitHub 100MB limit; regenerable)
+*.mp4
