@@ -1,16 +1,15 @@
 Stage 2 -- multi-keyframe landmark assembly
-video: C:\Users\djcha\Downloads\HARD.mp4
-keyframe chain: [600, 700, 800, 900, 1000, 1100, 1200]
-reference keyframe: 900 (pos 3)
+video: C:\Users\djcha\Downloads\Test1.mp4
+keyframe chain: [120, 220, 320, 420, 500, 580]
+reference keyframe: 420 (pos 3)
 
 adjacent-pair inlier ratios:
-    600 ->   700  matches= 2344  inliers= 2061  ratio=0.879
-    700 ->   800  matches= 2152  inliers= 1893  ratio=0.880
-    800 ->   900  matches= 3065  inliers= 2783  ratio=0.908
-    900 ->  1000  matches= 3294  inliers= 3031  ratio=0.920
-   1000 ->  1100  matches= 1437  inliers= 1257  ratio=0.875
-   1100 ->  1200  matches= 1544  inliers= 1314  ratio=0.851
+    120 ->   220  matches= 2432  inliers= 2115  ratio=0.870
+    220 ->   320  matches= 1613  inliers= 1366  ratio=0.847
+    320 ->   420  matches= 1162  inliers=  932  ratio=0.802
+    420 ->   500  matches= 1838  inliers= 1515  ratio=0.824
+    500 ->   580  matches= 1863  inliers= 1576  ratio=0.846
 
-distinct landmarks collected (transformed): 13
-  ['LB_side_far', 'L_FT_far', 'L_FT_near', 'L_lane_base_far', 'L_lane_base_near', 'RB_side_far', 'R_FT_far', 'R_FT_near', 'R_lane_base_far', 'R_lane_base_near', 'center_far', 'center_logo', 'center_near']
-shared-landmark consistency: count=11  mean_spread=7.9px  max_spread=12.9px
+distinct landmarks collected (transformed): 17
+  ['LB_side_far', 'L_FT_far', 'L_FT_near', 'L_lane_base_far', 'L_lane_base_near', 'RB_side_far', 'R_FT_far', 'R_FT_near', 'R_lane_base_far', 'R_lane_base_near', 'center_far', 'center_logo', 'center_near', 'circle_bottom', 'circle_left', 'circle_right', 'circle_top']
+shared-landmark consistency: count=16  mean_spread=6.7px  max_spread=33.2px
