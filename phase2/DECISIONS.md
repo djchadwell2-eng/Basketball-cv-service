@@ -316,6 +316,45 @@ the containment principle costing us seconds to protect correctness — the
 queue-resolution v2 click recovers it with human authority. HARD: 7/9 named,
 queue 23, the #24 splice contradiction still correctly stuck.
 
+### 9b. USER VALIDATION SESSION — boundaries are court-SIDE transitions, not possession starts (2026-07-12)
+Joint sanity check (dad-demo substitute): user independently scrubbed both
+source videos against 5 system claims. Results:
+
+1. **BOUNDARY SIGNAL real, but the word "possession" overclaims it.** User
+   confirmed the ball genuinely crosses half-court at both flagged moments
+   (TEST1 16.7s, HARD 36.6s) — the underlying court-side classification is
+   measuring the right thing. But user correctly identified that crossing
+   half-court is NOT the same as a possession starting: in real play a
+   possession begins at the rebound/steal/inbound (usually in a team's own
+   defensive end), and the half-court crossing is mid-possession ball
+   advancement, not a boundary. **This is not a bug** — it is exactly the
+   documented scope of `phase2/possessions.py` (ROADMAP Phase 3: "possession
+   detection v1, NO BALL NEEDED"): it detects COURT SIDE as a windowing/
+   identity-containment stand-in, not true ball-based possession semantics
+   (that's Phase 5, gated on the ball layer). The mechanism is still valid
+   for its actual job (a sane point to reset the identity machine) — but the
+   word "possession" in code/prints/docs oversells it. **RULE for all future
+   coach-facing material: never present window/boundary counts as "N
+   possessions" without this caveat.** The box score already uses the
+   neutral `windows_present` — keep it that way; do not rename to
+   "possessions" anywhere user-facing until Phase 5 makes it true.
+2. **OCR ground truth CONFIRMED.** User verified both #24 crops (TEST1
+   green/Little Miami, HARD white/red/Milford) — correct number AND correct
+   team color on both.
+3. **Pure human-click credit CONFIRMED — the queue-resolution v2 bet pays
+   off.** HARD identity 103 → #44 (5.3 of 5.8s credited from a single
+   queue-resolution click, ZERO OCR backing) — user visually confirmed #44
+   by means other than reading the jersey number in the still (which wasn't
+   legible at that resolution). First real-world proof that a human's
+   whole-span click, unsupported by any second signal, produced a correct
+   label — validates the core assumption queue-resolution v2 was built on.
+
+VERDICT: identity/tracking foundation holds up under independent scrutiny
+with zero errors found. The dad-demo deferral (2026-07-12, this session)
+is reinforced, not reversed: even "possession 1/2" language would need a
+caveat a real demo shouldn't require — one more reason the first user-facing
+demo should wait for Phase 5's actual stat line.
+
 ## 10. QUEUE-RESOLUTION v2 — built + first real session (2026-07-12)
 Human queue resolutions ride the SAME merge machinery as OCR agrees
 (stage7._restamp: shared contradiction check + credited-set bookkeeping;

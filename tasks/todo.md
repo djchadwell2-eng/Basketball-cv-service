@@ -1,4 +1,44 @@
-# HARD QUEUE-RESOLUTION SESSION (current task, 2026-07-12)
+# SANITY CHECK (dad-demo substitute) (current task, 2026-07-12)
+
+Joint validation instead of a formal demo (agreed: no real stat exists yet to
+show dad, per DECISIONS §9b context). User independently scrubbed both source
+videos against 5 claims produced by stills I generated.
+- [x] V1. Extracted + reviewed stills myself before handoff: 2 possession-
+      boundary frames per clip, the 2 existing OCR-ground-truth crops (#24
+      both clips), 1 new labeled still for a pure-human-click identity
+      (HARD #44, identity 103, zero OCR backing)
+- [x] V2. USER RESULT — boundaries: ball does cross half-court at both
+      flagged moments (confirmed), BUT correctly caught that crossing
+      half-court != a possession starting (mid-advancement, not a
+      boundary). NOT A BUG — exactly possessions.py's documented scope
+      (court-side stand-in, ROADMAP Phase 3 "no ball needed"); the WORD
+      "possession" oversells it. Rule recorded: never present window counts
+      as "N possessions" to a coach without this caveat (DECISIONS §9b).
+- [x] V3. USER RESULT — OCR ground truth: both #24 crops confirmed correct
+      number + correct team color (TEST1 green, HARD white/red).
+- [x] V4. USER RESULT — HARD #44 (identity 103, 5.3 of 5.8s from a single
+      queue-resolution click, ZERO OCR backing): user confirmed correct by
+      means other than the jersey number itself. First real proof a pure
+      human click held up under independent scrutiny.
+- [x] V5. DECISIONS §9b recorded (placed after §9a, chronologically correct);
+      commit.
+
+## Review (sanity check, 2026-07-12)
+Zero errors found across 5 independent checks. The identity/tracking
+foundation (both clips) holds up under real scrutiny, not just eyeballing by
+the builder. The one non-obvious finding: "possession" windows are a
+court-side stand-in, not real basketball possession-start detection — a
+naming trap for future coach-facing material now on record. This reinforces
+(doesn't reverse) the decision to defer the formal dad demo until Phase 5
+produces an actual stat line.
+NEXT: color tiebreak (2 measured dual-team cases) or start Phase 5 (ball/shot
+detection) — user's call on ordering; Phase 4 (multi-gym auto-cal) stays
+deferred to after Phase 8 per user's ship-ASAP directive (not yet reflected
+in ROADMAP.md — pending edit, intentionally not made yet).
+
+---
+
+# HARD QUEUE-RESOLUTION SESSION (completed 2026-07-12)
 
 User resolves HARD's 23-item queue via the review page; resolutions apply
 through stage7's shared contradiction-checked merge path (same as TEST1's R4).
