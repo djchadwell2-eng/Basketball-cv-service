@@ -100,6 +100,10 @@ class IdentityStateMachine:
         self._lost: list[Identity] = []            # occluded, awaiting reappearance
         self._all: list[Identity] = []
         self.breaks: list[dict] = []               # log of occlusion/relink events
+        # Every CONFIRMED transition, emitted by the gate itself. This is the
+        # ONLY authorization source for retroactive stat merges: a merge may
+        # consume these records and nothing else (never position scans).
+        self.confirmations: list[dict] = []
         self._next_id = 0
 
     # -- creation -------------------------------------------------------------
@@ -125,18 +129,29 @@ class IdentityStateMachine:
                 "Position/motion continuity must never confirm (silent-swap risk).")
         ident.state = IdentityState.CONFIRMED
         ident.evidence = {"reason": f"confirmed via {provenance}"}
+        self.confirmations.append({                # gate-emitted merge authorization
+            "identity_id": ident.identity_id, "track_id": ident.track_id,
+            "provenance": provenance, "roster_number": ident.roster_number})
 
     def seed(self, track_id: int, *, roster_number: int | None = None,
-             label: str | None = None) -> None:
+             label: str | None = None) -> bool:
         """Human seed in post-processing. A real (first) signal. May carry the
         player's jersey number, which position-continuity then keeps through breaks
-        so a later OCR read can AGREE/DISAGREE with it."""
+        so a later OCR read can AGREE/DISAGREE with it.
+
+        Returns True if seeded. A track_id with no active track is a LOUD no-op
+        (returns False) -- a typo'd or stale hand-verified seed label must never
+        disappear silently."""
         ident = self._by_track.get(track_id)
-        if ident is not None:
-            self.set_confirmed(ident, provenance="seed")
-            ident.roster_number = roster_number
-            if label is not None:
-                ident.evidence["label"] = label
+        if ident is None:
+            print(f"  WARNING: seed for track_id {track_id} ignored -- no active "
+                  f"track with that id at the seed frame (typo or stale label?)")
+            return False
+        ident.roster_number = roster_number        # before confirming, so the
+        self.set_confirmed(ident, provenance="seed")   # gate record carries it
+        if label is not None:
+            ident.evidence["label"] = label
+        return True
 
     def promote_via_second_signal(self, ident: Identity, number, confidence) -> str:
         """SANCTIONED second-signal path (jersey OCR). Applies the three outcomes to

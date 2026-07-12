@@ -19,6 +19,7 @@ sys.path.insert(0, os.path.join(_ROOT, "phase2"))
 
 def cache(config):
     """Track the config's span and write tracks to config.tracks_cache_path."""
+    config.validate()                         # malformed config: refuse before tracking
     import clip_config
     clip_config.ACTIVE_CLIP = config          # set BEFORE importing run_tracking (binds at import)
     import run_tracking                        # reads ACTIVE_CLIP at import -> this config

@@ -27,12 +27,14 @@ sys.path.insert(0, os.path.dirname(_HERE))                          # repo root 
 sys.path.insert(0, os.path.join(os.path.dirname(_HERE), "spikes"))
 
 from clip_config import ACTIVE_CLIP as CLIP
+import oncourt
+import possessions
+import roster
 import windows as winmod
 from tracking import Track
 
 TRACKS_JSON = CLIP.tracks_cache_path
 OUT_JSON = os.path.join(_HERE, "out", f"{CLIP.name}_player_events.json")
-DEMO_WINDOW_SECONDS = CLIP.accumulation_window_seconds
 
 
 def load(path):
@@ -61,18 +63,38 @@ def spans(frame_states):
 def main():
     frames, doc = load(TRACKS_JSON)
     span_start, fps = doc["span_start"], doc["fps"]
-    win_frames = int(round(DEMO_WINDOW_SECONDS * fps))
 
-    wid = winmod.WindowedIdentity(span_start, win_frames)
+    # WINDOWS = detected possessions (fixed-window fallback is loud inside).
+    boundaries, wlabel = possessions.load_windows(CLIP)
+
+    # ROI-MASK SEEDING: only on-court tracks are auto-trusted. Off-court bodies
+    # stay UNKNOWN (their events are still stamped honestly; the box score
+    # trusts CONFIRMED only, so it now contains on-court players exclusively).
+    onc = oncourt.on_court_by_window(oncourt.load_checked(CLIP),
+                                     boundaries=boundaries)
+
+    wid = winmod.WindowedIdentity(boundaries=boundaries)
     events = []                         # the identity-stamped player_events
+    seen = set()
     prev_win = None
     for (fidx, tracks) in frames:
         win = wid.update(fidx, tracks)
         machine = wid.current_machine()
         if win != prev_win:             # re-seed point -> CONFIRMED (provenance=seed)
+            seen = set()
+            on = onc.get(win, set())
+            n_off = sum(1 for t in tracks if t.track_id not in on)
             for t in tracks:
-                machine.seed(t.track_id, label=f"w{win}_t{t.track_id}")
+                if t.track_id in on:
+                    machine.seed(t.track_id, label=f"w{win}_t{t.track_id}")
+            print(f"  window {win}: seeded {len(tracks) - n_off} on-court at f={fidx}, "
+                  f"skipped {n_off} off-court (ROI mask)")
             prev_win = win
+        else:                           # LABELED on-court newcomers seed on arrival
+            winmod.seed_labeled_newcomers(
+                machine, tracks, seen, onc.get(win, set()),
+                lambda tid: roster.seed_number_for(CLIP.name, tid))
+        seen |= {t.track_id for t in tracks}
         for ident in machine.active():  # LOST identities are NOT active -> no attribution
             events.append({"window": win, "frame": fidx,
                            "identity_id": ident.identity_id, "track_id": ident.track_id,

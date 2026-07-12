@@ -28,6 +28,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(_HERE), "spikes"))
 
 from clip_config import ACTIVE_CLIP as CLIP
 import ocr_reader
+import oncourt
+import possessions
 import roster
 import windows as winmod
 from identity import IdentityState
@@ -35,7 +37,7 @@ from tracking import Track
 
 TRACKS_JSON = CLIP.tracks_cache_path
 OUT_DIR = os.path.join(_HERE, "out")
-DEMO_WINDOW_SECONDS = CLIP.accumulation_window_seconds
+OUT_JSON = os.path.join(OUT_DIR, f"{CLIP.name}_ocr_confirms.json")   # persisted outcomes
 MIN_OCR_HEIGHT = 90      # only attempt OCR on player boxes >= this tall (else unreadable)
 OCR_STRIDE = 2           # subsample the window's frames (CPU OCR is slow)
 MAX_ATTEMPTS = 10        # cap reads per candidate
@@ -64,31 +66,56 @@ def read_span_frames(video, start, length):
 
 
 def main():
+    os.makedirs(OUT_DIR, exist_ok=True)
     frames, doc = load(TRACKS_JSON)
     span_start, fps, clip = doc["span_start"], doc["fps"], doc["clip"]
-    win_frames = int(round(DEMO_WINDOW_SECONDS * fps))
     imgs = read_span_frames(CLIP.video_path, span_start, doc["span_len"])
 
+    # WINDOWS = detected possessions (fixed-window fallback is loud inside).
+    boundaries, wlabel = possessions.load_windows(CLIP)
+
+    # ROI-MASK: on-court majority per (window, track). Seeds, OCR attempts, and
+    # the review queue are scoped to ON-COURT bodies; off-court exclusions are
+    # counted and persisted below (never silent).
+    onc = oncourt.on_court_by_window(oncourt.load_checked(CLIP),
+                                     boundaries=boundaries)
+
     # --- windowed run + seed (roster labels give some identities a position number) ---
-    wid = winmod.WindowedIdentity(span_start, win_frames)
+    wid = winmod.WindowedIdentity(boundaries=boundaries)
     active_log = defaultdict(list)          # (win, id) -> [(frame, bbox)]
     ident_of = {}                           # (win, id) -> Identity
+    seen = set()
     prev_win = None
     for (fidx, tracks) in frames:
         win = wid.update(fidx, tracks)
         m = wid.current_machine()
         if win != prev_win:
+            seen = set()
+            on = onc.get(win, set())
             for t in tracks:
-                m.seed(t.track_id, roster_number=roster.seed_number_for(clip, t.track_id))
+                if t.track_id in on:        # ROI mask: seed on-court only
+                    m.seed(t.track_id, roster_number=roster.seed_number_for(clip, t.track_id))
             prev_win = win
+        else:                               # LABELED on-court newcomers seed on arrival
+            winmod.seed_labeled_newcomers(
+                m, tracks, seen, onc.get(win, set()),
+                lambda tid: roster.seed_number_for(clip, tid))
+        seen |= {t.track_id for t in tracks}
         for ident in m.active():
             active_log[(win, ident.identity_id)].append((fidx, ident.last_bbox))
             ident_of[(win, ident.identity_id)] = ident
 
     machines = wid.machines()
-    candidates = [k for k, i in ident_of.items() if i.state == IdentityState.CANDIDATE]
+
+    def _on_court(key):
+        return ident_of[key].track_id in onc.get(key[0], set())
+
+    all_cands = [k for k, i in ident_of.items() if i.state == IdentityState.CANDIDATE]
+    candidates = [k for k in all_cands if _on_court(k)]           # the OCR pool
+    off_court_candidates = len(all_cands) - len(candidates)
     before_review = [k for k, i in ident_of.items()
-                     if i.state in (IdentityState.CANDIDATE, IdentityState.UNKNOWN)]
+                     if i.state in (IdentityState.CANDIDATE, IdentityState.UNKNOWN)
+                     and _on_court(k)]
 
     # --- temporal OCR accumulation per candidate ---
     attempts = crops_any = crops_conf = 0
@@ -97,7 +124,18 @@ def main():
     for key in candidates:
         frs = [(f, bb) for (f, bb) in active_log[key]
                if bb and (bb[3] - bb[1]) >= MIN_OCR_HEIGHT]
-        frs = frs[::OCR_STRIDE][:MAX_ATTEMPTS]
+        # BEST-CROPS-FIRST (attempt policy v2): legibility tracks box size
+        # (montage diagnosis, DECISIONS 4b), so spend the attempt budget on the
+        # candidate's LARGEST boxes, keeping picks >= OCR_STRIDE frames apart
+        # so attempts aren't near-duplicate frames. Budget/threshold unchanged.
+        frs.sort(key=lambda fb: -(fb[1][3] - fb[1][1]))
+        picked = []
+        for (f, bb) in frs:
+            if all(abs(f - g) >= OCR_STRIDE for (g, _b) in picked):
+                picked.append((f, bb))
+            if len(picked) >= MAX_ATTEMPTS:
+                break
+        frs = picked
         if frs:
             attempted_cands.add(key)
         for (f, bb) in frs:
@@ -123,7 +161,9 @@ def main():
         outcomes[res].append((key, b))
 
     # --- readability measurement ---
-    print(f"clip={clip} span={span_start}..+{doc['span_len']}  candidates={len(candidates)}")
+    print(f"clip={clip} span={span_start}..+{doc['span_len']}  "
+          f"candidates={len(candidates)} (ON-COURT; ROI mask excluded "
+          f"{off_court_candidates} off-court candidates from the OCR pool)")
     pf_any = crops_any / attempts if attempts else 0
     pf_conf = crops_conf / attempts if attempts else 0
     pp_conf = len(best) / len(attempted_cands) if attempted_cands else 0
@@ -150,10 +190,12 @@ def main():
     print(f"\nSTAYED CANDIDATE (no confident on-roster read all window): {stayed}  "
           f"(expected -- number never faced the camera; NOT a failure)")
 
-    # --- queue before vs after (count final review states directly) ---
-    after_review = sum(1 for i in ident_of.values()
-                       if i.state in (IdentityState.CANDIDATE, IdentityState.UNKNOWN))
-    print(f"\nREVIEW QUEUE:  before OCR = {len(before_review)}  ->  after OCR = {after_review}")
+    # --- queue before vs after (on-court only; matches stage4's queue policy) ---
+    after_review = sum(1 for k, i in ident_of.items()
+                       if i.state in (IdentityState.CANDIDATE, IdentityState.UNKNOWN)
+                       and _on_court(k))
+    print(f"\nREVIEW QUEUE (on-court):  before OCR = {len(before_review)}  ->  "
+          f"after OCR = {after_review}")
     print(f"  auto-confirmed (removed from queue): {len(outcomes['agree'])}")
     print(f"  disagreement flags (added, highest value): {len(outcomes['disagree'])}")
 
@@ -174,6 +216,46 @@ def main():
         cv2.imwrite(os.path.join(OUT_DIR, f"{clip}_ocr_confirm_w{key[0]}_id{key[1]}_f{f}.jpg"),
                     cv2.resize(img, (1280, 720)))
     print(f"\nsaved OCR-confirm stills in {OUT_DIR}")
+
+    # --- PERSIST the outcomes (they are the pipeline's most valuable signal;
+    # until now they lived only in stdout + stills). This JSON is also the
+    # input contract for the future retroactive stat merge. -------------------
+    def _row(key, b):
+        ident = ident_of[key]
+        row = {"window": key[0], "identity_id": key[1], "track_id": ident.track_id,
+               "position_hypothesis": ident.roster_number,
+               "final_state": ident.state.value, "evidence": dict(ident.evidence)}
+        if b is not None:
+            row.update({"read_number": b[0], "read_confidence": round(b[1], 3),
+                        "read_frame": b[2], "read_bbox": [round(v, 1) for v in b[3]]})
+        return row
+
+    out_doc = {
+        "clip": clip, "span_start": span_start, "span_len": doc["span_len"],
+        "windows": wlabel, "window_boundaries": boundaries,
+        "ocr_confirm_threshold": ocr_reader.OCR_CONFIRM_THRESHOLD,
+        "seed_policy": "ROI-mask: on-court majority per (window, track)",
+        "attempt_policy": "best_crops_first_v2",
+        "off_court_candidates_excluded": off_court_candidates,
+        "readability": {
+            "crops_attempted": attempts, "crops_any_read": crops_any,
+            "crops_confident_read": crops_conf,
+            "candidates_attempted": len(attempted_cands),
+            "candidates_with_confident_read": len(best)},
+        "review_queue_before": len(before_review),
+        "review_queue_after": after_review,
+        "outcomes": {name: [_row(k, b) for (k, b) in rows]
+                     for name, rows in outcomes.items()},
+        # Per-identity registry (ALL identities, not just candidates): the
+        # merge stage needs number + final state to run its contradiction check.
+        "identities": [
+            {"window": k[0], "identity_id": k[1], "track_id": i.track_id,
+             "roster_number": i.roster_number, "final_state": i.state.value}
+            for k, i in sorted(ident_of.items())],
+    }
+    with open(OUT_JSON, "w", encoding="utf-8") as f:
+        json.dump(out_doc, f, indent=2)
+    print(f"saved OCR outcomes -> {OUT_JSON}")
 
 
 if __name__ == "__main__":

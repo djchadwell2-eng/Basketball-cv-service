@@ -46,8 +46,41 @@ def _section(title):
     print("\n" + "=" * 72 + f"\n== {title}\n" + "=" * 72)
 
 
+def _load_and_check_cache(config):
+    """Load the tracks cache and REFUSE if it doesn't describe this config's
+    clip + span. A stale/wrong cache means stages 4/6 would crop OCR evidence
+    from frames the tracker never saw -- silently wrong output. Runs BEFORE the
+    slow calibration solve so a bad cache fails in a second, not after minutes."""
+    import json
+    if not os.path.exists(config.tracks_cache_path):
+        raise SystemExit(
+            f"No tracks cache at {config.tracks_cache_path}.\n"
+            f"Run:  python -c \"import cache_tracks, clip_config; "
+            f"cache_tracks.cache(clip_config.{config.name}_CLIP)\"  first.")
+    doc = json.load(open(config.tracks_cache_path, encoding="utf-8"))
+    got = (doc.get("clip"), doc.get("span_start"), doc.get("span_len"))
+    want = (config.name, config.tracking_span_start, config.tracking_span_len)
+    if got != want or not doc["frames"]:
+        hint = ("(0 frames = the extract failed at cache time; bad video path?)\n"
+                if not doc["frames"] else "")
+        raise SystemExit(
+            f"STALE/WRONG TRACKS CACHE -- refusing to run.\n"
+            f"  cache file:   {config.tracks_cache_path}\n"
+            f"  cache says:   clip={got[0]!r} span={got[1]}..+{got[2]}  "
+            f"frames={len(doc['frames'])}\n"
+            f"  config wants: clip={want[0]!r} span={want[1]}..+{want[2]}\n"
+            f"{hint}"
+            f"Re-run:  python -c \"import cache_tracks, clip_config; "
+            f"cache_tracks.cache(clip_config.{config.name}_CLIP)\"")
+    return doc
+
+
 def run(config):
+    config.validate()                        # malformed config: refuse before any work
     _sync_and_guard(config)
+    doc = _load_and_check_cache(config)      # fail loud BEFORE calibrating
+    import oncourt
+    oncourt.load_checked(config)             # on-court cache too (ROI-mask seeding)
 
     # --- CALIBRATION (config-driven; must hold before anything downstream) ---
     _section(f"CALIBRATION -- {config.name}")
@@ -65,13 +98,7 @@ def run(config):
 
     # --- TRACKING: read the cache, never track inline ---
     _section("TRACKING (read from cache)")
-    if not os.path.exists(config.tracks_cache_path):
-        raise SystemExit(
-            f"No tracks cache at {config.tracks_cache_path}.\n"
-            f"Run:  python -c \"import cache_tracks, clip_config; "
-            f"cache_tracks.cache(clip_config.{config.name}_CLIP)\"  first.")
     import json
-    doc = json.load(open(config.tracks_cache_path, encoding="utf-8"))
     fidx = [f["frame_index"] for f in doc["frames"]]
     nids = len({t["track_id"] for f in doc["frames"] for t in f["tracks"]})
     print(f"cache: {len(doc['frames'])} frames {min(fidx)}..{max(fidx)}, "
@@ -98,6 +125,12 @@ def run(config):
     _section("PHASE 2 -- OCR second signal (auto-confirm)")
     import stage6_ocr_confirm as ocr
     ocr.main()
+    _section("PHASE 2 -- retroactive stat merge (agree-triggered only)")
+    import stage7_merge as merge
+    merge.main()
+    _section("PHASE 2 -- jersey-keyed box score")
+    import stage8_box_score as box
+    box.main()
 
     # --- INTEGRITY REPORT ---
     _section("INTEGRITY")
@@ -109,6 +142,19 @@ def run(config):
     print(f"player_events: {len(evs)}  every event stamped with identity_state: {stamped}")
     print(f"box score trusts CONFIRMED only: {len(box)} identities with confirmed frames")
     print(f"candidate/unknown surfaced for review (not counted): {len(review)} identities")
+    if os.path.exists(ocr.OUT_JSON):
+        oc = json.load(open(ocr.OUT_JSON, encoding="utf-8"))
+        print(f"OCR second signal: {len(oc['outcomes']['agree'])} auto-confirmed, "
+              f"{len(oc['outcomes']['disagree'])} disagreement flag(s)")
+    if os.path.exists(merge.OUT_JSON):
+        md = json.load(open(merge.OUT_JSON, encoding="utf-8"))
+        sc = md["state_counts"]
+        print(f"retroactive merge: {len(md['merges'])} span(s) re-credited, "
+              f"{len(md['contradictions'])} contradiction flag(s)")
+        print(f"final event states: confirmed={sc.get('confirmed', 0)} "
+              f"retro={sc.get('confirmed_retroactive', 0)} "
+              f"candidate={sc.get('candidate', 0)} unknown={sc.get('unknown', 0)}  "
+              f"(canonical artifact: {os.path.basename(merge.OUT_JSON)})")
     print(f"\n[run_clip] DONE -- {config.name} ran end-to-end.")
 
 

@@ -12,9 +12,13 @@ to the coach review queue as a one-click item. The queue is LONG by design: OCR
 (the next step) is what shrinks it by safely auto-promoting candidates. We do NOT
 shrink it by loosening the candidate bar or auto-confirming continuity.
 
-NOTE (model honesty): this seeds EVERY track present at a window start, standing in
-for the coach clicking the ~10 on-court players. Real on-court filtering / a click
-UI is out of scope here; it does not change the mechanism being validated.
+SEED POOL (ROI mask): only tracks standing ON the court at the window start are
+seeded -- per-window majority over the cached on/off classification
+(phase2/oncourt.py, built once per clip by cache_oncourt.py, reusing the
+validated Phase-1 court rules). Off-court bodies (crowd/bench) stay UNKNOWN and
+are excluded from the coach queue but always counted + recorded. Refs are
+on-court by the Phase-1 rule, so they are seeded (no roster number -> they end
+up in review, honestly). A coach click UI remains the eventual real seeder.
 """
 
 from __future__ import annotations
@@ -22,7 +26,7 @@ from __future__ import annotations
 import json
 import os
 import sys
-from collections import Counter
+from collections import Counter, defaultdict
 
 import cv2
 
@@ -32,6 +36,9 @@ sys.path.insert(0, os.path.dirname(_HERE))                          # repo root 
 sys.path.insert(0, os.path.join(os.path.dirname(_HERE), "spikes"))
 
 from clip_config import ACTIVE_CLIP as CLIP
+import oncourt
+import possessions
+import roster
 import windows as winmod
 from identity import IdentityState
 from tracking import Track
@@ -39,7 +46,6 @@ from tracking import Track
 TRACKS_JSON = CLIP.tracks_cache_path
 OUT_DIR = os.path.join(_HERE, "out")
 QUEUE_JSON = os.path.join(OUT_DIR, f"{CLIP.name}_review_queue.json")
-DEMO_WINDOW_SECONDS = CLIP.accumulation_window_seconds   # per-clip window (demo stand-in = 2.0s)
 
 
 def load(path):
@@ -69,34 +75,60 @@ def why(ident):
 def main():
     frames, doc = load(TRACKS_JSON)
     span_start, fps = doc["span_start"], doc["fps"]
-    win_frames = int(round(DEMO_WINDOW_SECONDS * fps))
 
-    wid = winmod.WindowedIdentity(span_start, win_frames)
-    seed_frames = {}                 # window -> (frame, [seeded track_ids])
+    # WINDOWS = detected possessions (fixed-window fallback is loud inside).
+    boundaries, wlabel = possessions.load_windows(CLIP)
+
+    # ROI-MASK SEEDING: only tracks standing ON the court (per-window majority
+    # over the cached classification) are auto-trusted with a seed. Off-court
+    # bodies (crowd/bench) stay UNKNOWN -- counted below, never silently used.
+    onc = oncourt.on_court_by_window(oncourt.load_checked(CLIP),
+                                     boundaries=boundaries)
+
+    wid = winmod.WindowedIdentity(boundaries=boundaries)
+    seed_frames = {}                 # window -> (frame, [seeded], [skipped off-court])
+    late_seeded = defaultdict(list)  # window -> [labeled tracks seeded on first appearance]
+    seen = set()
     prev_win = None
     for (fidx, tracks) in frames:
         win = wid.update(fidx, tracks)
+        machine = wid.current_machine()
         if win != prev_win:          # window start = the (re-)seed point
-            machine = wid.current_machine()
-            seeded = []
+            seen = set()
+            on = onc.get(win, set())
+            seeded, skipped = [], []
             for t in tracks:
+                if t.track_id not in on:          # off-court -> NOT auto-trusted
+                    skipped.append(t.track_id)
+                    continue
                 machine.seed(t.track_id, label=f"w{win}_t{t.track_id}")   # -> CONFIRMED
                 seeded.append(t.track_id)
-            seed_frames[win] = (fidx, seeded)
+            seed_frames[win] = (fidx, seeded, skipped)
             prev_win = win
+        else:                        # LABELED on-court newcomers seed on arrival
+            late_seeded[win] += winmod.seed_labeled_newcomers(
+                machine, tracks, seen, onc.get(win, set()),
+                lambda tid: roster.seed_number_for(CLIP.name, tid))
+        seen |= {t.track_id for t in tracks}
 
-    # --- per-window state + build the review queue ---
+    # --- per-window state + build the review queue (on-court only) ---
     queue = []
+    off_court_excluded = 0
     print(f"clip={doc['clip']} span={span_start}..+{doc['span_len']}  "
-          f"window={DEMO_WINDOW_SECONDS:.0f}s (demo; real stand-in ~15s)")
+          f"windows: {wlabel}")
     for w, machine in sorted(wid.machines().items()):
         tally = Counter(i.state.value for i in machine.all_identities())
-        sf, seeded = seed_frames[w]
-        print(f"\nwindow {w}: seeded {len(seeded)} tracks at f={sf} -> CONFIRMED "
-              f"(first legitimate green, provenance='seed')")
+        sf, seeded, skipped = seed_frames[w]
+        print(f"\nwindow {w}: seeded {len(seeded)} ON-COURT tracks at f={sf} -> CONFIRMED "
+              f"(provenance='seed'); skipped {len(skipped)} off-court (ROI mask); "
+              f"+{len(late_seeded[w])} LABELED newcomers seeded on arrival")
         print(f"  final states: {dict(tally)}")
+        on = onc.get(w, set())
         for ident in machine.all_identities():
             if ident.state in (IdentityState.CANDIDATE, IdentityState.UNKNOWN):
+                if ident.track_id not in on:      # crowd/bench: keep OUT of the
+                    off_court_excluded += 1       # coach's queue, but COUNT it
+                    continue
                 queue.append({"window": w, "frame": flagged_frame(ident),
                               "track": ident.track_id, "state": ident.state.value,
                               "why": why(ident)})
@@ -106,7 +138,7 @@ def main():
     # --- confirmed came ONLY from seeds (safety) ---
     total_conf = sum(Counter(i.state.value for i in m.all_identities()).get("confirmed", 0)
                      for m in wid.machines().values())
-    total_seeded = sum(len(s) for (_f, s) in seed_frames.values())
+    total_seeded = sum(len(s) for (_f, s, _sk) in seed_frames.values())
     print(f"\nCONFIRMED total = {total_conf} (all via provenance='seed'; seeds issued "
           f"= {total_seeded}). No continuity confirmation. second_signal still unbuilt.")
 
@@ -120,39 +152,48 @@ def main():
         print(f"  ... and {len(queue)-20} more")
     n_cand = sum(1 for q in queue if q["state"] == "candidate")
     n_unk = sum(1 for q in queue if q["state"] == "unknown")
-    print(f"\nqueue = {n_cand} candidates + {n_unk} unknowns.")
-    print("This queue is LONG BY DESIGN -- with no second signal, every unverified")
-    print("identity needs a human click. OCR (next step) shrinks it by SAFELY")
-    print("auto-promoting candidates; we do NOT shrink it by loosening the bar.")
+    print(f"\nqueue = {n_cand} candidates + {n_unk} unknowns (ON-COURT bodies only).")
+    print(f"off-court candidates/unknowns EXCLUDED from the coach queue: "
+          f"{off_court_excluded}  (crowd/bench -- counted, recorded, never seeded)")
+    print("The on-court queue shrinks via OCR auto-promotes only -- never by")
+    print("loosening the candidate bar.")
 
     with open(QUEUE_JSON, "w", encoding="utf-8") as f:
-        json.dump({"clip": doc["clip"], "window_seconds_demo": DEMO_WINDOW_SECONDS,
-                   "window_seconds_standin": 15.0, "items": queue}, f, indent=2)
+        json.dump({"clip": doc["clip"], "windows": wlabel,
+                   "window_boundaries": boundaries,
+                   "seed_policy": "ROI-mask: on-court majority per (window, track)",
+                   "off_court_excluded": off_court_excluded,
+                   "items": queue}, f, indent=2)
     print(f"\nsaved review queue -> {QUEUE_JSON}")
 
-    # --- a still per window start: the first green (seeded=CONFIRMED) ---
+    # --- a still per window start: seeded GREEN, off-court skipped RED ---
+    # (the ROI-mask eyeball artifact: crowd/bench should be red, players green)
     cap = cv2.VideoCapture(CLIP.video_path)
-    for w, (sf, seeded) in seed_frames.items():
+    for w, (sf, seeded, skipped) in seed_frames.items():
         cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
         for _ in range(sf):
             cap.grab()
         ok, frame = cap.read()
         if not ok:
             continue
-        # draw the seeded tracks green using their seed-frame boxes (all CONFIRMED).
         _fi, seed_tracks = frames[sf - span_start]
-        by_id = {t.track_id: t.bbox for t in seed_tracks}
-        for tid, bbox in by_id.items():
-            x1, y1, x2, y2 = [int(v) for v in bbox]
-            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-            cv2.putText(frame, f"t{tid}:confirmed(seed)", (x1, y1 - 5),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 255, 0), 1)
-        cv2.putText(frame, f"WINDOW {w} SEED f={sf}: {len(seeded)} confirmed via seed",
-                    (20, 34), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+        seeded_set = set(seeded)
+        for t in seed_tracks:
+            x1, y1, x2, y2 = [int(v) for v in t.bbox]
+            if t.track_id in seeded_set:
+                col, lbl = (0, 255, 0), f"t{t.track_id}:confirmed(seed)"
+            else:
+                col, lbl = (0, 0, 255), f"t{t.track_id}:OFF-COURT (not seeded)"
+            cv2.rectangle(frame, (x1, y1), (x2, y2), col, 2)
+            cv2.putText(frame, lbl, (x1, y1 - 5),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.45, col, 1)
+        cv2.putText(frame, f"WINDOW {w} SEED f={sf}: {len(seeded)} on-court seeded "
+                           f"(green), {len(skipped)} off-court skipped (red)",
+                    (20, 34), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
         cv2.imwrite(os.path.join(OUT_DIR, f"{CLIP.name}_stage4_seed_w{w}_f{sf}.jpg"),
                     cv2.resize(frame, (1280, 720)))
     cap.release()
-    print(f"saved seed stills (first green) in {OUT_DIR}")
+    print(f"saved seed stills (green=seeded on-court, red=skipped off-court) in {OUT_DIR}")
 
 
 if __name__ == "__main__":
