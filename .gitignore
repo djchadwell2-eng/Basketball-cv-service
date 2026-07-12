@@ -26,3 +26,6 @@ phase2/out/
 
 # pytest
 .pytest_cache/
+
+# Probe outputs (regenerable via spikes/reid_fragment_probe.py; verdict in DECISIONS §11)
+spikes/out/TEST1_tracks_botsort*.json
