@@ -1,3 +1,540 @@
+# HOUSEKEEPING COMMITS + RE-ID TRACKER PROBE (current task, 2026-07-12)
+
+## Task 1 — commit the uncommitted work in logical chunks
+The working tree holds everything from Phase 0-lite through queue-resolution v2
+(multiple completed units interleaved across the same files, so per-unit commits
+are no longer reconstructable; chunks are thematic, by whole file).
+- [ ] H1. Commit REVIEW.md + ROADMAP.md (the 2026-07-02 read-only review deliverables)
+- [ ] H2. Commit the pipeline work in one honest chunk: new modules
+      (phase2/oncourt.py, purity.py, possessions.py, stage7_merge.py,
+      stage8_box_score.py, make_review_bundle.py, cache_oncourt.py,
+      cache_purity.py) + modified core (identity.py, roster.py, stage4/5/6,
+      windows.py, run_clip.py, cache_tracks.py, clip_config.py, .gitignore)
+      + tests/ (73-test suite) — message names the units it contains
+      (Phase 0-lite, ROI seeding, fair remeasure, merge, box score,
+      click-seeding, purity, possessions, queue-resolution v2)
+- [ ] H3. Commit phase2/DECISIONS.md + tasks/todo.md (the record)
+- [ ] H4. Commit diagnostics/test1_probe/ + spikes/out stills/summary (artifacts)
+- [ ] H5. Suite green before and after (.venv/Scripts/python -m pytest tests/)
+
+## Task 2 — Re-ID tracker probe (BoT-SORT), READ-ONLY experiment
+Question it answers: does an appearance-embedding tracker cut fragmentation
+(TEST1 baseline: 122 distinct track_ids / 461 frames)? Clicks scale with
+fragmentation, so ~4x fewer fragments = ~4x less human work (DECISIONS §10).
+SAFETY RAIL: the existing TEST1 tracks cache, oncourt/purity caches, user
+labels, and queue resolutions are NOT touched — BoT-SORT output goes to a
+separate probe JSON. Adopting the tracker (= rebuild caches, re-label) is a
+SEPARATE decision made on the measured number.
+- [ ] T1. phase2/botsort_reid.yaml — copy of ultralytics' botsort.yaml with
+      with_reid: True (model: auto, gmc sparseOptFlow — good for a panning cam)
+- [ ] T2. tracking.iter_tracks gains an optional tracker_config param
+      (default "bytetrack.yaml" — zero behavior change; suite proves it)
+- [ ] T3. spikes/reid_fragment_probe.py — extracts TEST1's exact span
+      (reuses run_tracking.extract_subclip), tracks with botsort_reid.yaml,
+      writes spikes/out/TEST1_tracks_botsort.json + prints distinct-id count
+      and per-frame track-count stats vs the cached ByteTrack baseline
+- [ ] T4. Run probe in background (~15-25 min CPU); record 122 -> ?
+- [ ] T5. Record verdict in DECISIONS.md §11 (+ adoption recommendation with
+      its costs: cache rebuilds + label re-entry on both clips)
+
+## Review
+(pending)
+
+---
+
+# QUEUE-RESOLUTION v2 (completed 2026-07-12)
+
+Human resolves a queue item -> that identity's candidate/unknown span is
+retro-credited via the SAME merge machinery as an OCR agree (same
+contradiction check; merge records carry source: "ocr" | "human"). Rules:
+- The review page's queue rows show crops across the identity's WHOLE span
+  (the click vouches for everything credited).
+- Resolutions live in {clip}_decisions.json ("queue_resolutions") keyed by
+  (window, identity_id) + the WINDOW BOUNDARIES they were made against;
+  stage7 REFUSES stale resolutions (boundaries mismatch = ids shifted).
+- Human number must be on-roster (refused loud otherwise); "reject" = crowd/
+  not-a-player: recorded, never credited, dropped from future queues.
+- OCR-vs-human conflict on one identity = flagged, never silently resolved.
+- Bundle PRE-POPULATES existing track labels so re-download keeps them.
+
+- [x] R1. 5 queue-resolution tests written first — all passed on first
+      implementation (suite 72)
+- [x] R2. stage7_merge: human resolutions applied after OCR agrees via a
+      SHARED _restamp path (same contradiction check, same credited-set
+      bookkeeping, source "ocr"|"human"); stale-boundaries refusal;
+      off-roster refusal; OCR-vs-human conflicts flagged; rejects recorded
+- [x] R3. bundle Part 2: queue rows with WHOLE-SPAN crops + resolution
+      buttons; existing labels PRE-POPULATED; window_boundaries embedded in
+      the download. Regenerated: TEST1 = 20 tracks + 10 queue items;
+      HARD = 27 + 22.
+- [x] R4. TEST1 resolved by user: 10 resolutions -> 6 merged (30.8s
+      recovered), 2 rejected (crowd), 2 REFUSED by the contradiction check
+      (#13/#32 overlap -- ledger defended itself against human error, flagged
+      for re-review). Final board: 10/10 named, 8 near-full coverage. BUG
+      found by real use + fixed + tested (suite 73): stage8 now honors the
+      event-level merge.number over the registry hypothesis (human-resolved
+      identities without hypotheses were dropping into unnamed).
+- [x] R5. DECISIONS §10 recorded incl. the scaling answer (clicks scale with
+      tracker fragmentation -> re-ID tracker experiment = NEXT BUILD).
+      HARD queue (22 items) awaits the user whenever.
+
+---
+
+# PHASE 3 — POSSESSION DETECTION v1 (completed 2026-07-12)
+
+Signal: per-frame mean court-x of ON-COURT bodies, DENSE and FREE from the
+oncourt cache (court_feet already stored per frame). Algorithm v1: half-court
+side classification with a dead zone + hold-time hysteresis + minimum
+possession length; degenerate detection falls back LOUDLY to the fixed
+accumulation windows (abstention). No new cache: windows are derived
+deterministically from the oncourt cache at load time; an inspection JSON
+({clip}_possessions.json) is written every run for eyeball validation
+(user/dad scrub video at the printed boundary timestamps).
+Measurement discipline: MAX_ATTEMPTS stays 10 — one variable (window shape)
+changes at a time. Acceptance metric: queue items per minute of film,
+before/after. stage3_windows stays on fixed windows (containment diagnostic).
+
+- [x] Q1-Q4 built (suite 64: 6 detector tests + 3 late-seed safety tests).
+      PLUS a mid-phase design addition forced by real data: LATE SEEDING —
+      with 1 long window, window-start-only seeding lost coverage of labeled
+      tracks appearing mid-span (#44 vanished). Fix: a human label vouches
+      for the TRACK, so a labeled ON-COURT track seeds at FIRST APPEARANCE —
+      but ONLY if its identity is fresh UNKNOWN; a relinked CANDIDATE carries
+      unvouched continuity history and is never late-seeded (tested).
+- [x] Q5a. TEST1 (possessions + late seeding): detector says 1 L-possession
+      (80% side agreement; matches left-heavy zone data — user to eyeball).
+      Queue 24 -> 9 items (93 -> 35 per min of film, 2.7x). Confirms 3, all
+      window-0. RETRO recovery 104 -> 669 frames (3.5s -> 22.3s, 6.4x): #5 =
+      1.6 live + 13.5 RETRO; #13 = 6.3 + 8.8. 9/10 roster named; #44 in
+      queue (his tracks relink as candidates; OCR never reads 44 -> honest
+      queue item; queue-resolution v2 is the designed answer). NEW
+      contradiction caught+refused: identity 37 #32 overlapping 48 frames
+      with existing #32 (the multi-#32-label mess, contained).
+- [x] Q5b. HARD: queue 55 -> 15 (165 -> 45/min, 3.7x); 1 confirm (#24 @1.00,
+      merge correctly still refused on the 3-frame splice overlap); 7/9
+      numbers named, totals honestly LOWER (the 2s regime was re-vouching
+      everyone every 2s = weak provenance; possessions demand earned credit).
+- [x] Q6. DECISIONS §9 recorded with measured before/after.
+
+## Review (Phase 3 v1 — possessions + late seeding, 2026-07-12)
+Windows now follow the game. Queue density fell 2.7-3.7x and every queue item
+resolves a SPAN, not a 2s sliver; retro recovery per read grew 6.4x on TEST1.
+HARD exposed the honest tradeoff: stricter provenance lowers free credit on
+low-read-rate footage — the queue carries it. NEXT UNIT (now clearly the
+highest-value piece): queue-resolution v2 — a human resolving a candidate
+retro-credits its span through the SAME gate mechanics as an OCR agree. Then
+dad demo. Boundary eyeball request OPEN: user to confirm both clips are
+genuinely one left-side possession (timestamps in {clip}_possessions.json).
+
+---
+
+# TRACK-PURITY CHECK (completed 2026-07-12)
+
+Two detectors for the two observed splice diseases:
+A) INTRA-track (t49 case): OCR sweep across each labelable track's lifespan
+   (once per clip, cached like oncourt). >=2 DIFFERENT confident on-roster
+   numbers on one track => SPLICED: quarantined from labeling (bundle shows a
+   warning instead of buttons) and its labels REFUSED at seed time (loud).
+B) INTER-track (t6/t1496 case): stage8 counts each number's seconds as the
+   UNION of solely-claimed frames; any frame where 2+ identities claim the
+   same number simultaneously is DISPUTED — excluded from the line, surfaced
+   as disputed_seconds (abstention: one of those bodies is wrong).
+Plus: bundle crops now spread early/mid/late per track (a mid-track jersey
+change is always visible to the human), via a shared seed-tracks helper.
+Limitation noted: number-only detection can't see a splice between two
+same-number players (dual-team #3/#23) — color tiebreak territory.
+
+- [x] P1-P5 built (suite 55 green; 5 purity tests + 2 label-refusal tests +
+      1 disputed test, all written first)
+- [x] P6 verified on both clips. Honest results:
+      * Detector A recall-limited: 0 convictions incl. known-spliced t49
+        (conviction needs confident reads of BOTH numbers; rare at this read
+        rate). Recorded in DECISIONS §8 — spread crops + human remain the
+        intra-track defense.
+      * Detector B (disputed frames) caught THREE real cases first run:
+        HARD #24 0.7s (known splice tail, line now 18.2s honest);
+        TEST1 #32 0.9s (PREVIOUSLY UNKNOWN label collision);
+        HARD #23 2.2s disputed vs 2.7 counted (two REAL #23s, one per team,
+        simultaneously on court — the dual-team ledger limitation live;
+        strongest case yet for the color tiebreak).
+      * Bundles regenerated with early/mid/late crops (79/160 embedded).
+- [x] P7. DECISIONS §8 recorded.
+
+## Review (track-purity unit, 2026-07-12)
+Ledger integrity now enforced at three layers: gate-authorized merges,
+contradiction refusal, and per-frame disputed exclusion. No disputed second
+is ever counted; every one is printed and persisted. Known limits recorded:
+detector A low recall (footage read rate), number-keyed ledger can't split
+dual-team numbers (color tiebreak = next natural identity improvement, now
+with a measured 2.2s real-world case). NEXT per agreed order: Phase 3
+possession windows, then dad demo with both box scores.
+
+---
+
+# PHASE 2 — CLICK-SEEDING + REVIEW BUNDLE v1 (completed 2026-07-10/11)
+
+Design: a generated SELF-CONTAINED HTML page (crops embedded as data URIs, no
+server) listing every distinct ON-COURT seed-frame track, sorted by floor
+time, with its 3 largest jersey crops + one roster-number button row. The
+human labels what they can and downloads {clip}_decisions.json into
+phase2/out/. roster.seed_number_for() then merges those labels (decisions
+override legacy config seed_labels; off-roster labels REFUSED loud) — so
+human clicks flow through the SAME seed gate as everything else. v1 scope =
+TRACK labeling only (mid-window candidate resolution = v2, needs a post-hoc
+human-confirm mechanism).
+
+- [x] C1. roster.load_decisions + merge DONE (human labels override legacy
+      config labels; off-roster REFUSED loud); 3 tests (suite 47)
+- [x] C2. make_review_bundle.py DONE: TEST1 = 28 labelable tracks / 83 crops
+      in one 335KB self-contained HTML; HARD = 56 tracks / 167 crops. The
+      101/141 unnamed IDENTITIES collapse to 28/56 TRACKS — one label names
+      all its window-instances.
+- [x] C3. USER labeled TEST1 (19 track labels, incl. correctly marking a
+      spliced track t49 as unsure). decisions.json placed at
+      phase2/out/TEST1_decisions.json -> rerun stage6-8:
+      confirms 0->4 (all EYEBALLED correct: #5x2, #32), 0 disagreements;
+      merge restamped 104 candidate frames as confirmed_retroactive;
+      BOX SCORE: 10/10 roster players NAMED (was 0). Unnamed 101->36
+      identities (167.4s -> 62.7s). First "coach clicks, gets stat lines"
+      artifact of the project.
+- [x] C4. Records below. NEW FINDING: track-splice defect (t49) — human
+      caught the tracker jumping #44->#13 mid-track via 2 different jersey
+      numbers in one track's crops. Logged as a build item (purity check +
+      3-crop spread in the bundle), not fixed yet.
+- [x] C5. HARD labeled by user (18 labels + 12 refs + unsures). First run:
+      1 confirm (#24 @1.00, EYEBALLED correct), 0 disagreements — and the
+      SAFETY MACHINERY CAUGHT A LABEL ERROR two independent ways:
+      (a) #24's box line = 21.9s in a 20s clip (impossible => double credit);
+      (b) the merge CONTRADICTION check refused to re-credit #24 (3
+      overlapping frames). Diagnosis via early/mid/late crops
+      (HARD_check24.png): t6=#24 ✓, t1496=#24 ✓, but t7 = #23 (mislabel) AND
+      white/red #23 was MISSING from HARD's Milford roster. Also found: t6 &
+      t1496 overlap 37 frames though both genuinely #24 => a small splice
+      tail (purity-check case #2, ~1.2s inflation, deferred to the check).
+      User confirmed: t7 -> 23; Milford roster += 23 (now #3 AND #23 are
+      dual-team -> color-tiebreak backlog grows). Corrected rerun in flight.
+
+---
+
+# PHASE 2 — JERSEY-KEYED BOX SCORE + PLAYER POSITIONS (completed 2026-07-07)
+
+Design: phase2/stage8_box_score.py aggregates the MERGED events by JERSEY
+NUMBER across windows (numbers are the stable key; identity_ids are per-
+window). Counts confirmed (live) + confirmed_retroactive separately + jointly,
+converts frames->seconds via cache fps. Court positions come FREE from the
+oncourt cache (court_feet already stored per frame/track) -> per-player zone
+time via phase1 zones. Honesty rules: identities WITHOUT a number surface as
+an "unnamed confirmed" bucket (the click-seeding gap made visible, never
+dropped); dual-team numbers (#3 on HARD) flagged team-ambiguous; presence
+seconds on a short clip, not game stats. Outputs: JSON + CSV + console table.
+
+- [x] B1. 7 aggregation tests written first — all passed on first stage run
+      (suite 44 green)
+- [x] B2. phase2/stage8_box_score.py DONE (pure build_box_score + JSON/CSV)
+- [x] B3. run_clip wiring DONE (stage8 section)
+- [x] B4. TEST1 box score: #5 (LM) 1.9s = 1.6 live + 0.3 RETRO, TOP_OF_KEY;
+      #13 (Milford) 0.9s PAINT; unnamed 101 ids/167.4s surfaced; review
+      counts surfaced. First coach-readable output of the project.
+- [x] B5. HARD chain (stage6 registry rerun -> 7 -> 8): 0 merges by
+      construction; empty player table; unnamed 141/182.5s = the honest
+      click-seeding before-picture.
+- [x] B6. DECISIONS.md §6 recorded.
+
+## Review (Phase 2 unit 2 — box score, 2026-07-07)
+The pipeline now ends in a coach-readable artifact: per-number lines with
+live/retro seconds + zone time, unnamed bucket, review counts, honesty note.
+Positions came free from the oncourt cache (no new geometry). NEXT unit:
+click-seeding + review bundle v1 (the decisions JSON feeds seeds through the
+SAME gate) — converts both clips' unnamed buckets into named lines. Then CSV
+polish/exports are already half-done (CSV ships with stage8).
+
+---
+
+# PHASE 2 — RETROACTIVE STAT MERGE (completed 2026-07-06)
+
+User resolved #30: hand-label was a mistake, no #30 in HARD — rosters stand.
+User accepted sideline pickups (margin class, contained by abstention).
+
+Design (from ROADMAP Phase 2 / REVIEW 7.5): when OCR AGREES (the ONLY trigger
+— consumes gate-emitted confirmation records, never position scans), the
+identity's candidate-stamped events re-stamp as `confirmed_retroactive` (NEW
+event-level state; live vs retro distinguishable forever). LOST gaps stay
+unattributed (never invent presence). CONTRADICTION check: if the same number
+already has confirmed/retro frames overlapping the span in that window ->
+NO merge + loud flag. Merge writes a NEW artifact ({clip}_player_events_
+merged.json); stage5's raw artifact is never mutated.
+
+- [x] M1. identity.py confirmation records DONE (gate-emitted; seed carries
+      roster_number)
+- [x] M2. stage6 identities registry DONE
+- [x] M3. 11 merge tests written FIRST — all passed on first implementation
+      run (suite 37 green, ~0.25s)
+- [x] M4. phase2/stage7_merge.py DONE (pure merge_events + artifact main;
+      loud abort on stage5/stage6 replay divergence)
+- [x] M5. run_clip stage7 section + final state counts in INTEGRITY DONE
+- [x] M6. TEST1 real-data merge DONE: w0 id5 #5 @1.00 -> 10 candidate frames
+      re-credited as confirmed_retroactive; LOST f168-169 NOT invented;
+      ledger exact (candidate 1587->1577, retro +10); 0 contradictions.
+      Recorded as DECISIONS.md §5.
+
+## Review (Phase 2 unit 1 — retroactive merge, 2026-07-06)
+Merge is live and structurally safe: triggers are gate-emitted agree records
+only (no position input exists in the code path); candidate-only restamps;
+live vs retro distinguishable forever; contradiction = refuse + flag; raw
+stage5 artifact preserved; canonical output is the merged JSON. Next Phase-2
+units: jersey-keyed box score (aggregate confirmed+retro by number), per-
+player court positions (tracks x homography join), CSV export, review bundle
+v1. HARD needs a stage6 rerun (registry) before its merge runs — no-op today
+(0 agrees).
+- Deferred within Phase 2 (next units): jersey-keyed box score, per-player
+  court positions, CSV export, review bundle v1. HARD stage6 rerun for
+  registry when needed.
+
+---
+
+# HARD WIDE + ATTEMPT POLICY v2 (completed 2026-07-06)
+
+- [x] HARD real roster entered (Milford 1,3,13,24,44 / Winton Woods 10,3,23,0,20;
+      #3 on BOTH teams -> validate() warns; #30 contradiction flagged to user;
+      old seed labels retired; rig flag removed). Span widened to 600..1200.
+- [x] HARD wide chain: tracks 601f/260 ids; oncourt 601/601 mean 12.7; full
+      run_clip green (containment 45->0, 0 continuity confirms, queue 56
+      on-court / 174 crowd excluded).
+- [x] HARD v1 baseline: 1%/frame confident, 2%/window (1/41) — cross-gym gap.
+- [x] MONTAGE DIAGNOSIS (scratch crop tiling, both clips, eyeballed): HARD's
+      close-camera zone = refs/coaches; players small across the pan; a close
+      player's #24 was human-legible -> gap = DISTANCE + attempt selection,
+      NOT jersey contrast. Montages copied to phase2/out/*_crops.png.
+- [x] stage6 attempt policy v2 (best-crops-first, budget/threshold unchanged;
+      v1 JSONs preserved): TEST1 12.5% -> 25% windows-with-reads; HARD 2% ->
+      5%. 29 confident reads across clips, 0 disagreements. DECISIONS 4b/4c.
+
+## Review (HARD wide + v2, 2026-07-06)
+Fair protocol now proven on two gyms with a same-day protocol improvement
+measured side-by-side. Read-rate levers ranked by evidence: crop selection
+(done, ~2x), window length (Phase 3), hypothesis coverage (Phase 2), footage
+zoom (product guidance). Safety unbroken across every run: 0 wrong confirms,
+0 disagreements, 0 continuity confirms. NEXT: Phase 2 (retroactive merge +
+click-seeding/review flow) as its own clean unit.
+
+---
+
+# FAIR REMEASURE — TEST1 WIDE SAMPLE (completed 2026-07-06)
+
+Span widened 300..+120 -> 120..+461 (full validated pan, ~8 x 2.0s windows;
+window size unchanged — same protocol, bigger sample). Both caches stale by
+design; guards will refuse until rebuilt.
+
+- [x] W1. cache_tracks TEST1 DONE: 461 frames, 122 distinct track_ids
+- [x] W2. cache_oncourt TEST1 DONE: 461/461 anchored (0 unclassified, reproj
+      <=0.69px), on-court mean 12.7 (min 10 max 15) stable across the whole
+      pan. (First launch orphaned by a shell mistake; killed + relaunched.)
+- [x] W3. full run_clip TEST1 wide DONE (exit 0, end-to-end): 24 on-court
+      candidates / 8 windows; per-frame 8% any / 6% confident; per-2s-window
+      12.5% (3/24); agree 1 (EYEBALLED correct #5@1.00 f=128), disagree 0,
+      no_position_hypothesis 2 (perfect reads #5@1.00 + #24@0.993 correctly
+      abstained — two-signal rule); containment 12->0; 0 continuity confirms;
+      queue 28 on-court (124 crowd excluded). Far-window seed still (w7 f540)
+      eyeballed: mask holds at pan end.
+- [x] W4. DECISIONS.md 4a-WIDE recorded: 3 separate bottlenecks (read rate /
+      window length / hypothesis coverage) + the seed-labels-don't-survive-
+      re-tracking finding. G1 per-POSSESSION number still pending possession
+      detection (Phase 3); 12.5% is per-2s-window, NOT the G1 rate.
+
+## Review (fair remeasure TEST1, completed 2026-07-06)
+Protocol is now fair on TEST1 (ROI pool + real roster) and recorded. Wide
+sample: read rate 6%/frame confident (reads land at 0.99-1.00; dial not the
+bottleneck); 12.5% per 2s window; confirms additionally gated by hypothesis
+coverage (2 hand labels, stale after re-track). Safety perfect throughout:
+0 wrong confirms (all eyeballed), 0 disagreements, 0 continuity confirms,
+containment 12->0. Next per roadmap: retroactive merge + review/seeding
+coverage (Phase 2), possession windows (Phase 3) -> that's where the true
+G1 per-possession number comes from. HARD real roster still pending (user).
+
+---
+
+# FAIR REMEASURE — TEST1 (completed 2026-07-06) — roster half
+
+User entered the REAL TEST1 rosters from film (2026-07-06):
+  Milford (white/red): 3, 13, 23, 44, 10
+  Little Miami (green/yellow): 24, 5, 32, 14, 30
+(Open: HARD/Winton Woods roster still pending; also confirm whether these are
+on-floor fives or full team rosters — matters for full games, not this span.)
+
+- [x] 1. clip_config: TEST1 real roster entered; seed_labels {17:13, 6:5} still
+      on-roster; HARD marked allow_off_roster_seeds=True (documented rig)
+- [x] 2. ClipConfig.validate() added (video exists, span sane, roster ints
+      0-99, seed⊆roster w/ rig escape, window>0, cross-team duplicate WARNING);
+      wired into run_clip + cache_tracks + cache_oncourt. Verified: TEST1 ok,
+      HARD ok via flag, off-roster seed refused loud. Suite 26 green.
+- [x] 3. stage6 TEST1 fair rerun DONE: per-frame 13% any / 10% confident;
+      per-POSSESSION 33% (2 of 6). Both confirms EYEBALLED CORRECT (#5 green
+      LM jersey @1.00; #13 white/red Milford @0.99). 0 disagreements, 0
+      continuity confirms. Roster 3->10 changed nothing (same 8 reads): the
+      pool was the rig; remaining no-reads are unreadable crops, not filtering.
+- [x] 4. Recorded as phase2/DECISIONS.md §4a with the DO-NOT-GATE-ON-n=6
+      warning. Next sample-wideners: longer TEST1 span (pure compute) and/or
+      HARD real roster (user input).
+
+---
+
+# ROI-MASK SEEDING (completed 2026-07-05) — first half of the fair remeasure
+
+Design (approved defaults): per-frame on/off-court classification of the CACHED
+tracks, computed ONCE per clip (root cache_oncourt.py -> phase2/out/
+{clip}_oncourt.json), reusing the validated Phase-1 rules verbatim (anchor +
+pixel_to_feet + on_court margin/horizon + frame-edge feet drop). Stages consume
+a per-(window, track) MAJORITY vote (tie = off, conservative). Identity machine
+mechanics UNTOUCHED — only who gets seeded / OCR'd / queued changes. Off-court
+bodies are excluded from seeds+queue+OCR but COUNTED in prints and recorded in
+the JSONs (abstention: nothing silently vanishes). Refs remain in the pool.
+
+- [x] 1. phase2/oncourt.py DONE — build() + load_checked() + on_court_by_window()
+- [x] 2. cache_oncourt.py root wrapper DONE (syncs both configs)
+- [x] 3. Policy unit tests DONE (6 tests; suite 26 green)
+- [x] 4. TEST1 on-court cache DONE: 120/120 frames anchored (0 unclassified,
+      reproj 0.00-0.69px); per-frame on-court min=11 max=14 MEAN=13.3 — matches
+      stage1's validated 13.1. Seed frame f=300: 13/32 on-court (19 crowd/bench
+      previously being seeded).
+- [x] 5. Stages wired DONE (stage4 queue+stills, stage5 seeds, stage6
+      seeds+OCR pool+queue, run_clip precheck; stage4 docstring updated)
+- [x] 6a. stage4 rerun: COACH QUEUE 25 -> 8 (26 off-court excluded+counted);
+      seeds w0=14/w1=13 (players+refs band). Seed still eyeballed: players
+      green, bleachers/bench red, refs green (by design), 1 borderline
+      sideline coach inside MARGIN_FT (accepted, same class as refs).
+      stage5 rerun: box score = on-court confirmed only.
+- [x] 6b. stage6 TEST1 rerun DONE: OCR pool 19 -> 6 on-court (14 crowd excluded);
+      crops 190 -> 60; per-frame confident 3% -> 10%; per-POSSESSION 11% -> 33%.
+      PROOF the old number was pool-rigged: numerators IDENTICAL (same 8 reads,
+      6 confident, same 2 confirms #5@1.00 f=310 / #13@0.99 f=322) — only the
+      denominator changed. 0 disagreements, 0 continuity confirms. Queue after
+      OCR: 6. STILL NOT the fair number (roster = 3-number stand-in).
+- [x] 7. HARD DONE: on-court cache 120/120 anchored, mean 13.0 on-court (2nd gym,
+      classifier generalizes). Full run_clip HARD end-to-end (exit 0): prechecks
+      passed; calibration 20.4->0.7px / 0.75/1.75ft (matches baseline);
+      containment 4->0 cross-window relinks (matches prior safety run); seeds
+      15/13 on-court (19/14 skipped); coach queue 8 (21 off-court excluded);
+      OCR pool 5 on-court (6 excluded), 0 reads/0 confirms — STRUCTURAL, the
+      stand-in roster {5,13,24} can't emit HARD's real numbers (23/30); 0
+      continuity confirms everywhere; HARD_ocr_confirms.json written; INTEGRITY
+      prints the OCR line with pre-OCR caveat.
+
+## Review (ROI-mask seeding, completed 2026-07-05)
+Built: phase2/oncourt.py (per-frame on/off-court classification of cached
+tracks, reusing Phase-1 court rules verbatim; strict-majority per (window,
+track), tie=off) + cache_oncourt.py wrapper + 6 policy unit tests (suite: 26).
+Wired: stage4 (seeds+queue+red/green stills), stage5 (seeds), stage6
+(seeds+OCR pool+queue counts), run_clip precheck. Identity machine UNTOUCHED;
+exclusions always counted+persisted, never silent.
+Validated: TEST1 classifier mean 13.3 vs stage1's independent 13.1; seed still
+eyeballed (players green, crowd/bench red, refs green by design, 1 borderline
+sideline coach within MARGIN_FT — accepted); TEST1 queue 25->8; OCR pool
+19->6; per-possession confident read 11%->33% with IDENTICAL numerators (same
+2 confirms, same frames/confidences) — proof the old number was pool-rigged.
+HARD generalized + full run_clip green. REMAINING RIG: the 3-number stand-in
+roster. NEXT: real rosters for both clips (film work with dad) -> the fair
+remeasure -> Gate G1.
+
+---
+
+# PHASE 0-LITE (completed 2026-07-05) — the 4-item slice before the fair remeasure
+
+Agreed in session: cut Phase 0 to the items that protect the Phase-1 measurement,
+then go to ROI-mask seeding + real rosters. Item 1 approved to build now.
+
+- [x] 1. Identity safety tests DONE (tests/test_identity_safety.py, 19 tests,
+      ~0.2s, no video). Covers: continuity can't confirm (6 provenances);
+      occlusion->LOST attributes nothing; relink->CANDIDATE ceiling; ambiguous->
+      UNKNOWN; gap-expiry; roster_number survives breaks; OCR agree/disagree/
+      no-read/no-hypothesis; window boundary blocks cross-window relinks (with
+      single-machine control). Net PROVEN: planted CONFIRMED-on-relink ->
+      5 tests failed loudly -> reverted (git-verified identical) -> 19 green.
+      pytest installed in .venv; .pytest_cache gitignored.
+      Run:  .venv/Scripts/python -m pytest tests/ -v
+- [x] 2. Cache guard DONE: run_clip._load_and_check_cache() refuses a missing,
+      stale (clip/span mismatch), or empty cache BEFORE the slow calibration
+      solve. Verified: real TEST1 cache accepted; span-999 config refused in ~1s
+      with a plain-English message + the re-cache command.
+- [x] 3. seed() DONE: unknown track_id now prints a WARNING and returns False
+      (was a silent no-op); returns True on success. +2 tests (20 total green).
+- [x] 4. stage6 persists ocr_confirms.json DONE (+ makedirs; run_clip INTEGRITY
+      reports agree/disagree counts and labels the box score pre-OCR). Verified
+      by standalone TEST1 stage6 run: reproduced the known rigged-pool numbers
+      exactly (2 agrees #5@1.00 / #13@0.99, 0 disagreements, 3%/11%, 0
+      continuity confirms) and wrote phase2/out/TEST1_ocr_confirms.json with
+      all 4 outcome buckets + evidence + read bboxes.
+- Then: ROI-mask seeding -> real rosters -> fair remeasure (ROADMAP Phase 1)
+
+## Review (Phase 0-lite, completed 2026-07-05)
+All 4 items done and verified. Changes: NEW tests/test_identity_safety.py (20
+tests, ~0.2s, proven to catch a planted violation); run_clip.py gained
+_load_and_check_cache() (refuses missing/stale/empty cache before calibration)
++ OCR line in INTEGRITY; identity.seed() warns + returns bool on unknown
+track_id; stage6 writes {clip}_ocr_confirms.json (+ makedirs). Also: pytest in
+.venv, .pytest_cache gitignored. Unchanged: set_confirmed lock, thresholds,
+schemas, calibration, stage5 outputs. TEST1 stage6 rerun reproduced prior
+numbers exactly (no behavior drift). Ready for ROI-mask seeding next.
+
+---
+
+# READ-ONLY CODEBASE REVIEW + ROADMAP (task of 2026-07-02)
+
+READ-ONLY. No code changes, no commits. Deliverables: REVIEW.md + ROADMAP.md at repo
+root (uncommitted; user reviews and commits). Note: prompt says "check in before
+working" but the task is an explicit fully-specified review request run autonomously,
+so the plan is recorded here and executed in one pass.
+
+- [x] Read phase1/DECISIONS.md, phase2/DECISIONS.md (phase2/HANDOFF.md does NOT
+      exist — doc-drift finding #1, also noted by the earlier RUN_REPORT.md)
+- [x] Read pipeline path: run_clip.py, clip_config.py, cache_tracks.py
+- [x] Read phase1 stages: stage1_court_roi, stage2_generate_events, refit_keyframes,
+      team_event_schema, zones, stage3_*, stage4_overlay, stage2c_validate
+- [x] Read phase2: identity, ocr_reader, roster, run_tracking, tracking, windows,
+      stage1..stage6
+- [x] Read supporting: spikes/clips_config.py, spikes engine files, src/camera_tracking.py
+- [x] Read World-B leftovers: process_game.py, src/*, render_heatmaps.py
+- [x] Audit: every entrance to CONFIRMED; dual-config guardrail; TEST1/frame
+      hardcodes; tracks-cache staleness/missing behavior; read_jersey pluggability;
+      ClipConfig-as-API readiness
+- [x] Write REVIEW.md (file-by-file GOOD/BAD/NEEDS-IMPROVEMENT + feature gap analysis)
+- [x] Write ROADMAP.md (standalone, phased, decision gates, principles card)
+- [x] Review section added below when done
+
+## Review (read-only review task, 2026-07-02)
+
+Deliverables written, nothing committed (user reviews + commits):
+- **REVIEW.md** — file-by-file review of the whole repo + the 6 requested audits
+  + the 26-feature gap analysis (plus 10 extra gaps found, §7.26a-j).
+- **ROADMAP.md** — standalone 9-phase roadmap (0–8) with decision gates G1–G5
+  and the principles card.
+
+Headline findings (full detail in REVIEW.md §0):
+1. The dual-config "loud assertion" in run_clip is a TAUTOLOGY (checks the value
+   it just wrote); real protection is unenforced import ordering. Fix: assert
+   the imported stage BINDINGS against the config (~20 min).
+2. Tracks cache (and refit npz) have NO staleness validation — stale cache =
+   silently wrong crops/identity evidence. Highest-value fix in the repo.
+3. Stage 6 OCR outcomes are never persisted; the canonical player_events.json
+   (and run_clip's INTEGRITY report) is pre-OCR.
+4. phase2/stage1_states.py IRON-RULE proof harness crashes (TypeError — stale
+   stub-era call signature) and its printed claims are stale.
+5. README.md still documents the rejected World-B draft as the product;
+   phase2/HANDOFF.md never existed.
+6. The safety property itself HOLDS by construction: `state = CONFIRMED` occurs
+   exactly once in the repo, inside set_confirmed; all callers route through
+   seed/second_signal (proof in REVIEW.md §6.1).
+7. One-clip-per-Python-process is a hard unstated invariant (module-level
+   config binding across ~10 files) — fine for CLI use, the #1 hazard for the
+   future web worker.
+8. The jersey-crop montage generator script is lost (only its PNGs remain);
+   golden artifacts (TEST1 caches/events) are gitignored, so the byte-identical
+   baseline lives only on this machine.
+
+No code was changed. Recommended first step: ROADMAP Phase 0 (regression suite
++ fingerprints + guard fixes, ~2-4 evenings) BEFORE the fair OCR remeasure.
+
+---
+
 # Phase 1 — Team Stats (the reliable spine, no player identity)
 
 Goal: cheapest useful layer. CV emits structured **team_events** (per-frame on-court
