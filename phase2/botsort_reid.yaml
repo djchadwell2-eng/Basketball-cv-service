@@ -1,0 +1,22 @@
+# BoT-SORT with appearance re-ID ENABLED — the fragmentation experiment config
+# (DECISIONS §10: clicks scale with tracker fragmentation; this is lever #1).
+# Copy of ultralytics' bundled botsort.yaml defaults with with_reid: True.
+# Used ONLY by spikes/reid_fragment_probe.py so far — the pipeline still runs
+# bytetrack.yaml until the measured fragment count justifies adoption.
+
+tracker_type: botsort
+track_high_thresh: 0.25
+track_low_thresh: 0.1
+new_track_thresh: 0.25
+track_buffer: 30
+match_thresh: 0.8
+fuse_score: True
+
+# Global motion compensation — helps a panning camera like ours
+gmc_method: sparseOptFlow
+
+# Re-ID: appearance embeddings let a lost track relink to the same body
+proximity_thresh: 0.5
+appearance_thresh: 0.8
+with_reid: True
+model: auto # use the detector's native features (no extra model download)

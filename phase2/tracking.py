@@ -36,12 +36,17 @@ class Track:
         return ((x1 + x2) / 2.0, y2)             # ground contact = bottom-center
 
 
-def iter_tracks(video_path: str, max_frames: int | None = None):
-    """Yield (frame_index, frame_bgr, [Track, ...]) for each frame, in order."""
+def iter_tracks(video_path: str, max_frames: int | None = None,
+                tracker_config: str = TRACKER_CONFIG):
+    """Yield (frame_index, frame_bgr, [Track, ...]) for each frame, in order.
+
+    tracker_config defaults to the validated ByteTrack config; experiments
+    (e.g. spikes/reid_fragment_probe.py) may pass an alternative yaml.
+    """
     model = YOLO(MODEL_NAME)
     results = model.track(
         source=video_path, classes=[PERSON_CLASS], imgsz=IMG_SIZE,
-        tracker=TRACKER_CONFIG, persist=True, stream=True, verbose=False,
+        tracker=tracker_config, persist=True, stream=True, verbose=False,
     )
     for frame_index, result in enumerate(results):
         tracks: list[Track] = []
