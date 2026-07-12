@@ -80,7 +80,9 @@ class ClipConfig:
                 dup |= set(a.numbers) & set(b.numbers)
         if dup:
             print(f"  WARNING: number(s) {sorted(dup)} appear on BOTH teams -- "
-                  f"OCR alone cannot tell them apart (color tiebreak not built yet)")
+                  f"OCR alone cannot tell them apart (resolved by the jersey-"
+                  f"color tiebreak in stage8_box_score.py where color evidence "
+                  f"allows; the rest stay AMBIGUOUS, never guessed)")
 
 
 def _cache(name: str) -> str:

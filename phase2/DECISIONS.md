@@ -441,6 +441,84 @@ resolves queue items before a human sees them; (3) span-length-prioritized
 queue with a good-enough cutoff. Clicking bar stays "labeling pass + short
 queue on the bus ride home."
 
+## 12. JERSEY-COLOR TIEBREAK — built + first real run (2026-07-13)
+`phase2/color_tiebreak.py` + wiring in `stage8_box_score.py`. Resolves HARD's
+two dual-roster numbers (#3, #23) into correct per-team lines, replacing one
+blended AMBIGUOUS line, WITHOUT ever guessing.
+
+Design: per-clip TEAM COLOR CENTROIDS built automatically from crops the
+system already trusts (every CONFIRMED frame whose number is on exactly one
+roster -- HARD's #24/#10/#44/#20/#1/#0/#13 -- is free labeled training data
+for that team's jersey on THIS footage; no hardcoded RGB, no new human
+input). Mean-BGR crop signature (reuses `ocr_reader.jersey_crop`'s torso
+region); `classify_team()` requires the nearest centroid to be >=1.4x closer
+than the next-nearest or it ABSTAINS; `classify_identity()` majority-votes
+across ~6 sampled frames per (window, identity, number) claim-group, ties
+abstain. `build_box_score()` gained an optional `identity_team` override
+(default `None` = byte-identical to pre-tiebreak behavior, verified on
+TEST1). Disputed (simultaneous conflicting-claim) frames are NEVER
+team-attributed by color -- they surface on their own AMBIGUOUS row,
+unchanged; color tiebreak only splits SOLE (uncontested) claims. 14 unit
+tests first (synthetic solid-color crops, incl. a 50/50-blend abstention
+case and a tie-vote abstention case); suite 73 -> 87.
+
+BUG CAUGHT DURING BUILD (fixed before shipping): the first cut of
+`_identity_occurrences` collapsed one identity to a single "last event
+wins" number, silently EXCLUDING a claim-group whenever the same identity
+carried two different numbers across different merge-stamped spans (found
+on HARD identity (window 1, id 10): 88 frames fell back to a stale registry
+hypothesis of #3 while a separate 13 frames were human-resolved to #13 --
+the collapse made the #3 portion invisible to color sampling instead of
+attempting it). Fixed: occurrences are now keyed by the (window, identity,
+number) TRIPLE, each claim-group sampled and classified independently.
+Caught before the feature shipped, not after -- exactly the point of
+eyeballing before trusting.
+
+FIRST REAL RUN (HARD): all 6 ambiguous claim-groups resolved by color (0
+abstained). Eyeball-verified against real footage (4 of the 6, incl. the
+identity with the most floor time): every classification correct --
+white/red crops -> Milford, black/green crops -> Winton Woods, no
+misattributions found. Board: #3 -> "Milford 6.9s" (was one 9.8s AMBIGUOUS
+line); #23 -> "Milford 4.4s" + "Winton Woods 2.7s" (was one 7.1s AMBIGUOUS
+line). TEST1 regression check: box_score.json and .csv BYTE-IDENTICAL
+before/after (zero ambiguous numbers there, zero-cost path confirmed --
+no video read, no [color tiebreak] print).
+
+TWO FINDINGS surfaced by building this, NEITHER silently acted on:
+
+1. **Disputed dual-team-number frames could ALSO be resolved by color, but
+   currently aren't -- real credit sitting at zero.** HARD identity (window
+   0, id 7)'s entire 81-frame #3 claim is 100% disputed against identity
+   4's simultaneous #3 claim (same exact frames, 600-680) -- yet color
+   correctly and unambiguously classifies id 4 as Milford (white/red,
+   verified) and id 7 as Winton Woods (black/green, verified) in that SAME
+   disputed window. This is the #23 pattern from section 8 repeating: two
+   REAL players, different teams, same number, on court simultaneously --
+   not a tracking error. Because color tiebreak was deliberately scoped to
+   leave the disputed-frame mechanism untouched, id 7's 2.7s of genuine
+   Winton Woods floor time currently shows as unattributed disputed time
+   instead of real credit. NOT fixed this session (scope decision, not a
+   bug) -- flagged as the clear next unit if the color tiebreak proves out:
+   when a disputed number's simultaneous claimants classify to DIFFERENT
+   teams, they are not actually in conflict and both could be credited;
+   when they classify to the SAME team (or either is unresolved), the
+   dispute is real and must stay excluded exactly as today.
+2. **A genuine label contradiction, unrelated to color:** HARD track 2475
+   (window 1, identity 10) was given TWO DIFFERENT roster numbers by two
+   DIFFERENT human inputs on the SAME track: Part-1 track-labeling said #3
+   (`decisions.json track_labels["2475"] = 3`), Part-2 queue-resolution
+   separately said #13 (`{"window":1,"identity_id":10,"number":13}`). Both
+   numbers are Milford's, so team attribution is unaffected either way (the
+   color tiebreak's own output is correct regardless) -- but the SPECIFIC
+   jersey number credited for ~2.9s of floor time is genuinely uncertain.
+   ROOT CAUSE: Part-1 track-labels and Part-2 queue-resolutions are two
+   independently-gated human-input channels that never cross-check the SAME
+   underlying track/identity against each other -- a real gap in the
+   contradiction net. NOT fixed this session -- needs the user's eyes on
+   the footage (same discipline as the HARD_check24 case in section 7a) to
+   say which number is correct; recorded here so it is never silently
+   guessed either way.
+
 ## 4. KNOWN DEBT (logged, not fixed)
 - **stage2_generate_events reads clip identity from TWO objects.** Frame range +
   output path come from `ACTIVE_CLIP` (clip_config), but the video path for frame

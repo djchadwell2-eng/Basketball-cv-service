@@ -1,4 +1,98 @@
-# SANITY CHECK (dad-demo substitute) (current task, 2026-07-12)
+# COLOR TIEBREAK (current task, 2026-07-13)
+
+Goal: HARD's two AMBIGUOUS box-score lines (#3, #23 — both numbers appear on
+Milford white/red AND Winton Woods black/green) split into correct per-team
+lines using jersey color, WITHOUT ever guessing when the color evidence is
+unclear. Scope confirmed: TEST1 has no roster overlap, so this is HARD-only.
+Credited-identity scope is small: #3 has identities 4/7/137(x3 tracks)/10
+(window-local numbering), #23 has 2 identities (one per window) — a handful
+of classifications, not a heavy new pipeline stage.
+
+DESIGN (reuses validated pieces, no new human input required):
+- TEAM COLOR CENTROIDS built automatically from crops the system ALREADY
+  trusts: every CONFIRMED frame whose number is UNAMBIGUOUS (on exactly one
+  roster — e.g. HARD's #24, #10, #44, #20, #1, #0, #13) is free labeled
+  training data for what that team's jersey looks like on THIS footage, same
+  camera/lighting/court. No hardcoded RGB guesses, no new config.
+- Per ambiguous-number IDENTITY (not per frame — one real player, less
+  noise): sample a handful of its claimed frames, compute a color signature
+  per crop reusing ocr_reader's torso-region logic, classify against the two
+  centroids with a MARGIN. If the two teams' distances aren't clearly
+  separated -> ABSTAIN, stays in the current AMBIGUOUS bucket. Same
+  abstention principle as everywhere else in this codebase — never guess.
+- Box score gains, for each number that resolves: separate lines per team
+  ("#3 Milford", "#3 Winton Woods") instead of one blended AMBIGUOUS line.
+  Any identity that can't be classified stays in a residual AMBIGUOUS line —
+  visible, never dropped, never silently assigned.
+- Color tiebreak does NOT touch the disputed-frames mechanism (two identities
+  claiming the SAME frame simultaneously stays a separate contradiction,
+  unaffected by this work) — different problem, different existing detector.
+
+TODO:
+- [x] C1. phase2/color_tiebreak.py: crop_color_signature(), build_team_
+      centroids(), classify_team() with margin-based abstention. Pure
+      functions, no I/O.
+- [x] C2. 10 unit tests written first (synthetic solid-color crops incl. a
+      50/50-blend abstention case + a tie-vote abstention case). All pass.
+- [x] C3. Wired into stage8_box_score.py (_identity_occurrences,
+      _resolve_ambiguous_teams, optional identity_team override on
+      build_box_score). 4 new box-score tests (13 total in that file).
+      Suite 73 -> 87, all green.
+- [x] C3a. BUG CAUGHT + FIXED before shipping: first cut collapsed one
+      identity to one number (last-write-wins), silently skipping a
+      claim-group when an identity carried 2 numbers across separately
+      merge-stamped spans. Fixed: keyed by (window, identity, number)
+      triple. Caught by eyeballing real output, not by unit tests alone --
+      it was a data-shape bug in the I/O wiring, not the pure classifier.
+- [x] C4. Full HARD run: 6/6 ambiguous claim-groups resolved (0 abstained).
+      #3 -> one clean "Milford 6.9s" line; #23 -> "Milford 4.4s" +
+      "Winton Woods 2.7s". Disputed accounting unchanged (2.7s still
+      surfaces on its own AMBIGUOUS row, never team-attributed).
+- [x] C5. Eyeballed 4 of 6 resolved crops against real footage (incl. the
+      largest-credit identity): every classification correct, no
+      misattributions. See DECISIONS section 12.
+- [x] C6. TEST1 regression: box_score.json + .csv BYTE-IDENTICAL before/
+      after (confirmed via diff); zero video reads triggered -- zero-cost
+      path proven, not just claimed.
+- [x] C7. DECISIONS section 12 recorded, incl. TWO findings surfaced (not
+      silently fixed): (a) disputed dual-team frames COULD also be color-
+      resolved but aren't yet -- real WW #3 credit (2.7s) sitting at zero,
+      flagged as the natural next unit; (b) a genuine Part-1-vs-Part-2
+      label contradiction on HARD track 2475 (#3 vs #13, both Milford so
+      team-safe either way, but the specific number is uncertain) --
+      needs the user's eyes on footage, same as the HARD_check24 precedent.
+- [x] C8. Full run_clip end-to-end both clips (background): HARD exit 0,
+      identical box score to the standalone run; TEST1 exit 0, box_score
+      JSON/CSV byte-identical to pre-change snapshot even after a full
+      pipeline rerun (not just standalone stage8). Also fixed a stale
+      validate() warning string that still said "color tiebreak not built
+      yet". Suite 87 green. Committed.
+
+## Review (color tiebreak, 2026-07-13)
+HARD's two AMBIGUOUS lines are gone: #3 and #23 now show correct per-team
+credit, built entirely from crops the system already trusted (no new human
+input, no hardcoded colors) and never guessing where evidence is unclear (0
+of 6 claim-groups needed to abstain this run, but the path exists and is
+tested). TEST1 is provably unaffected (byte-identical output, zero video
+reads). A real bug (identity-to-number collapsing) was caught and fixed
+before shipping by eyeballing actual output against footage, not just by
+the unit tests passing.
+Two findings were surfaced and deliberately NOT silently resolved:
+1. Color could also legitimately un-stick some disputed-frame conflicts
+   (proven case: HARD id7's real Winton Woods #3 credit, 2.7s, currently
+   sits at zero because it's 100%-disputed against id4's simultaneous #3
+   claim, even though color cleanly tells them apart). Natural next unit,
+   not built this session.
+2. A genuine label contradiction on HARD track 2475 (Part-1 labeled #3,
+   Part-2 queue-resolved #13 -- same track, different numbers, same team
+   either way) needs the user's eyes on footage to resolve, same as the
+   HARD_check24 precedent (section 7a).
+NEXT: user's call -- resolve the track-2475 contradiction, extend the
+tiebreak into disputed frames, or move to Phase 5 (ball/shot detection).
+
+---
+
+# SANITY CHECK (dad-demo substitute) (completed 2026-07-12)
 
 Joint validation instead of a formal demo (agreed: no real stat exists yet to
 show dad, per DECISIONS §9b context). User independently scrubbed both source

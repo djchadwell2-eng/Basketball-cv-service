@@ -134,6 +134,60 @@ def test_merge_stamped_number_beats_missing_registry_number():
     assert doc["unnamed_confirmed"]["identities"] == 0
 
 
+def test_dual_team_number_splits_when_color_tiebreak_resolves():
+    """Two identities under the SAME dual-roster number, resolved to
+    different teams by the color tiebreak -- must become two clean lines,
+    not one blended AMBIGUOUS line."""
+    rows = [ev(0, 1, f, "confirmed") for f in range(100, 130)]        # id1: 30f
+    rows += [ev(0, 2, f, "confirmed") for f in range(200, 220)]       # id2: 20f, no overlap
+    doc = build_box_score(merged_doc(rows), [reg(0, 1, 3), reg(0, 2, 3)],
+                          {3: ["A", "B"]}, FPS, oncourt_doc({}),
+                          identity_team={(0, 1): "A", (0, 2): "B"})
+    teams = {r["team"]: r["seconds_total"] for r in doc["players"]}
+    assert teams == {"A": 1.0, "B": 20 / FPS}
+    assert all("AMBIGUOUS" not in t for t in teams)
+
+
+def test_dual_team_number_partial_resolution_leaves_residual_ambiguous():
+    """One identity resolves, the other doesn't (color abstained) -- the
+    unresolved one must stay in the AMBIGUOUS bucket, never guessed."""
+    rows = [ev(0, 1, f, "confirmed") for f in range(100, 130)]
+    rows += [ev(0, 2, f, "confirmed") for f in range(200, 220)]
+    doc = build_box_score(merged_doc(rows), [reg(0, 1, 3), reg(0, 2, 3)],
+                          {3: ["A", "B"]}, FPS, oncourt_doc({}),
+                          identity_team={(0, 1): "A"})              # id2 unresolved
+    by_team = {r["team"]: r["seconds_total"] for r in doc["players"]}
+    assert by_team["A"] == 1.0
+    assert any("AMBIGUOUS" in t and secs == 20 / FPS
+              for t, secs in by_team.items())
+
+
+def test_disputed_frames_on_dual_team_number_never_attributed_to_a_team():
+    """Disputed (conflicting-claim) frames under a dual-roster number must
+    surface on the AMBIGUOUS row, even when every SOLE frame resolves
+    cleanly -- never silently folded into a team's resolved credit."""
+    rows = [ev(0, 1, f, "confirmed") for f in range(100, 130)]        # id1
+    rows += [ev(0, 2, f, "confirmed") for f in range(120, 140)]       # id2 overlaps 120..129
+    doc = build_box_score(merged_doc(rows), [reg(0, 1, 3), reg(0, 2, 3)],
+                          {3: ["A", "B"]}, FPS, oncourt_doc({}),
+                          identity_team={(0, 1): "A", (0, 2): "A"})
+    rows_by_team = {r["team"]: r for r in doc["players"]}
+    assert "AMBIGUOUS (A / B)" in rows_by_team
+    amb = rows_by_team["AMBIGUOUS (A / B)"]
+    assert amb["disputed_seconds"] == 10 / FPS
+    assert amb["seconds_total"] == 0.0
+    assert rows_by_team["A"]["disputed_seconds"] == 0.0
+
+
+def test_no_override_behaves_exactly_as_before():
+    """identity_team omitted entirely -- byte-identical to pre-tiebreak
+    behavior (default argument, existing callers unaffected)."""
+    rows = [ev(0, 1, f, "confirmed") for f in range(100, 130)]
+    doc = build_box_score(merged_doc(rows), [reg(0, 1, 3)],
+                          {3: ["A", "B"]}, FPS, oncourt_doc({}))
+    assert doc["players"][0]["team"] == "AMBIGUOUS (A / B)"
+
+
 def test_unpositioned_frames_counted_honestly():
     rows = [ev(0, 1, f, "confirmed") for f in range(100, 110)]
     onc = oncourt_doc({f: {101: (10.0, 25.0)} for f in range(100, 105)})  # half
