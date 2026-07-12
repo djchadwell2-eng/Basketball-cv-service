@@ -4,8 +4,8 @@
 The working tree holds everything from Phase 0-lite through queue-resolution v2
 (multiple completed units interleaved across the same files, so per-unit commits
 are no longer reconstructable; chunks are thematic, by whole file).
-- [ ] H1. Commit REVIEW.md + ROADMAP.md (the 2026-07-02 read-only review deliverables)
-- [ ] H2. Commit the pipeline work in one honest chunk: new modules
+- [x] H1. Commit REVIEW.md + ROADMAP.md (the 2026-07-02 read-only review deliverables)
+- [x] H2. Commit the pipeline work in one honest chunk: new modules
       (phase2/oncourt.py, purity.py, possessions.py, stage7_merge.py,
       stage8_box_score.py, make_review_bundle.py, cache_oncourt.py,
       cache_purity.py) + modified core (identity.py, roster.py, stage4/5/6,
@@ -13,9 +13,9 @@ are no longer reconstructable; chunks are thematic, by whole file).
       + tests/ (73-test suite) — message names the units it contains
       (Phase 0-lite, ROI seeding, fair remeasure, merge, box score,
       click-seeding, purity, possessions, queue-resolution v2)
-- [ ] H3. Commit phase2/DECISIONS.md + tasks/todo.md (the record)
-- [ ] H4. Commit diagnostics/test1_probe/ + spikes/out stills/summary (artifacts)
-- [ ] H5. Suite green before and after (.venv/Scripts/python -m pytest tests/)
+- [x] H3. Commit phase2/DECISIONS.md + tasks/todo.md (the record)
+- [x] H4. Commit diagnostics/test1_probe/ + spikes/out stills/summary (artifacts)
+- [x] H5. Suite green before and after (73 passed, 0.35s, both times)
 
 ## Task 2 — Re-ID tracker probe (BoT-SORT), READ-ONLY experiment
 Question it answers: does an appearance-embedding tracker cut fragmentation
@@ -25,20 +25,33 @@ SAFETY RAIL: the existing TEST1 tracks cache, oncourt/purity caches, user
 labels, and queue resolutions are NOT touched — BoT-SORT output goes to a
 separate probe JSON. Adopting the tracker (= rebuild caches, re-label) is a
 SEPARATE decision made on the measured number.
-- [ ] T1. phase2/botsort_reid.yaml — copy of ultralytics' botsort.yaml with
+- [x] T1. phase2/botsort_reid.yaml — copy of ultralytics' botsort.yaml with
       with_reid: True (model: auto, gmc sparseOptFlow — good for a panning cam)
-- [ ] T2. tracking.iter_tracks gains an optional tracker_config param
-      (default "bytetrack.yaml" — zero behavior change; suite proves it)
-- [ ] T3. spikes/reid_fragment_probe.py — extracts TEST1's exact span
+- [x] T2. tracking.iter_tracks gains an optional tracker_config param
+      (default "bytetrack.yaml" — zero behavior change; suite 73 green)
+- [x] T3. spikes/reid_fragment_probe.py — extracts TEST1's exact span
       (reuses run_tracking.extract_subclip), tracks with botsort_reid.yaml,
       writes spikes/out/TEST1_tracks_botsort.json + prints distinct-id count
       and per-frame track-count stats vs the cached ByteTrack baseline
-- [ ] T4. Run probe in background (~15-25 min CPU); record 122 -> ?
-- [ ] T5. Record verdict in DECISIONS.md §11 (+ adoption recommendation with
-      its costs: cache rebuilds + label re-entry on both clips)
+- [x] T4. Probe run TWICE (one variable apart): v1 stock reID 122 -> 131 ids;
+      v2 track_buffer 120 (4s relink window) 122 -> 128. Mean lifespan flat
+      (~106 frames) both runs. NO fragmentation gain.
+- [x] T5. DECISIONS §11 recorded: NEGATIVE RESULT, no adoption — bytetrack.yaml
+      stays. Likely cause: teammates wear identical uniforms, so appearance
+      embeddings can't split exactly the crossings that cost clicks. Remaining
+      levers re-ranked: footage zoom/4K, then span-prioritized queue.
 
-## Review
-(pending)
+## Review (housekeeping + re-ID probe, 2026-07-12)
+Working tree fully committed in 7 commits (docs; pipeline Phase 0-lite ->
+queue-resolution v2; DECISIONS/log; artifacts; probe; variant 2; verdict).
+Suite 73 green before and after every change. The re-ID experiment cost two
+read-only background runs and returned a decisive negative: the ~4x click
+reduction does NOT come from a tracker config swap — recorded in §11 so no
+future session re-buys it. Pipeline behavior unchanged (iter_tracks default
+still bytetrack.yaml; caches/labels/resolutions untouched).
+NEXT per handoff order: HARD queue-resolution session (user clicks, same flow
+as TEST1), then the DAD DEMO (overdue; two named box scores + review
+workflow), then color tiebreak per roadmap.
 
 ---
 

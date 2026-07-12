@@ -348,6 +348,36 @@ resolves queue items before a human sees them; (3) span-length-prioritized
 queue with a good-enough cutoff. Bar = "labeling pass + short queue on the
 bus ride home," not zero clicks (Hudl uses 24h of humans).
 
+## 11. RE-ID TRACKER PROBE — NEGATIVE RESULT (2026-07-12)
+The §10 lever-#1 hypothesis ("BoT-SORT + appearance re-ID = ~4x fewer
+fragments from a config swap") was MEASURED and is REFUTED on TEST1.
+Read-only protocol: same 461-frame span, same detector, BoT-SORT output to a
+separate json (spikes/reid_fragment_probe.py); the real tracks cache, user
+labels, and queue resolutions untouched. Two runs:
+- v1 stock BoT-SORT + with_reid (model auto = native detector features,
+  gmc sparseOptFlow): 122 -> **131** distinct ids; mean lifespan 105.8 ->
+  105.6 frames (unchanged); mean tracks/frame 28 -> 30 (keeps more
+  low-confidence bodies = more ids).
+- v2 ONE variable changed, track_buffer 30 -> 120 (1s -> 4s relink window,
+  so re-ID could act across real occlusion gaps): 122 -> **128**. A 4x
+  longer window recovered 3 fragments.
+VERDICT: no adoption. bytetrack.yaml stays the pipeline tracker. Fragment
+count is whole-frame (incl. crowd) — but with mean lifespan flat and a 4s
+window doing nothing, appearance relinking simply isn't firing usefully here.
+LIKELY WHY (recorded, not further chased): teammates wear IDENTICAL uniforms —
+appearance embeddings separate player-vs-crowd, not teammate-vs-teammate, so
+the exact splices that cost us clicks (players crossing/colliding) are the
+ones re-ID is structurally worst at. A wrong-teammate relink would also be a
+silent-swap pressure our identity layer would have to absorb (it would, as
+CANDIDATE — but that's added risk for no measured gain).
+Options NOT taken (dial decisions for another day, on evidence only):
+dedicated re-ID weights instead of model:auto; appearance_thresh below 0.8.
+Both fight the same-uniform problem.
+REMAINING LEVERS from §10, now the ranking: (2) footage zoom/4K -> OCR
+resolves queue items before a human sees them; (3) span-length-prioritized
+queue with a good-enough cutoff. Clicking bar stays "labeling pass + short
+queue on the bus ride home."
+
 ## 4. KNOWN DEBT (logged, not fixed)
 - **stage2_generate_events reads clip identity from TWO objects.** Frame range +
   output path come from `ACTIVE_CLIP` (clip_config), but the video path for frame
