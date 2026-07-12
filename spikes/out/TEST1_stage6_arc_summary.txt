@@ -1,0 +1,4 @@
+Stage 6 -- Stage-5 court overlay + HS 3-point line (additive only)
+HS 3pt: radius=19.75 ft, basket 5.25 ft from baseline, corner straights 5.25 ft from sideline; court 84x50 ft
+UNCHANGED: global H_court residual mean=0.25 ft max=0.54 ft; best-match anchoring; sign-fix
+frames: 1299   rendered: 1299 (100.0%)   no-match: 0
