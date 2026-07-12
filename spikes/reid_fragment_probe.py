@@ -12,7 +12,8 @@ and downstream caches stay valid. Adoption is a separate decision made on the
 numbers this prints.
 
 Run (background, CPU ~2s/frame => ~20 min):
-    .venv/Scripts/python spikes/reid_fragment_probe.py
+    .venv/Scripts/python spikes/reid_fragment_probe.py [tracker_yaml] [out_json]
+(defaults: phase2/botsort_reid.yaml -> spikes/out/TEST1_tracks_botsort.json)
 """
 
 from __future__ import annotations
@@ -34,8 +35,10 @@ clip_config.ACTIVE_CLIP = CLIP          # set BEFORE importing run_tracking (bin
 import run_tracking                      # reuse the exact same span extraction
 import tracking
 
-TRACKER_YAML = os.path.join(_ROOT, "phase2", "botsort_reid.yaml")
-OUT_JSON = os.path.join(_HERE, "out", "TEST1_tracks_botsort.json")
+TRACKER_YAML = sys.argv[1] if len(sys.argv) > 1 else \
+    os.path.join(_ROOT, "phase2", "botsort_reid.yaml")
+OUT_JSON = sys.argv[2] if len(sys.argv) > 2 else \
+    os.path.join(_HERE, "out", "TEST1_tracks_botsort.json")
 
 
 def _stats(frames):
@@ -74,7 +77,8 @@ def main():
         if i % 20 == 0:
             print(f"  ...{i}/{n}  ({len(tracks)} tracks)", flush=True)
 
-    doc = {"clip": CLIP.name, "tracker": "botsort_reid",
+    doc = {"clip": CLIP.name,
+           "tracker": os.path.splitext(os.path.basename(TRACKER_YAML))[0],
            "span_start": CLIP.tracking_span_start, "span_len": len(frames_out),
            "fps": fps, "frames": frames_out}
     with open(OUT_JSON, "w", encoding="utf-8") as f:

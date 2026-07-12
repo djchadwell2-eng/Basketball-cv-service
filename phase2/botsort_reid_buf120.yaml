@@ -1,0 +1,21 @@
+# Probe variant 2: botsort_reid.yaml with ONE change — track_buffer 30 -> 120
+# (4s at 30fps). Rationale: variant 1 measured NO fragmentation gain (122 ->
+# 131 ids) but a 30-frame buffer only lets re-ID relink within 1s of loss;
+# real occlusions run longer, so re-ID never got to act. One variable changed.
+
+tracker_type: botsort
+track_high_thresh: 0.25
+track_low_thresh: 0.1
+new_track_thresh: 0.25
+track_buffer: 120
+match_thresh: 0.8
+fuse_score: True
+
+# Global motion compensation — helps a panning camera like ours
+gmc_method: sparseOptFlow
+
+# Re-ID: appearance embeddings let a lost track relink to the same body
+proximity_thresh: 0.5
+appearance_thresh: 0.8
+with_reid: True
+model: auto # use the detector's native features (no extra model download)
