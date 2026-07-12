@@ -229,8 +229,14 @@ def main():
             f'<div class="btns">{qbtns}</div></div>')
 
     preset_tracks = json.dumps(existing.get("track_labels", {}))
-    preset_q = json.dumps({f"{r['window']}|{r['identity_id']}": r["number"]
-                           for r in existing.get("queue_resolutions", [])})
+    # Queue resolutions are only valid against the boundaries they were made
+    # for (identity ids shift when windows change) -- carry them through only
+    # if the boundaries match; stale ones would pre-select the WRONG rows.
+    if existing.get("window_boundaries") == boundaries:
+        preset_q = json.dumps({f"{r['window']}|{r['identity_id']}": r["number"]
+                               for r in existing.get("queue_resolutions", [])})
+    else:
+        preset_q = "{}"
 
     page = f"""<!doctype html><html><head><meta charset="utf-8">
 <title>{CLIP.name} — label the players</title><style>
@@ -262,8 +268,12 @@ time — your click credits ALL of it to that player, so only answer when the
 photos clearly show one player. Wrong-looking or non-player rows: reject.</p>
 {"".join(qrows) or "<p><i>(no unresolved queue items — nothing to do here)</i></p>"}
 <script>
-const dec = {{}};
-const qdec = {{}};
+const presetTracks = {preset_tracks};
+const presetQ = {preset_q};
+// Start from the presets so labels/resolutions for tracks NOT shown on this
+// page survive a re-download (the shown-track set changes across reruns).
+const dec = Object.assign({{}}, presetTracks);
+const qdec = Object.assign({{}}, presetQ);
 const ct = document.getElementById('ct');
 function refresh() {{
   ct.textContent = (Object.values(dec).filter(x => x !== null).length +
@@ -281,8 +291,6 @@ document.querySelectorAll('.row').forEach(row => {{
     refresh();
   }});
 }});
-const presetTracks = {preset_tracks};
-const presetQ = {preset_q};
 document.querySelectorAll('.row').forEach(row => {{
   const isQ = row.classList.contains('qrow');
   const k = isQ ? row.dataset.win + '|' + row.dataset.id : row.dataset.tid;
