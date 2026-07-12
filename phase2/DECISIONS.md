@@ -348,6 +348,30 @@ resolves queue items before a human sees them; (3) span-length-prioritized
 queue with a good-enough cutoff. Bar = "labeling pass + short queue on the
 bus ride home," not zero clicks (Hudl uses 24h of humans).
 
+### 10a. HARD QUEUE SESSION — 9/9 NUMBERS NAMED + a third real-use bug (2026-07-12)
+User resolved 15 of HARD's 23 queue items (8 named, 7 rejected as
+refs/coaches/crowd, 8 honestly left unsure). ALL 8 named resolutions merged
+through the shared contradiction-checked path: 642 frames (21.4s) re-credited
+as confirmed_retroactive [human]; 0 human refusals; the ONLY contradiction
+flag remains the known #24 OCR splice (correctly stuck). Safety counters
+clean: 0 continuity confirms, 0 OCR disagreements, no line exceeds the 20s
+span (max 15.1s). BOARD: **all 9 distinct roster numbers named** (was 7/9);
+#3 and #23 stay team-AMBIGUOUS (dual-team; color tiebreak pending); disputed
+seconds surfaced, never counted (#24 1.1s, #3 2.7s); unnamed remainder 15
+identities/61.7s.
+
+BUG FOUND BY REAL USE (third one; fixed same session): the review page's
+download dropped 17 prior labels — dec/qdec started empty and only rendered
+rows could populate them, so labels for tracks NOT shown on a regenerated
+page (the shown set changed when possession windows replaced fixed windows)
+silently vanished from the re-download. Late-seed vouchers were among them:
+running with that file would have UN-named players. Fix: dec/qdec now
+initialize from the presets (all saved labels carry through any re-download);
+queue-resolution presets carry only when window_boundaries match (identity
+ids shift otherwise — stale presets would pre-select wrong rows). Data
+repaired by merging the backup (ALWAYS back up decisions.json before a
+session). Suite 73 green.
+
 ## 11. RE-ID TRACKER PROBE — NEGATIVE RESULT (2026-07-12)
 The §10 lever-#1 hypothesis ("BoT-SORT + appearance re-ID = ~4x fewer
 fragments from a config swap") was MEASURED and is REFUTED on TEST1.

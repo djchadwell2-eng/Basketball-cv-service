@@ -1,4 +1,42 @@
-# HOUSEKEEPING COMMITS + RE-ID TRACKER PROBE (current task, 2026-07-12)
+# HARD QUEUE-RESOLUTION SESSION (current task, 2026-07-12)
+
+User resolves HARD's 23-item queue via the review page; resolutions apply
+through stage7's shared contradiction-checked merge path (same as TEST1's R4).
+- [x] S1. Verified bundle current (boundaries [600,1097] embedded, labels
+      pre-populated); backed up HARD_decisions.json first
+- [x] S2. USER resolved 15/23: 8 named (#20, #0, #3, #44 in poss-0;
+      #1, #23, #13, #20 in poss-1), 7 rejected as non-players, 8 left unsure
+- [x] S3. BUG FOUND BY REAL USE: re-download DROPPED 17 prior labels (tracks
+      not shown on the regenerated page never enter the download's dec/qdec).
+      ROOT FIX in make_review_bundle.py: dec/qdec initialize from presets so
+      unshown labels carry through; queue presets only when boundaries match
+      (ids shift otherwise). DATA FIX: merged the 17 back from the backup
+      (10 player labels incl. late-seed vouchers + 7 refs). Suite 73 green.
+- [x] S4. Full run_clip HARD rerun DONE (exit 0, end-to-end)
+- [x] S5. Verified: all 8 named resolutions merged [human] (642 frames =
+      21.4s recovered); 7 rejects recorded, never credited; 1 contradiction =
+      the known #24 OCR splice (correctly stuck); 0 continuity confirms;
+      0 disagreements; max line 15.1s in a 20s span (no impossible credit).
+      BOARD: 9/9 distinct roster numbers named (was 7/9); #3/#23 AMBIGUOUS
+      (color tiebreak); disputed surfaced not counted (#24 1.1s, #3 2.7s);
+      unnamed 15 ids/61.7s; 7 queue items still open + 2 dual-team cases.
+- [x] S6. Bundle regenerated (15 resolutions verified embedded in presetQ);
+      DECISIONS §10a recorded; committed.
+
+## Review (HARD queue session, 2026-07-12)
+Both clips now have fully-named boards (TEST1 10/10, HARD 9/9) — the dad-demo
+prerequisite is met. The session also caught bug #3-found-by-real-use: the
+review page's re-download silently dropped labels for tracks not shown on the
+regenerated page (incl. late-seed vouchers); root-fixed in make_review_bundle
+(dec/qdec initialize from presets; queue presets gated on boundary match) and
+the 17 dropped labels were restored from the pre-session backup. Practice
+locked in: back up {clip}_decisions.json before every review session.
+NEXT: DAD DEMO (everything ready), then color tiebreak (two measured
+dual-team cases blocking #3/#23 team attribution).
+
+---
+
+# HOUSEKEEPING COMMITS + RE-ID TRACKER PROBE (completed 2026-07-12)
 
 ## Task 1 — commit the uncommitted work in logical chunks
 The working tree holds everything from Phase 0-lite through queue-resolution v2
