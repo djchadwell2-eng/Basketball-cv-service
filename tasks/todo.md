@@ -14,17 +14,28 @@ its own, e.g. flicker/false-positive stats per DECISIONS 13's spirit).
       `.backup-2026-07-13-pre-fullclip.json` suffix before overwriting.
 - [x] Added optional CLI span override to ball_spike.py / hoop_anchor.py
       (default unchanged = today's verified 1020/360 span). Suite green.
+- [x] hoop_anchor.py 0 2746 FIRST run exposed a real bug (not just the
+      expected coverage gap): 1089/2746 frames (matched to keyframes
+      600-1000, outside the previously-validated 1100/1200 range)
+      produced geometrically absurd hoop positions (e.g. x=42625 in a
+      1920px frame) -- a SIFT match clearing MIN_INLIERS on OTHER visible
+      features doesn't guarantee the homography is well-conditioned for
+      extrapolating all the way to the rim. NOT a sign bug (verified: an
+      overall matrix sign flip cannot change a projective-divide output).
+      FIXED: in_plausible_bounds() rejects wildly-out-of-frame results,
+      treated as an honest no-match. 5 tests, suite 140->145. Re-running
+      (bttbbxljy) with the fix.
 - [~] RUNNING (background, parallel, independent of each other):
-      `ball_spike.py 0 2746` (full clip, ~90 min) and
-      `hoop_anchor.py 0 2746` (full clip, hoop position only inside the
-      calibrated 600-1200 window, honest no-match elsewhere).
+      `ball_spike.py 0 2746` (full clip, ~90 min, unaffected by the hoop
+      fix) and the corrected `hoop_anchor.py 0 2746`.
 - [ ] Once both land: rerun ball_trajectory.py (reads span from the log,
       no changes needed), shot_attempts.py, shot_outcome.py,
       shot_location.py over the full-clip data. Report: how many NEW
-      shot attempts surfaced inside 600-1200 (the only scoreable window),
-      what the outcome accuracy looks like at the new sample size, and
+      shot attempts surfaced inside the frames with a real hoop position
+      (likely narrower than 600-1200 now, per the bounds-check finding),
+      what outcome accuracy looks like at the new sample size, and
       whether Gate 4 is now measurable.
-- [ ] DECISIONS §18 with the harvest result.
+- [ ] DECISIONS §18 with the harvest result + the plausibility-bug finding.
 
 # PHASE 5 STEP 5 — MAKE/MISS, TIMEBOXED (DONE 2026-07-13 — DECISIONS §17, Gate 4 unmeasurable at n=1)
 
