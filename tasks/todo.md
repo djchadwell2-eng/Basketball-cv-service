@@ -41,13 +41,15 @@ Design:
   against where the shooter actually stood on film.
 
 ## Plan
-- [ ] 0: check in with user on this plan.
-- [ ] A: tests first, then extend spikes/shot_attempts.py with the
-      back-extrapolated release finder (bounded, gated). Synthetic tests:
-      releaser bbox back along the curve -> picked; all bodies far from
-      the backward path -> no_confident_shooter; extrapolation never
-      exceeds the frame bound.
-- [ ] B: rerun on HARD; diagnostic still of the new hint; user confirms
+- [x] 0: check in with user on this plan.
+- [x] A: tests first (6 synthetic), then extended spikes/shot_attempts.py
+      with find_release() (bounded backward extrapolation of the arc's own
+      fit, gated by bbox distance). Suite 115->121.
+- [~] B: rerun on HARD; NEW HINT: track 1502, release_frame=1178 (39.27s),
+      still review_item/candidate (correctly not auto-attributed). My own
+      read of HARD_shooter_diag_1178_v2.jpg looks right (white/red player
+      mid-shooting-motion, arms up) but this needs the USER's eyeball gate,
+      not mine — asked, response pending.
       the real shooter is now the hinted track (and tells me if not).
 - [ ] C: spikes/shot_location.py — oncourt join + shot chart render;
       dot for the verified shot, review-status labeled.
