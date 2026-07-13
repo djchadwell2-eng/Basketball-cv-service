@@ -25,15 +25,30 @@ its own, e.g. flicker/false-positive stats per DECISIONS 13's spirit).
       FIXED: in_plausible_bounds() rejects wildly-out-of-frame results,
       treated as an honest no-match. 5 tests, suite 140->145. Re-running
       (bttbbxljy) with the fix.
-- [~] RUNNING (background, parallel, independent of each other):
-      `ball_spike.py 0 2746` (full clip, ~90 min, unaffected by the hoop
-      fix) and the corrected `hoop_anchor.py 0 2746`.
-- [ ] Once both land: rerun ball_trajectory.py (reads span from the log,
-      no changes needed), shot_attempts.py, shot_outcome.py,
-      shot_location.py over the full-clip data. Report: how many NEW
-      shot attempts surfaced inside the frames with a real hoop position
-      (likely narrower than 600-1200 now, per the bounds-check finding),
-      what outcome accuracy looks like at the new sample size, and
+- [x] Both background runs completed clean. ball_spike: 3102 raw
+      detections/2746 frames (65.5% w/ >=1 det). hoop_anchor (fixed):
+      1702/2746 plausible (0 remaining out-of-bounds), covering ~33s-91s
+      continuously (camera framing stayed close to keyframe 1200's view
+      for most of the 2nd half) -- BETTER than the expected 600-1200-only
+      window. ball_trajectory: 30 candidate arcs across the full clip
+      (up from 2 in the original 12s slice).
+- [x] shot_attempts.py + shot_outcome.py rerun over the full-clip data.
+      RESULT: still only the SAME 2 shot attempts (1188-1211, 1217-1250)
+      -- the harvest did NOT expand the sample. REAL FINDING: several of
+      the 28 non-qualifying arcs DO have a hoop position at their check
+      frame but sit 295-1043px away (min_dist), far past the 100px gate
+      -- the signature of shots at the OTHER basket, which was never
+      anchored (hoop_anchor only tracks the one hoop marked in step 3).
+      Not a bug -- correct abstention -- but it caps the real sample at
+      n=2 regardless of how much more footage gets processed, until a
+      second hoop anchor is added.
+- [ ] DECIDE (user): add a second hoop anchor (cheap -- one more marked
+      keyframe click + a hoop_anchor rerun, ball detection already done
+      for the whole clip) to actually grow the Gate-4 sample, or accept
+      n=2 as final and close Phase 5 here per "don't chase this for
+      weeks."
+- [ ] DECISIONS §18 with the full harvest result + the single-hoop-anchor
+      scoping finding.
       whether Gate 4 is now measurable.
 - [ ] DECISIONS §18 with the harvest result + the plausibility-bug finding.
 
