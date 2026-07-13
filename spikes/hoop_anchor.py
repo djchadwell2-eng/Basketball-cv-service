@@ -66,6 +66,26 @@ def project_point(M, x, y):
             (M[1, 0] * x + M[1, 1] * y + M[1, 2]) / d)
 
 
+# A SIFT match clearing MIN_INLIERS on OTHER visible features (floor lines,
+# bleachers) does not guarantee the homography is well-conditioned for
+# extrapolating to the RIM specifically, if the rim sits far outside the
+# convex hull of matched keypoints for that view. Found on the full-clip
+# harvest (DECISIONS 18): frames matched to keyframes 600-1000 (outside the
+# span this was validated on) produced geometrically absurd hoop pixels
+# (e.g. x=42625 in a 1920px-wide frame) -- a near-zero perspective-divide
+# denominator, not a sign issue (negating a homogeneous matrix cannot change
+# its projective output). PLAUSIBLE_BOUNDS_MARGIN catches this: a hoop
+# position wildly outside the frame is not trustworthy even when the match
+# that produced it "looked" confident -- abstain, same as a failed match.
+PLAUSIBLE_BOUNDS_MARGIN = 0.5   # allow up to 50% of a frame dimension beyond its edge
+
+
+def in_plausible_bounds(px, frame_w, frame_h, margin=PLAUSIBLE_BOUNDS_MARGIN):
+    x, y = px
+    mx, my = frame_w * margin, frame_h * margin
+    return (-mx <= x <= frame_w + mx) and (-my <= y <= frame_h + my)
+
+
 def _keyframe_db(video_path, KF, sift):
     frames = s2.extract_frames(video_path, KF)
     db = []
@@ -119,10 +139,13 @@ def build_hoop_track(video_path, span_start, span_len):
     kf_db = _keyframe_db(video_path, KF, sift)
 
     cap = cv2.VideoCapture(video_path)
+    frame_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    frame_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     for _ in range(span_start):
         cap.grab()
     out = []
     matched = 0
+    rejected_implausible = 0
     for i in range(span_len):
         ok, frame = cap.read()
         if not ok:
@@ -136,6 +159,9 @@ def build_hoop_track(video_path, span_start, span_len):
         T = Hs_opt[pos] @ Hfk                       # frame -> ref-900
         Tinv = np.linalg.inv(T)
         hoop_px = project_point(Tinv, *rim_ref900)   # ref-900 -> frame
+        if hoop_px is not None and not in_plausible_bounds(hoop_px, frame_w, frame_h):
+            rejected_implausible += 1
+            hoop_px = None
         out.append({"frame_index": f, "hoop_px": hoop_px, "matched_kf": KF[pos],
                      "inliers": inl, "ratio": round(ratio, 2)})
         if hoop_px is not None:
@@ -143,7 +169,8 @@ def build_hoop_track(video_path, span_start, span_len):
         if i % 60 == 0:
             print(f"  ...{i}/{span_len}", flush=True)
     cap.release()
-    print(f"[hoop_anchor] hoop pixel found in {matched}/{len(out)} frames")
+    print(f"[hoop_anchor] hoop pixel found in {matched}/{len(out)} frames "
+          f"({rejected_implausible} matched-but-implausible results rejected)")
     return rim_ref900, out, KF, Hs_opt
 
 
