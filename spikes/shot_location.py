@@ -92,18 +92,29 @@ def _court_polylines():
     return polys
 
 
+def _court_feet_to_diagram_px(fx, fy, scale):
+    """Court feet -> diagram pixels, Y-FLIPPED to match the ALREADY-
+    VALIDATED convention in phase1/stage3_heatmap.py (matplotlib
+    origin='lower': near-sideline y=0 at the BOTTOM, far-sideline y=W at
+    the TOP). cv2 images index row 0 at the top, so that convention means
+    "diagram row" = (COURT_WID - fy) * scale, not fy * scale directly --
+    plotting fy straight into image-space silently mirrors near/far
+    top-to-bottom (caught by user eyeball on the real HARD shot)."""
+    return feet_to_px(fx, COURT_WID - fy, scale)
+
+
 def render_shot_chart(clip_name, located_shots, out_path, scale=10):
     W, H = int(COURT_LEN * scale), int(COURT_WID * scale)
     WOOD = (219, 233, 244)
     img = np.full((H, W, 3), WOOD, dtype=np.uint8)
     for poly in _court_polylines():
-        pts = [feet_to_px(x, y, scale) for (x, y) in poly]
+        pts = [_court_feet_to_diagram_px(x, y, scale) for (x, y) in poly]
         for a, b in zip(pts, pts[1:]):
             cv2.line(img, a, b, (120, 90, 40), 2)
     GREEN, ORANGE = (0, 160, 0), (0, 140, 255)
     for s in located_shots:
         color = GREEN if s["status"] == "confirmed" else ORANGE
-        x, y = feet_to_px(s["court_feet"][0], s["court_feet"][1], scale)
+        x, y = _court_feet_to_diagram_px(s["court_feet"][0], s["court_feet"][1], scale)
         cv2.circle(img, (x, y), 10, color, -1)
         cv2.circle(img, (x, y), 10, (0, 0, 0), 2)
         cv2.putText(img, s["status"], (x + 14, y + 5), cv2.FONT_HERSHEY_SIMPLEX,

@@ -11,7 +11,9 @@ import sys
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(_ROOT, "spikes"))
 
-from shot_location import feet_to_px, find_shot_location  # noqa: E402
+from shot_location import (  # noqa: E402
+    COURT_WID, feet_to_px, find_shot_location, render_shot_chart,
+)
 
 
 def attempt(status, track_id=None, release_frame=None):
@@ -69,3 +71,24 @@ def test_feet_to_px_places_court_center_at_the_image_center():
 def test_feet_to_px_scales_linearly():
     assert feet_to_px(10, 5, 10) == (100, 50)
     assert feet_to_px(10, 5, 20) == (200, 100)
+
+
+def test_render_orientation_matches_the_established_heatmap_convention(tmp_path):
+    """REGRESSION: the very bug the user caught -- phase1/stage3_heatmap.py
+    (already-validated) draws with matplotlib origin='lower' (near-sideline
+    y=0 at the BOTTOM, far-sideline y=W at the TOP). A near-sideline shot
+    (small y) must render in the BOTTOM half of the image, not the top."""
+    scale = 5
+    out = str(tmp_path / "chart.png")
+    render_shot_chart("TEST", [{"status": "review_item", "court_feet": [42.0, 2.0]}],
+                      out, scale=scale)
+    import cv2
+    img = cv2.imread(out)
+    h = img.shape[0]
+    # find the drawn marker (non-background, non-court-line, non-text pixel)
+    # cheaply: the dot color (0,140,255 BGR orange) should appear only in
+    # the BOTTOM half of the image for a near-sideline (y=2) shot.
+    orange = (img[:, :, 0].astype(int) == 0) & (img[:, :, 2].astype(int) == 255)
+    ys = orange.nonzero()[0]
+    assert len(ys) > 0
+    assert ys.mean() > h / 2   # bottom half

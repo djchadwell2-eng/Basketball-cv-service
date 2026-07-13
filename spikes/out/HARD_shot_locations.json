@@ -1,0 +1,24 @@
+{
+  "clip": "HARD",
+  "locations": [
+    {
+      "start_frame": 1188,
+      "end_frame": 1211,
+      "shooter_status": "review_item",
+      "status": "located",
+      "court_feet": [
+        68.7,
+        42.3
+      ],
+      "release_frame": 1178,
+      "track_id": 1502
+    },
+    {
+      "start_frame": 1217,
+      "end_frame": 1250,
+      "shooter_status": "no_confident_shooter",
+      "status": "location_unknown",
+      "reason": "no release estimate (shooter status: no_confident_shooter)"
+    }
+  ]
+}
