@@ -1,4 +1,60 @@
-# PHASE 5 STEP 1 — BALL SPIKE (current task, 2026-07-13)
+# PHASE 5 STEP 2 — TRAJECTORY LAYER (current task, 2026-07-13)
+
+Goal: turn the spike's raw detections into honest BALL-IN-FLIGHT claims.
+Input = the existing spike log (spikes/out/HARD_ball_spike_log.json, ALL
+759 low-conf detections — DECISIONS §13: confidence cannot gate, physics
+must). Output = arc segments the system is willing to claim, everything
+else = no claim (abstention, same as identity).
+
+Design (driven by the spike's two measured facts):
+(1) real ball moves smoothly ~12px/frame; glare junk is positionally
+    static -> CHAINING by position separates them where confidence can't;
+(2) the ball appears in 5-25 frame streaks with small gaps -> SHORT
+    parabolic fits with bounded gap tolerance, never long extrapolation.
+
+Pipeline (one new file, spikes/ball_trajectory.py, reads the log JSON,
+touches NOTHING else — no video re-detection needed this session):
+  a. CHAIN: greedy frame-to-frame association on box centers; gate =
+     max displacement/frame (~40px, 3x the measured ~12); tolerate gaps
+     <= 3 frames (linear-predicted position must still gate).
+  b. DE-JUNK: drop chains whose total travel is tiny (static glare) or
+     shorter than 6 frames (too little evidence for any physics claim).
+  c. FIT: quadratic cy(frame) + linear cx(frame) per chain (short
+     segments, camera pan stays small at this scale — v1 does NOT model
+     pan; if residuals prove otherwise, that's a finding, not a hack).
+     Physics gate: downward accel (image +y) within a plausible band +
+     residual ceiling. Pass = ARC (a ball-flight claim). Fail = chain
+     stays visible in output as no-claim (honest, reviewable).
+  d. MEASURE against known ground truth from step 1: the user-verified
+     shot arc (frames ~1188-1211) MUST come out as an ARC; the glare
+     chains MUST NOT; report every claimed arc for user eyeball via an
+     overlay video (arcs drawn as curves, no-claim chains dim).
+
+## Plan
+- [ ] 0: check in with user on this plan before building.
+- [ ] 1: synthetic unit tests FIRST (project practice): perfect parabola
+      -> ARC; static points -> rejected as junk before fitting; jittery
+      random walk -> chain forms but FAILS the physics gate; upward-accel
+      (impossible) -> fails; gap > tolerance -> chain splits. New test
+      file, existing 87 tests untouched.
+- [ ] 2: spikes/ball_trajectory.py implementing a-d; writes
+      {clip}_ball_arcs.json (chains, fits, residuals, verdicts) +
+      arc overlay video into spikes/out/.
+- [ ] 3: run on the HARD spike log; report: does the known shot arc get
+      claimed? how many other arcs appear, and are they real (the
+      41.0-41.6s descent, the 45.1-45.3s flight)? do any glare chains
+      sneak through? Numbers first, then user eyeballs the overlay.
+- [ ] 4: log result + verdict in DECISIONS.md §14 (build -> measure ->
+      verdict, honest either way). Gate to step 3 (shot attempts): arcs
+      must be trustworthy enough that "upward arc ending at hoop region"
+      is meaningful.
+- Commit after tests+module land green, again after the measured run.
+
+NOT in scope: shot attempts, hoop region, shooter attribution (step 3);
+make/miss (step 5); feeding possessions (step 6); custom detectors;
+writing anything into team_events (ball layer is a NEW layer, forever).
+
+# PHASE 5 STEP 1 — BALL SPIKE (DONE 2026-07-13, verdict GO — DECISIONS §13)
 
 Goal: answer ONE question before any ball-tracking code gets built — can a
 stock YOLOv8m (COCO "sports ball" class) see the ball on this footage often
