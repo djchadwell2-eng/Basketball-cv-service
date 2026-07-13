@@ -1,4 +1,51 @@
-# PHASE 5 STEP 4 — SHOT LOCATION (current task, 2026-07-13)
+# PHASE 5 STEP 5 — MAKE/MISS, TIMEBOXED (current task, 2026-07-13)
+
+Goal (ROADMAP step 5 + GATE 4): simple visual outcome discriminators whose
+outputs are CANDIDATE labels feeding review — candidate_make /
+candidate_miss / unknown — never a bare made/missed stat. Gate 4: if
+automatic outcome accuracy on eyeballed samples is honestly <~85%, ship
+attempts + locations + reviewed-outcomes and move on. Do NOT chase
+make/miss for weeks.
+
+HONESTY UP FRONT: we have exactly ONE verified shot (the ~40s rim-out
+MISS). n=1 cannot measure an accuracy rate, so Gate 4 CANNOT be evaluated
+this session no matter what gets built. This step therefore: (1) builds
+the discriminator small, (2) verifies it gets the one known shot right
+(miss), (3) reports the gate as UNMEASURABLE at n=1 and hands the user
+the decision on harvesting more shots (e.g. a full-clip HARD ball-
+detection run, ~90min background, would surface every shot in the 91s
+clip for a real sample).
+
+Design (geometric, abstention-first, both signals from data we already
+have — raw detections + claimed arcs + carried hoop positions):
+- MAKE evidence: after the shot's hoop-arrival frame, raw detections in
+  the BELOW-RIM CORRIDOR (narrow horizontal window around the hoop x,
+  y just below the hoop) with y increasing — the ball falling through
+  the net. Uses RAW detections (not arcs) because a dropping ball over
+  a few frames may not earn a full physics claim.
+- MISS evidence: a subsequent chain/arc STARTING near the hoop and
+  exiting laterally/upward — a deflection (exactly the section-15
+  rim-out pattern, now used as signal instead of noise).
+- BOTH or NEITHER -> unknown (abstain; conflict never resolved by guess).
+- Output: outcome + evidence counts stamped on each shot attempt; ALL
+  outcomes are review items by design (candidate labels, per ROADMAP).
+
+## Plan
+- [ ] 0: check in with user on this plan.
+- [ ] A: tests first (synthetic below-rim fall -> candidate_make;
+      deflection away -> candidate_miss; nothing -> unknown; both ->
+      unknown/conflict), then spikes/shot_outcome.py.
+- [ ] B: run on HARD; the known shot MUST come out candidate_miss (user
+      verified rim-out on film). Report the evidence trail.
+- [ ] C: DECISIONS §17: result + the explicit Gate-4 statement (n=1,
+      unmeasurable) + the harvest-more-shots decision handed to user.
+- Commit after tests+code green, again after the measured run.
+
+NOT in scope: scoreboard-OCR outcome second-signal (later project, per
+ROADMAP); rebounds/assists/steals; possessions (step 6); any non-review
+outcome stat; writing into team_events or any existing artifact.
+
+# PHASE 5 STEP 4 — SHOT LOCATION (DONE 2026-07-13 — DECISIONS §16, gate to step 5 PASSED)
 
 Goal: put the user-verified shot on a court diagram — shooter position in
 court feet at release, rendered as a shot-chart dot, with review status
