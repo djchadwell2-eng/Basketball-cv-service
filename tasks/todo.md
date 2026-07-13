@@ -1,3 +1,58 @@
+# PHASE 5 STEP 1 — BALL SPIKE (current task, 2026-07-13)
+
+Goal: answer ONE question before any ball-tracking code gets built — can a
+stock YOLOv8m (COCO "sports ball" class) see the ball on this footage often
+enough, and cleanly enough, to be worth building a trajectory layer on top
+of? Per ROADMAP.md Phase 5 step 1: measure BEFORE building. No ball code
+exists in the repo today; the old "flickery but arc-detectable" note is a
+hypothesis to re-verify, not a result.
+
+Scope: detection only, this session. NO tracking-across-frames, NO
+trajectory/arc fitting, NO shot-attempt logic — those are steps 2-3 and only
+happen if this spike's numbers justify it (per-ROADMAP decision gate).
+
+## Plan
+- [x] 0: CHECK IN WITH USER — user confirmed HARD.mp4, ~35-45s has a shot
+      attempt (30fps -> frames 1050-1350; used span 1020-1380 with buffer).
+- [x] 1: `spikes/ball_spike.py` — new, throwaway-probe style (same pattern as
+      `spikes/reid_fragment_probe.py`, DECISIONS.md §11). Extracts the chosen
+      frame span (reuse `run_tracking.extract_subclip`), runs YOLOv8m
+      (`yolov8m.pt`, already in repo root — same model already used for
+      person detection) filtered to COCO class 32 "sports ball", LOW
+      confidence threshold (e.g. conf=0.05, far below the person-detector's
+      implicit default) + imgsz=1280 (same as the validated person config).
+      RAW per-frame detections only — no tracker, no persistence, per
+      ROADMAP step 1 ("plot raw detections" before building anything else).
+- [x] 2: draw every raw detection box + confidence on each frame, write an
+      overlay .mp4 to `spikes/out/` (matches `reid_fragment_probe.py`'s
+      convention), plus a per-frame JSON log (frame_index, N detections,
+      confidences, boxes) so flicker can be measured from data, not just eyes.
+- [x] 3: ran in background, completed clean (360/360 frames). One hygiene
+      fix after the run: ball_spike.py now sets clip_config.ACTIVE_CLIP
+      BEFORE importing run_tracking (the temp subclip had been named
+      TEST1_span_* — the DATA was correct, video path is passed explicitly;
+      only the temp filename was mislabeled — same naming-trap class as
+      DECISIONS §9b, fixed at the source).
+- [~] 4: MEASURED (user overlay eyeball still pending). Numbers: 759 raw
+      detections over 360 frames; conf>=0.5: 67 dets (18.1% of frames), all
+      4 spot-checked stills show the >=0.5 box ON the real ball (dribble x2,
+      loose-ball, in-flight at the rim at 45.2s); conf 0.05-0.15: 508 dets,
+      overwhelmingly floor glare / court logos. Ball visible in usable
+      STREAKS (5-15 consecutive frames), not isolated blips — the exact
+      shape a trajectory layer needs. Stills: spikes/out/HARD_ball_still_*.jpg,
+      overlay: spikes/out/HARD_ball_spike_overlay.mp4.
+- [ ] 5: log the measurement + verdict in `phase2/DECISIONS.md` as a new
+      section (§13), same format as prior spikes (build → measure → verdict).
+      Decision gate: if detections are frequent + clean enough to plausibly
+      fit an arc through, proceed to Phase 5 step 2 (trajectory layer); if
+      not, log the negative result (same honesty as DECISIONS §11's negative
+      re-id probe result) and stop here rather than building trajectory code
+      on a detector that can't see the ball.
+
+Constraints (per CLAUDE.md + project architecture): smallest possible
+change — one new throwaway script, zero edits to any existing file, zero
+edits to team_events/box_score/identity code. Commit after the spike script
++ measurement are done (nothing to commit before — it's a new, isolated file).
 # COLOR TIEBREAK (current task, 2026-07-13)
 
 Goal: HARD's two AMBIGUOUS box-score lines (#3, #23 — both numbers appear on
