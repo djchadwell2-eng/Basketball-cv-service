@@ -33,26 +33,39 @@ happen if this spike's numbers justify it (per-ROADMAP decision gate).
       TEST1_span_* — the DATA was correct, video path is passed explicitly;
       only the temp filename was mislabeled — same naming-trap class as
       DECISIONS §9b, fixed at the source).
-- [~] 4: MEASURED (user overlay eyeball still pending). Numbers: 759 raw
-      detections over 360 frames; conf>=0.5: 67 dets (18.1% of frames), all
-      4 spot-checked stills show the >=0.5 box ON the real ball (dribble x2,
-      loose-ball, in-flight at the rim at 45.2s); conf 0.05-0.15: 508 dets,
-      overwhelmingly floor glare / court logos. Ball visible in usable
-      STREAKS (5-15 consecutive frames), not isolated blips — the exact
-      shape a trajectory layer needs. Stills: spikes/out/HARD_ball_still_*.jpg,
-      overlay: spikes/out/HARD_ball_spike_overlay.mp4.
-- [ ] 5: log the measurement + verdict in `phase2/DECISIONS.md` as a new
-      section (§13), same format as prior spikes (build → measure → verdict).
-      Decision gate: if detections are frequent + clean enough to plausibly
-      fit an arc through, proceed to Phase 5 step 2 (trajectory layer); if
-      not, log the negative result (same honesty as DECISIONS §11's negative
-      re-id probe result) and stop here rather than building trajectory code
-      on a detector that can't see the ball.
+- [x] 4: MEASURED + user eyeballed frame-by-frame (2026-07-13). User
+      CORRECTED my first read: on the shot arc the boxes are glued to the
+      ball but conf NEVER crosses 0.5. Log confirms — the arc (frames
+      1188-1211, 39.6-40.4s) is a textbook parabola at conf 0.05-0.33.
+      Conf tracks apparent size/background, not ball-ness; glare junk
+      shares the low band but is positionally static while the real ball
+      moves smoothly. 759 raw dets / 360 frames total. Stills:
+      spikes/out/HARD_ball_still_*.jpg, overlay: ..._ball_spike_overlay.mp4.
+- [x] 5: logged as DECISIONS.md §13 — VERDICT: GO for Phase 5 step 2
+      (trajectory layer), with the measured design constraint: confidence
+      CANNOT gate ball claims (any threshold that kills glare also kills
+      the rising shot arc); physics-consistency must be the confidence.
+      Stock detector positions are sufficient; no custom ball detector
+      (per ROADMAP's "do NOT build yet" list).
 
 Constraints (per CLAUDE.md + project architecture): smallest possible
 change — one new throwaway script, zero edits to any existing file, zero
 edits to team_events/box_score/identity code. Commit after the spike script
 + measurement are done (nothing to commit before — it's a new, isolated file).
+
+## Review (ball spike, 2026-07-13)
+- One new file: `spikes/ball_spike.py`. Zero existing files edited; the
+  identity pipeline, caches, and test suite were never touched.
+- Result: POSITIVE with a user-caught correction. The detector's POSITIONS
+  are arc-fit-ready (boxes glued to the ball through a full parabolic shot
+  arc, near-continuous ~24 frames) but its CONFIDENCES are not a usable
+  gate — the entire rising arc sits at 0.05-0.33, below any threshold
+  that would remove floor-glare junk. Physics consistency, not detector
+  confidence, must make ball claims (ROADMAP step 2's design, now measured
+  as a necessity rather than assumed).
+- Full numbers + the ACTIVE_CLIP-import-order trap in DECISIONS.md §13.
+- Next: Phase 5 step 2 — trajectory layer (parabolic segments over ALL
+  low-conf detections, physics-consistency as confidence, abstention in gaps).
 # COLOR TIEBREAK (current task, 2026-07-13)
 
 Goal: HARD's two AMBIGUOUS box-score lines (#3, #23 — both numbers appear on

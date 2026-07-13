@@ -531,6 +531,58 @@ TWO FINDINGS surfaced by building this, NEITHER silently acted on:
    1.3s -> 0.8s (lost its incorrect 0.4s retro credit), every other line
    byte-unchanged. Suite 87 green.
 
+## 13. BALL SPIKE — Phase 5 step 1, POSITIVE RESULT (2026-07-13)
+`spikes/ball_spike.py` (new isolated probe, zero edits to pipeline code).
+The ROADMAP-mandated measurement BEFORE building any ball code: can stock
+YOLOv8m (the SAME yolov8m.pt already doing person detection) see the ball
+at all on this footage? Prior "flickery but arc-detectable" note was a
+hypothesis to re-verify, not a result — now it's a result.
+
+Protocol: user identified a real shot attempt in HARD.mp4 at ~35-45s;
+probe ran raw per-frame detection (COCO class 32 "sports ball", conf=0.05
+floor, imgsz=1280 — same as the validated person config) on frames
+1020-1380, NO tracker, NO persistence. Output: overlay video + per-frame
+JSON log (`spikes/out/HARD_ball_spike_overlay.mp4` / `_log.json`).
+
+MEASURED: 759 raw detections / 360 frames. First read of the data said
+"confidence separates ball from junk" (every conf>=0.5 spot-checked still
+was the real ball: dribble 0.82, mid-bounce 0.80, loose-ball 0.67, in
+flight 0.81). THE USER'S FRAME-BY-FRAME EYEBALL CORRECTED THIS — on the
+actual shot arc the boxes are glued to the ball but confidence NEVER
+crosses 0.5. The log confirms: the arc at 39.6-40.4s (frames 1188-1211)
+is a TEXTBOOK PARABOLA — center rises smoothly to an apex and descends,
+~12 px/frame, near-continuous for ~24 frames — at conf 0.05-0.33 the
+whole way. Confidence tracks apparent SIZE/BACKGROUND (ball low in frame,
+large, plain wall behind -> 0.5-0.8; ball high in frame, small, crowd
+behind -> 0.05-0.3), NOT ball-ness. Meanwhile floor-glare false positives
+share that same low band but are POSITIONALLY STATIC across frames — the
+true ball at low conf moves smoothly, junk doesn't.
+
+DESIGN CONSEQUENCE (the real finding of this spike): a confidence
+threshold CANNOT gate ball claims — any threshold high enough to kill
+glare also kills the entire rising shot arc, the single most shot-relevant
+segment. The trajectory layer must consume ALL low-conf detections and
+let PHYSICS CONSISTENCY (smooth parabolic motion frame-to-frame) be the
+confidence, exactly as ROADMAP step 2 prescribes — the spike upgrades
+that from philosophy to measured necessity. Same shape as identity:
+the raw signal (OCR read / ball det) is only evidence; the SYSTEM-level
+consistency check is what's allowed to make a claim.
+
+VERDICT: GO for Phase 5 step 2 (trajectory layer). The detector's
+POSITIONS are good enough to fit arcs through (user-verified glued-on
+boxes + log-verified parabola); its CONFIDENCES are not a gate and must
+not be used as one. No custom ball detector needed at this stage, per
+ROADMAP's "do NOT build yet" list.
+
+ONE TRAP HIT AND FIXED during the build (same class as §9b's naming trap):
+the first run imported `run_tracking` BEFORE setting
+`clip_config.ACTIVE_CLIP`, so the temp subclip was named `TEST1_span_*`
+while correctly containing HARD footage (the video path is passed
+explicitly; only the tempfile NAME came from the stale ACTIVE_CLIP
+binding). Data verified correct; script fixed to set ACTIVE_CLIP before
+the import, same pattern as reid_fragment_probe.py. The lesson stands:
+anything reading module-level clip state must bind AFTER the clip is set.
+
 ## 4. KNOWN DEBT (logged, not fixed)
 - **Part-1 track-labels and Part-2 queue-resolutions never cross-check the
   SAME track/identity against each other.** Found 2026-07-13 (section 12,
