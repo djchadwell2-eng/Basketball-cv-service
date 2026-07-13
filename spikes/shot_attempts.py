@@ -165,6 +165,65 @@ def main():
               f"{sh.get('identity_state', sh.get('reason',''))}")
     print(f"  wrote {out_json}")
 
+    _render_overlay(CLIP_NAME, arcs_doc, hoop_by_frame, results, out_dir)
+
+
+def _render_overlay(clip_name, arcs_doc, hoop_by_frame, results, out_dir):
+    import cv2
+    import clip_config
+    import run_tracking
+    CLIP = getattr(clip_config, f"{clip_name}_CLIP")
+    clip_config.ACTIVE_CLIP = CLIP
+    span_start, span_len = arcs_doc["span_start"], arcs_doc["span_len"]
+    subclip, fps, _n = run_tracking.extract_subclip(CLIP.video_path, span_start, span_len)
+    cap = cv2.VideoCapture(subclip)
+    w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    out_path = os.path.join(out_dir, f"{clip_name}_shot_attempts_overlay.mp4")
+    writer = cv2.VideoWriter(out_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
+    RED, GREEN, GRAY, MAGENTA = (0, 0, 255), (0, 255, 0), (150, 150, 150), (255, 0, 255)
+
+    shot_spans = {(r["start_frame"], r["end_frame"]): r for r in results
+                  if r["verdict"] == "shot_attempt"}
+    curves = []
+    for chain in arcs_doc["chains"]:
+        pts = {p[0]: (p[1], p[2]) for p in chain["points"]}
+        for a in chain.get("arcs", []):
+            key = (a["start_frame"], a["end_frame"])
+            color = RED if key in shot_spans else GREEN
+            seg = [(f, pts[f][0], pts[f][1]) for f in range(a["start_frame"], a["end_frame"] + 1)
+                   if f in pts]
+            curves.append((a["start_frame"], a["end_frame"], seg, color))
+
+    i = 0
+    while True:
+        ok, frame = cap.read()
+        if not ok:
+            break
+        f = span_start + i
+        hp = hoop_by_frame.get(f)
+        if hp is not None:
+            cv2.circle(frame, (int(hp[0]), int(hp[1])), int(HOOP_RADIUS_PX), MAGENTA, 2)
+        live_shot = False
+        for (sf, ef, seg, color) in curves:
+            if f < sf:
+                continue
+            past = [(int(x), int(y)) for (pf, x, y) in seg if pf <= f]
+            for a, b in zip(past, past[1:]):
+                cv2.line(frame, a, b, color, 3)
+            if sf <= f <= ef and past:
+                cv2.circle(frame, past[-1], 12, color, 2)
+                if color == RED:
+                    live_shot = True
+        label = f"f={f} t={f/fps:04.1f}s" + ("  SHOT ATTEMPT" if live_shot else "")
+        cv2.putText(frame, label, (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.0,
+                    (0, 0, 255) if live_shot else (255, 255, 255), 2)
+        writer.write(frame)
+        i += 1
+    writer.release()
+    cap.release()
+    print(f"  wrote {out_path}")
+
 
 if __name__ == "__main__":
     main()

@@ -1,0 +1,79 @@
+{
+  "clip": "HARD",
+  "hoop_radius_px": 100.0,
+  "tracks_span": [
+    600,
+    1201
+  ],
+  "attempts": [
+    {
+      "start_frame": 1031,
+      "end_frame": 1038,
+      "accel_y": 2.159,
+      "verdict": "not_shot",
+      "min_dist": 4960.4
+    },
+    {
+      "start_frame": 1092,
+      "end_frame": 1101,
+      "accel_y": 1.638,
+      "verdict": "not_shot",
+      "min_dist": 1042.6
+    },
+    {
+      "start_frame": 1136,
+      "end_frame": 1149,
+      "accel_y": 1.198,
+      "verdict": "not_shot",
+      "min_dist": 466.8
+    },
+    {
+      "start_frame": 1188,
+      "end_frame": 1211,
+      "accel_y": 0.886,
+      "verdict": "shot_attempt",
+      "min_dist": 54.6,
+      "at_frame": 1211,
+      "shooter": {
+        "status": "review_item",
+        "track_id": 3317,
+        "identity_id": 16,
+        "identity_state": "candidate",
+        "dist_px": 256.9
+      }
+    },
+    {
+      "start_frame": 1217,
+      "end_frame": 1250,
+      "accel_y": 1.177,
+      "verdict": "shot_attempt",
+      "min_dist": 83.7,
+      "at_frame": 1227,
+      "shooter": {
+        "status": "no_identity_data",
+        "reason": "frame 1217 outside tracks cache span (600, 1201)"
+      }
+    },
+    {
+      "start_frame": 1273,
+      "end_frame": 1287,
+      "accel_y": 1.707,
+      "verdict": "not_shot",
+      "min_dist": 406.7
+    },
+    {
+      "start_frame": 1292,
+      "end_frame": 1306,
+      "accel_y": 2.559,
+      "verdict": "not_shot",
+      "min_dist": 448.1
+    },
+    {
+      "start_frame": 1310,
+      "end_frame": 1322,
+      "accel_y": 1.795,
+      "verdict": "not_shot",
+      "min_dist": 452.4
+    }
+  ]
+}

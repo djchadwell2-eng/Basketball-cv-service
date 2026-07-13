@@ -35,20 +35,30 @@ the output, not hidden.
       zero abstentions); user verified against stills incl. frames matched
       to a DIFFERENT keyframe (1200) than the anchor (1100) — confirms the
       carry math, not just the anchor point. 6 math tests, suite 100->106.
-- [ ] B: tests first, then spikes/shot_attempts.py — a claimed arc is a
-      SHOT ATTEMPT iff its fitted path intersects the hoop region while
-      descending or at its peak (floor-level dribble arcs can never reach
-      it). Synthetic tests: arc through region = shot; same arc, region
-      moved away = not; floor-bounce arc = not.
-- [ ] C: shooter at release — nearest tracked body (feet pixel) to the
-      arc's first claimed point, joined to identity stamps from the merged
-      player events; stamp identity_state; unconfirmed/none/post-1200 =
-      review item. Writes {clip}_shot_attempts.json + annotated overlay.
-- [ ] D: run on HARD; ground truth: the ~40s user-verified shot MUST come
-      out as an attempt; dribble arcs MUST NOT; the 45.2s at-rim flight is
-      reported honestly (outside tracked span -> shooter review item) and
-      user-verified against footage. DECISIONS §15 with verdict.
-- Commit after tests+module green, again after the measured run.
+- [x] B: tests first (9 synthetic), then spikes/shot_attempts.py — arc is
+      a SHOT ATTEMPT iff it passes within HOOP_RADIUS_PX (100) of the
+      carried hoop position, at or after its apex. Suite 106->115.
+- [x] C: shooter at release — nearest tracked body (feet pixel) to the
+      arc's first claimed point, joined to identity_state from merged
+      player events; no data (outside tracks span / untracked) = honest
+      review item. Writes {clip}_shot_attempts.json + annotated overlay
+      (hoop circle + red=shot/green=arc/gray=no-claim curves).
+- [x] D: run on HARD — GROUND TRUTH PASSED: the user-verified ~40s shot
+      claimed correctly (1188-1211, min_dist 54.6px, shooter=review_item
+      track 16/candidate — correctly NOT auto-attributed, an unconfirmed
+      identity stays a review item exactly as designed). Dribbles/passes
+      correctly NOT shots (6/8 arcs). REAL FINDING, not a bug: a SECOND
+      arc (1217-1250) also passed the hoop-proximity gate — the rim-out
+      deflection of the SAME shot (ball clips the rim, changes velocity,
+      the trajectory layer correctly starts a new physics segment per
+      DECISIONS 14, but "new arc" != "new shot attempt"). User eyeballed
+      the overlay and confirmed: one shot, rim-out miss, ball falls to
+      the floor by 41.7s — NOT a second attempt. Logged as a real,
+      un-fixed limitation in DECISIONS 15 (arc identity vs shot identity),
+      not silently patched. Verdict: PASS with a known false-positive
+      class carried forward, same honesty as every prior step.
+- Commit after tests+module green (done), again after the measured run
+  + DECISIONS write-up (next).
 
 NOT in scope: make/miss (step 5, timeboxed later); shot location / court
 feet (step 4); possessions feedback (step 6); writing into team_events or

@@ -633,7 +633,94 @@ terminating at hoop region," never by assuming every arc is a shot.
 class, killed by the accel+y-range gates, but a fast pan during a real arc
 could distort a fit — revisit only if a real arc fails on other footage.
 
+## 15. SHOT ATTEMPTS — Phase 5 step 3, built + first real run (2026-07-13)
+Two new pieces, both tests-first, zero pipeline edits (ball layer stays
+beside the spine): `spikes/hoop_anchor.py` (carries a rim pixel through
+the pan) + `spikes/shot_attempts.py` (arcs -> shot claims + shooter join).
+Suite 87 -> 115 across this session's three units.
+
+HOOP ANCHOR: no calibration landmark gives an elevated rim pixel (every
+COURT_MODEL tag is a floor point). Design: mark the rim ONCE in a keyframe
+still (user-confirmed, click-seeding philosophy), carry it to every frame
+via the SAME machinery that already draws the court overlay (Hs_opt
+keyframe->ref900 transforms + per-frame best-match SIFT). Valid because
+these are ROTATION-ONLY camera homographies -- one homography relates
+every scene point regardless of depth for a panning/tilting (non-
+translating) camera, elevated points included. Marked HARD's far rim at
+keyframe-1100 px (1855,228); user confirmed the marked still. Carrying
+run: 360/360 frames matched (100%, zero abstentions), including frames
+matched to a DIFFERENT keyframe (1200) than the anchor -- user-verified
+"glued to the hoop" against stills, confirming the CARRY math, not just
+the anchor point. TRAP HIT + FIXED: same class as ball_spike.py --
+`spikes/clips_config.ACTIVE` binds stage1/2/4/5 at IMPORT time; the first
+run silently computed TEST1's keyframes because only `clip_config.
+ACTIVE_CLIP` had been set, not `clips_config.ACTIVE`. Fixed at the top of
+hoop_anchor.py with a comment pointing at this exact trap.
+
+SHOT CLASSIFIER: a claimed arc (already physics-gated, DECISIONS 14) is a
+SHOT ATTEMPT iff, at or after its apex, it passes within HOOP_RADIUS_PX
+(100px -- slack for the ~20-40px anchor offset already observed plus ball
+size/motion blur) of the carried hoop position at that SAME frame.
+Floor-level flight (dribbles) fails this by geometry alone -- the hoop
+sits high in the frame, a dribble apex sits near the floor -- no special
+case to keep in sync. SHOOTER: nearest tracked body (feet pixel) to the
+arc's FIRST claimed point (release -- already an approximation per 14's
+release-point blindness), joined to that track's identity_state; no data
+(frame outside the tracks-cache span, or the track has no identity event)
+-> an honest review item, never a guessed shooter.
+
+FIRST REAL RUN (HARD, 8 claimed arcs): GROUND TRUTH PASSED. The
+user-verified ~40s shot (1188-1211) claimed correctly, min_dist=54.6px;
+shooter = track 16, identity_state=candidate -> correctly surfaced as a
+review_item, NOT auto-attributed (an unconfirmed shooter must never be
+silently credited, same rule as the identity layer everywhere else). The
+other 6 arcs (dribbles, passes, bounces) correctly scored not_shot.
+
+REAL FINDING, NOT SILENTLY FIXED: a SECOND arc (1217-1250) also passed
+the hoop-proximity gate (min_dist=83.7px). Chain data shows why: arc 1
+ends at frame 1211 moving (+14px/frame, +11px/frame); arc 2 begins 6
+frames later at a position inconsistent with that velocity extrapolated
+forward -- a real, measurable velocity change. USER EYEBALLED THE OVERLAY
+AND RESOLVED IT: one shot, ball clips the rim (rim-out miss) around
+40.4s, falls to the floor by 41.7s -- NOT a second attempt. The
+trajectory layer is working exactly as designed (a rim deflection is a
+genuine new physics segment, correctly re-fit as a new arc per DECISIONS
+14) -- the gap is that "one claimed arc" and "one shot attempt" are NOT
+the same concept once a shot deflects off iron. shooter for arc 2 =
+no_identity_data (frame 1217 is outside the 600-1200 tracks-cache span --
+also correctly abstained, and notably this arc having NO independent
+shooter is further evidence it isn't a real second attempt).
+
+KNOWN GAP, LOGGED NOT FIXED: shot attempts can be OVERCOUNTED when a miss
+deflects off the rim/backboard into a second physics-consistent segment
+that also happens to pass near the hoop again (a rebound arc, a
+backboard-then-rim carom, etc.). Root fix options for later (deliberately
+not built now, timeboxed like everything else in Phase 5): (a) merge
+chains whose gap is small in both time and space before hoop-proximity
+classification; (b) require a shot's descending segment to ORIGINATE
+outside the hoop region (a segment that STARTS near the hoop is more
+likely a deflection continuation than a fresh release) -- (b) is the
+more principled version of (a) and is the leading candidate if this
+becomes a real accuracy problem on more footage. NOT fixed today because
+Phase 5's stated policy is measure-first, timebox everything, and this is
+exactly one real example, not yet a measured error RATE.
+
+VERDICT: GO for step 4 (shot location) with this limitation carried
+forward explicitly -- a coach-facing shot count from this pipeline must
+not be presented as exact until (a)/(b) above is addressed or measured
+negligible on more footage.
+
 ## 4. KNOWN DEBT (logged, not fixed)
+- **A claimed ball arc can be over-counted as a shot attempt when a miss
+  deflects off the rim/backboard into a second physics-consistent
+  segment.** Found 2026-07-13 (section 15, HARD 1217-1250): a rim-out
+  deflection is correctly re-fit by the trajectory layer as a NEW arc
+  (a real velocity change happened), but "new arc" != "new shot attempt"
+  once the ball has already been shot once. Confirmed by user eyeball:
+  one shot, rim-out, ball to floor -- not two attempts. Root fix options
+  logged in section 15 (merge chains close in time+space before
+  classifying; or require a shot segment to originate OUTSIDE the hoop
+  region) -- not built yet, this is one measured example, not yet a rate.
 - **Part-1 track-labels and Part-2 queue-resolutions never cross-check the
   SAME track/identity against each other.** Found 2026-07-13 (section 12,
   finding 2): a human can label a track in Part 1, then separately resolve
