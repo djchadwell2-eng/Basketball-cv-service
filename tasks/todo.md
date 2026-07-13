@@ -45,17 +45,27 @@ Design:
 - [x] A: tests first (6 synthetic), then extended spikes/shot_attempts.py
       with find_release() (bounded backward extrapolation of the arc's own
       fit, gated by bbox distance). Suite 115->121.
-- [~] B: rerun on HARD; NEW HINT: track 1502, release_frame=1178 (39.27s),
-      still review_item/candidate (correctly not auto-attributed). My own
-      read of HARD_shooter_diag_1178_v2.jpg looks right (white/red player
-      mid-shooting-motion, arms up) but this needs the USER's eyeball gate,
-      not mine — asked, response pending.
-      the real shooter is now the hinted track (and tells me if not).
-- [ ] C: spikes/shot_location.py — oncourt join + shot chart render;
-      dot for the verified shot, review-status labeled.
-- [ ] D: user eyeballs the dot vs film; DECISIONS §16 (incl. the wrong-
-      hint finding + fix measurements); update §15's shooter record note.
-- Commit after tests+code green, again after the measured run.
+- [x] B: rerun on HARD; NEW HINT: track 1502, release_frame=1178 (39.27s),
+      still review_item/candidate (correctly not auto-attributed). USER
+      CONFIRMED correct ("Yes it is", noted she's slightly airborne but
+      shouldn't matter much). Fix verified: wrong bystander hint (3317)
+      -> correct shooter (1502).
+- [x] C: spikes/shot_location.py — oncourt join (court_feet at release
+      frame 1178, track 1502) + flat court-diagram shot chart. Located:
+      (68.7, 42.3) ft -- ~20.0ft from the right hoop center (78.75,25),
+      right at the 3pt line. Second arc (rim deflection) correctly
+      location_unknown (no shooter -> no location, not guessed). 6 tests,
+      suite 121->127.
+- [x] D: FIRST render was MIRRORED top-to-bottom (user eyeball caught it
+      immediately: "it is mirrored, should be on the other side of the
+      arc"). Root cause: phase1/stage3_heatmap.py (already validated)
+      draws with matplotlib origin='lower' (near-sideline y=0 at BOTTOM);
+      my new cv2 chart plotted court_feet y straight into image rows
+      (y=0 at TOP) — a render-only bug, the underlying court_feet data
+      was never wrong. Fixed with one flip helper + a regression test
+      (near-sideline point must render in the bottom half). Suite 127->128.
+      Re-rendered, USER CONFIRMED correct. DECISIONS §16 next.
+- Commit after tests+code green (done x2), again after DECISIONS write-up.
 
 NOT in scope: make/miss (step 5); possessions (step 6); auto-attribution
 of any shooter (review-only until identity is CONFIRMED); writing into

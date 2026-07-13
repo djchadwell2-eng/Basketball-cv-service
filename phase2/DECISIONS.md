@@ -710,6 +710,75 @@ forward explicitly -- a coach-facing shot count from this pipeline must
 not be presented as exact until (a)/(b) above is addressed or measured
 negligible on more footage.
 
+## 16. SHOT LOCATION — Phase 5 step 4, built + first real run (2026-07-13)
+Two pieces, both tests-first, zero pipeline edits: a release-back-
+extrapolation fix inside `spikes/shot_attempts.py`, and new
+`spikes/shot_location.py` (oncourt join + shot-chart render). Suite
+115 -> 128 across this unit.
+
+OPENING FINDING, diagnosed before building: step 3's shooter hint (nearest
+tracked body to the arc's FIRST claimed point) was WRONG on the real HARD
+shot. It pointed at track 3317, a bystander on the far baseline, not the
+shooter. Cause: the arc claim starts near apex (DECISIONS 14's
+release-blindness), several frames after the real release, so "nearest
+body to the first point" finds whoever stands under the apex. Safety was
+never compromised (it was a review_item, never auto-credited) but the
+hint would have sent a human reviewer to the wrong player.
+
+FIX: `find_release()` extrapolates the claimed arc's OWN fitted quadratic
+BACKWARD a bounded window (<=10 frames), at each step measuring distance
+to tracked bodies' BBOXES (release happens at the hands, not the feet).
+The closest match within a distance gate becomes the shooter hint +
+release-frame estimate; nothing under the gate -> honest
+no_confident_shooter. This is a genuine CLAIM EXTENSION (extrapolating
+past measured data) so it is bounded, gated, and only ever produces a
+review hint -- never an auto-attribution. Re-run: new hint = track 1502,
+release_frame=1178 (39.27s). USER CONFIRMED against a marked still: "Yes
+it is" -- the white/red player mid-shooting-motion, arms up in
+follow-through, correctly picked over the old wrong bystander hint. User
+also noted she's slightly airborne at the estimated release frame (a jump
+shot) -- logged as a small honest caveat, not a fix: a jump shot's
+horizontal court position barely drifts between takeoff and release, so
+this is not expected to meaningfully move the location, but it is NOT
+zero and is not corrected for.
+
+SHOT LOCATION: read directly from the oncourt cache (court_feet at the
+shooter's release frame) -- a free join against data the identity layer
+already trusts, NOT a re-projection of the ball's own elevated pixel
+through the floor homography (that would smear an elevated point to the
+wrong floor spot, same reason the hoop needed its own anchor in section
+15). Trusts the oncourt classifier's own on/off-court abstention rather
+than second-guessing it. First real result: (68.7, 42.3) ft, ~20.0 ft
+from the right hoop center (78.75, 25) -- right at the 3pt line (radius
+19.75 ft). The rim-deflection arc (section 15) correctly resolved to
+location_unknown (no confident shooter -> no location, never guessed).
+
+REAL BUG CAUGHT BY USER EYEBALL, ROOT-FIXED: the FIRST shot-chart render
+was mirrored top-to-bottom relative to the real shot location. Root
+cause: `phase1/stage3_heatmap.py` (already validated, Phase 1) draws with
+matplotlib `origin='lower'` -- near-sideline y=0 renders at the BOTTOM of
+the image, far-sideline y=W at the TOP. The new cv2-based shot chart
+plotted `court_feet` y straight into image rows (cv2/numpy: row 0 = top),
+silently flipping near/far relative to the established convention. The
+underlying court_feet DATA was never wrong (sourced from the trusted
+oncourt cache, unchanged) -- this was a render-only bug in the brand-new
+script, caught because the user checked the picture against their memory
+of the footage instead of trusting the number. Fixed with one small flip
+helper (`_court_feet_to_diagram_px`, y' = COURT_WID - y before scaling)
+applied uniformly to both the court geometry and the shot dots, plus a
+regression test asserting a near-sideline point renders in the bottom
+half of the image. Re-rendered; USER CONFIRMED correct.
+
+VERDICT: GO for step 5 (make/miss, timeboxed per ROADMAP Gate 4) with the
+airborne-at-release caveat carried forward as a documented, unfixed,
+believed-negligible approximation -- same honesty standard as every prior
+step. Two real defects were found and root-fixed this session (wrong
+shooter hint from release-blindness; mirrored chart from an orientation
+mismatch with established code) -- both caught by an eyeball check against
+real footage, neither by the test suite, which is exactly why the eyeball
+gate stays mandatory at every step rather than becoming optional once
+tests are green.
+
 ## 4. KNOWN DEBT (logged, not fixed)
 - **A claimed ball arc can be over-counted as a shot attempt when a miss
   deflects off the rim/backboard into a second physics-consistent
