@@ -503,7 +503,8 @@ TWO FINDINGS surfaced by building this, NEITHER silently acted on:
    teams, they are not actually in conflict and both could be credited;
    when they classify to the SAME team (or either is unresolved), the
    dispute is real and must stay excluded exactly as today.
-2. **A genuine label contradiction, unrelated to color:** HARD track 2475
+2. **A genuine label contradiction, unrelated to color -- FOUND, VERIFIED,
+   AND FIXED same session (2026-07-13):** HARD track 2475
    (window 1, identity 10) was given TWO DIFFERENT roster numbers by two
    DIFFERENT human inputs on the SAME track: Part-1 track-labeling said #3
    (`decisions.json track_labels["2475"] = 3`), Part-2 queue-resolution
@@ -514,12 +515,33 @@ TWO FINDINGS surfaced by building this, NEITHER silently acted on:
    ROOT CAUSE: Part-1 track-labels and Part-2 queue-resolutions are two
    independently-gated human-input channels that never cross-check the SAME
    underlying track/identity against each other -- a real gap in the
-   contradiction net. NOT fixed this session -- needs the user's eyes on
-   the footage (same discipline as the HARD_check24 case in section 7a) to
-   say which number is correct; recorded here so it is never silently
-   guessed either way.
+   contradiction net, LOGGED AS DEBT below (not fixed -- the two channels
+   still don't cross-check each other; only this one instance was resolved).
+
+   RESOLVED same session: 4 stills spread across track 2475's full 37.7s-
+   39.8s span (incl. right at the #3/#13 seam, 39.5s vs 39.6s) show ONE
+   visually continuous player throughout -- same build, same hair, no
+   jersey-number change -- ruling out a t49-style splice. A 5x-upscaled
+   crop at frame 1155 (38.5s) shows a legible **"3"** on her back. User
+   confirmed independently from the same evidence plus a footage check.
+   FIX: `HARD_decisions.json` backed up
+   (`HARD_decisions.backup-2026-07-13-pre-num-fix.json`), the Part-2
+   queue-resolution corrected 13 -> 3, full run_clip HARD rerun. Verified
+   effect, isolated and exactly as predicted: #3 6.9s -> 7.3s (+0.4s), #13
+   1.3s -> 0.8s (lost its incorrect 0.4s retro credit), every other line
+   byte-unchanged. Suite 87 green.
 
 ## 4. KNOWN DEBT (logged, not fixed)
+- **Part-1 track-labels and Part-2 queue-resolutions never cross-check the
+  SAME track/identity against each other.** Found 2026-07-13 (section 12,
+  finding 2): a human can label a track in Part 1, then separately resolve
+  a queue item for the SAME underlying track in Part 2 with a DIFFERENT
+  number, and nothing flags the contradiction (unlike OCR-vs-human, which
+  IS flagged -- see section 10). This one instance was found by an eyeball
+  check spawned by the color-tiebreak build, not by any automated guard,
+  and fixed by hand. Root fix (later): when a Part-2 resolution's track_id
+  already has a Part-1 label, refuse or flag loud instead of silently
+  layering a second, possibly-conflicting number onto the same track.
 - **stage2_generate_events reads clip identity from TWO objects.** Frame range +
   output path come from `ACTIVE_CLIP` (clip_config), but the video path for frame
   extraction (`st.s2.VIDEO_PATH`) and the clip label written into team_events

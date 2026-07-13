@@ -90,6 +90,23 @@ Two findings were surfaced and deliberately NOT silently resolved:
 NEXT: user's call -- resolve the track-2475 contradiction, extend the
 tiebreak into disputed frames, or move to Phase 5 (ball/shot detection).
 
+## Follow-up: track 2475 contradiction resolved (2026-07-13)
+Root cause confirmed by eyeball: 4 stills across track 2475's full span
+(37.7s-39.8s) show one visually continuous player throughout -- NOT a
+splice like t49. A 5x-upscaled crop at frame 1155 (38.5s) shows a legible
+"3" on her back. User confirmed from the same evidence + a footage check.
+FIX: HARD_decisions.json backed up (HARD_decisions.backup-2026-07-13-pre-
+num-fix.json); the Part-2 queue-resolution entry {window:1, identity:10}
+corrected 13 -> 3 (Part-1's original track label was right all along; the
+Part-2 click was the honest mistake).
+VERIFIED (full run_clip HARD rerun, exit 0): #3 6.9s -> 7.3s (+0.4s), #13
+1.3s -> 0.8s (lost the incorrect 0.4s retro credit), every other line
+byte-unchanged. Suite 87 green. DECISIONS section 12 updated with the
+resolution + a new KNOWN DEBT item (section 4): Part-1 track-labels and
+Part-2 queue-resolutions still don't cross-check the same track against
+each other -- this instance was fixed by hand, the underlying gap remains
+for a future session. Committed.
+
 ---
 
 # SANITY CHECK (dad-demo substitute) (completed 2026-07-12)
