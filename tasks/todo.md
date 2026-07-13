@@ -31,28 +31,41 @@ touches NOTHING else — no video re-detection needed this session):
      overlay video (arcs drawn as curves, no-claim chains dim).
 
 ## Plan
-- [ ] 0: check in with user on this plan before building.
-- [ ] 1: synthetic unit tests FIRST (project practice): perfect parabola
-      -> ARC; static points -> rejected as junk before fitting; jittery
-      random walk -> chain forms but FAILS the physics gate; upward-accel
-      (impossible) -> fails; gap > tolerance -> chain splits. New test
-      file, existing 87 tests untouched.
-- [ ] 2: spikes/ball_trajectory.py implementing a-d; writes
-      {clip}_ball_arcs.json (chains, fits, residuals, verdicts) +
-      arc overlay video into spikes/out/.
-- [ ] 3: run on the HARD spike log; report: does the known shot arc get
-      claimed? how many other arcs appear, and are they real (the
-      41.0-41.6s descent, the 45.1-45.3s flight)? do any glare chains
-      sneak through? Numbers first, then user eyeballs the overlay.
-- [ ] 4: log result + verdict in DECISIONS.md §14 (build -> measure ->
-      verdict, honest either way). Gate to step 3 (shot attempts): arcs
-      must be trustworthy enough that "upward arc ending at hoop region"
-      is meaningful.
-- Commit after tests+module land green, again after the measured run.
+- [x] 0: checked in; user approved ("build!").
+- [x] 1: tests first — 12 synthetic tests, all passed on first module run.
+- [x] 2: spikes/ball_trajectory.py built (one import-path fix for the
+      overlay render: phase2 on sys.path for run_tracking).
+- [x] 3: run on HARD log + user eyeball, TWO iterations:
+      run 1: shot arc claimed exactly (1188-1211) BUT 6 false arcs =
+      camera-pan glare drift (horizontal, accel 0.10-0.15 at band edge);
+      user confirmed glare -> ACCEL_Y_MIN 0.1->0.3.
+      run 2: one 8-frame glare slice squeaked in at accel 0.309 with only
+      11px vertical travel -> MIN_Y_RANGE_PX=25 (real arcs span 48-351px)
+      + literal-data regression test. Final: 8 arcs / 7 chains, all real,
+      zero glare. Suite 100 green.
+- [x] 4: logged DECISIONS.md §14. Gate to step 3: PASSED — arcs are
+      trustworthy (all claims real, abstention working incl. the claim
+      stopping at a floor bounce).
+- Commit after tests+module land green (174280f), again after the
+  measured run (this commit).
 
 NOT in scope: shot attempts, hoop region, shooter attribution (step 3);
 make/miss (step 5); feeding possessions (step 6); custom detectors;
 writing anything into team_events (ball layer is a NEW layer, forever).
+
+## Review (trajectory layer, 2026-07-13)
+- Two new files (spikes/ball_trajectory.py, tests/test_ball_trajectory.py),
+  one import-path line touched in nothing else. Suite 87 -> 100.
+- Both false-claim classes were killed by MEASURED gates (accel band floor,
+  min vertical travel), each justified by data + user eyeball, each locked
+  in by a test — no hand-tuning until it looked right.
+- Known gaps carried forward honestly (DECISIONS §14): release-point
+  blindness (claims start near apex; matters for shot location in step 4),
+  dribbles/passes correctly claimed as flight (step 3 must select shots by
+  hoop-terminating arcs), no pan model in v1.
+- Next: Phase 5 step 3 — shot attempts (upward arc terminating at hoop
+  region; hoop pixel from existing court homography; shooter = nearest
+  identity at release stamped with identity_state).
 
 # PHASE 5 STEP 1 — BALL SPIKE (DONE 2026-07-13, verdict GO — DECISIONS §13)
 

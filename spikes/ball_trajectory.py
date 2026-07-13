@@ -30,6 +30,7 @@ import numpy as np
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_HERE)
 sys.path.insert(0, _ROOT)
+sys.path.insert(0, os.path.join(_ROOT, "phase2"))   # run_tracking (overlay render)
 
 # --- chaining gates (from the HARD spike measurements, DECISIONS 13) ---------
 MAX_STEP_PX = 40.0        # per-frame center displacement gate (~3x measured 12)
@@ -39,13 +40,22 @@ MIN_TRAVEL_PX = 30.0      # total travel below this = static junk (floor glare)
 
 # --- physics gate (measured on the user-verified HARD arcs) ------------------
 # y-accel on the real arcs: ~0.4-0.5 px/frame^2 (distant, high in frame) to
-# ~1.1-1.5 (nearer camera). Band is deliberately wider but still refuses
+# ~1.1-2.6 (nearer camera). Band is deliberately wider but still refuses
 # non-ballistic motion; image +y is DOWN, so gravity means accel_y > 0.
-ACCEL_Y_MIN = 0.1
+# ACCEL_Y_MIN raised 0.1 -> 0.3 after the first HARD run (user-eyeballed):
+# camera-pan-dragged floor glare drifts horizontally and fit at 0.10-0.15,
+# while every user-verified real arc measured >= 0.89. Near-flat "arcs"
+# are abstained on, not claimed -- missing a super-distant flat arc is the
+# accepted cost of never claiming glare.
+ACCEL_Y_MIN = 0.3
 ACCEL_Y_MAX = 3.0
 ACCEL_X_MAX = 1.5         # mild x curvature allowed (pan/perspective), no more
 RESIDUAL_MAX_PX = 3.0     # RMS ceiling for both axes' fits
 MIN_FIT_LEN = 8           # minimum points in one parabolic segment
+# A ballistic arc must actually TRAVEL vertically; near-flat segments have
+# their curvature fit to noise. Measured on HARD: real arcs span 48-351 px
+# of y; the one glare slice that squeaked past the accel band spanned 11.
+MIN_Y_RANGE_PX = 25.0
 
 
 def _centers(frames_doc):
@@ -127,7 +137,8 @@ def _fit_segment(points):
     accel_x = 2.0 * cx2
     ok = (ACCEL_Y_MIN <= accel_y <= ACCEL_Y_MAX
           and abs(accel_x) <= ACCEL_X_MAX
-          and ry <= RESIDUAL_MAX_PX and rx <= RESIDUAL_MAX_PX)
+          and ry <= RESIDUAL_MAX_PX and rx <= RESIDUAL_MAX_PX
+          and float(y.max() - y.min()) >= MIN_Y_RANGE_PX)
     info = {"accel_y": round(accel_y, 3), "accel_x": round(accel_x, 3),
             "rms_y": round(ry, 2), "rms_x": round(rx, 2),
             "fit_y": [float(cy2), float(cy1), float(cy0)],

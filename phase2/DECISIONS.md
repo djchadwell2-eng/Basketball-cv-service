@@ -583,6 +583,56 @@ binding). Data verified correct; script fixed to set ACTIVE_CLIP before
 the import, same pattern as reid_fragment_probe.py. The lesson stands:
 anything reading module-level clip state must bind AFTER the clip is set.
 
+## 14. TRAJECTORY LAYER — Phase 5 step 2, built + first real run (2026-07-13)
+`spikes/ball_trajectory.py` + `tests/test_ball_trajectory.py` (13 synthetic/
+regression tests written first; suite 87 -> 100). Turns the step-1 raw
+detections into honest BALL-IN-FLIGHT claims. Zero pipeline edits; the ball
+layer stays beside the spine, writes nothing into team_events.
+
+Design (each gate justified by a §13 measurement): CHAIN detections by
+position (glare is static, ball moves ~12px/frame; MAX_STEP_PX=40, gaps
+<= 3 frames) -> de-junk (travel < 30px = static_junk; < 6 points =
+too_short) -> FIT short quadratics (>= 8 points), claim ARC only when
+physics passes: downward accel in a measured band, mild x curvature,
+RMS <= 3px, and >= 25px of real vertical travel. Fail = no_claim,
+surfaced never dropped. ALL confidences consumed (per §13, no conf gate).
+
+FIRST RUN (HARD spike log, 759 dets/360 frames -> 140 chains): ground
+truth PASSED — the user-verified shot arc claimed exactly (frames
+1188-1211, accel 0.886, rms < 1px), and the post-shot descent claim
+STOPPED at the floor bounce (the gate refusing to fit through a bounce =
+abstention working). User eyeballed the overlay: shot-arc curve glued to
+the ball; ~65% of the shot covered (apex + descent — the detector went
+blind for a few frames at RELEASE, so the claim starts near apex; logged
+below as a real gap for steps 3-4, not papered over).
+
+TWO FALSE-CLAIM CLASSES CAUGHT BY EYEBALL + DATA, BOTH FIXED BY MEASURED
+GATES (not by hand-tweaking until the answer looked right):
+1. Camera-pan glare drift: 6 first-run "arcs" moved 100-200px horizontally
+   but 4-50px vertically at floor height, accel 0.10-0.15 (the band edge),
+   all drifting in pan lockstep; user confirmed = floor glare dragged by
+   the pan. Fix: ACCEL_Y_MIN 0.1 -> 0.3 (every real arc measured >= 0.89).
+2. One 8-frame slice of a glare chain then squeaked in at accel 0.309 with
+   only 11px of vertical travel — curvature fit to noise. Fix:
+   MIN_Y_RANGE_PX=25 (real arcs span 48-351px of y). That exact chain is
+   now a literal-data regression test.
+
+FINAL BOARD: 8 arcs / 7 chains, all real (shot arc + descent, dribble
+bounces, the 37.9s pass, 42-44s bounces), zero glare claims, 16
+static_junk + 16 no_claim + 101 too_short honestly surfaced.
+
+KNOWN GAPS carried to steps 3-4 (logged, not hidden): (a) release-point
+blindness — arc claims start near apex when the detector misses the ball
+leaving the shooter's hands; "shooter = nearest identity at release" and
+"shot location = arc origin" must handle a claim that starts mid-flight
+(back-extrapolation of the fitted parabola is available but is a CLAIM
+EXTENSION and needs its own gate + eyeball). (b) Non-shot flight (dribbles,
+passes) is correctly claimed as flight; step 3 must select shots by "arc
+terminating at hoop region," never by assuming every arc is a shot.
+(c) v1 does not model camera pan; pan showed up as the glare-drift false
+class, killed by the accel+y-range gates, but a fast pan during a real arc
+could distort a fit — revisit only if a real arc fails on other footage.
+
 ## 4. KNOWN DEBT (logged, not fixed)
 - **Part-1 track-labels and Part-2 queue-resolutions never cross-check the
   SAME track/identity against each other.** Found 2026-07-13 (section 12,

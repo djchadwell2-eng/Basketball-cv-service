@@ -124,6 +124,31 @@ def test_absurdly_strong_accel_is_outside_the_band_and_refused():
     assert classify_chain(chain)["verdict"] == "no_claim"
 
 
+def test_pan_dragged_glare_drift_is_never_claimed():
+    """REGRESSION, real data: this is the actual HARD glare chain (frames
+    1115-1157, camera pan dragging a floor highlight left-down) whose 8-frame
+    slice fit at accel_y=0.309 and was claimed before the MIN_Y_RANGE gate.
+    Near-flat drift must never earn an arc claim."""
+    glare = [(1115, 556, 648), (1116, 550, 649), (1117, 546, 650),
+             (1118, 543, 651), (1119, 541, 652), (1120, 539, 652),
+             (1121, 538, 653), (1122, 544, 651), (1124, 528, 654),
+             (1125, 526, 655), (1126, 523, 655), (1130, 504, 659),
+             (1133, 489, 661), (1134, 486, 663), (1135, 480, 664),
+             (1136, 474, 664), (1137, 468, 666), (1138, 462, 668),
+             (1139, 453, 670), (1140, 444, 672), (1141, 436, 674),
+             (1142, 427, 677), (1143, 417, 679), (1144, 407, 682),
+             (1145, 396, 684), (1146, 386, 687), (1147, 375, 690),
+             (1148, 365, 693), (1149, 354, 696), (1150, 343, 698),
+             (1151, 333, 702), (1152, 324, 704), (1153, 314, 706),
+             (1154, 305, 709), (1155, 295, 712), (1156, 286, 714),
+             (1157, 278, 717)]
+    chains = build_chains(frames_doc([det(f, x, y) for f, x, y in glare]))
+    assert len(chains) == 1
+    out = classify_chain(chains[0])
+    assert out["verdict"] == "no_claim"
+    assert out["arcs"] == []
+
+
 def test_arc_inside_a_longer_chain_is_found_without_claiming_the_rest():
     """Flight then held-by-a-player: the parabolic prefix must be claimed,
     the erratic tail must NOT be swallowed into the claim."""
