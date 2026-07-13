@@ -38,9 +38,10 @@ import tracking as trk                    # reuse MODEL_NAME / IMG_SIZE (same mo
 
 from ultralytics import YOLO
 # User-identified shot attempt: HARD.mp4 ~35-45s (30fps -> frames 1050-1350).
-# +/-30 frame buffer so the shot isn't cut off at either edge.
-SPAN_START = 1020
-SPAN_LEN = 360
+# +/-30 frame buffer so the shot isn't cut off at either edge. Optional CLI
+# override for a wider harvest (e.g. the full clip): ball_spike.py <start> <len>.
+SPAN_START = int(sys.argv[1]) if len(sys.argv) > 1 else 1020
+SPAN_LEN = int(sys.argv[2]) if len(sys.argv) > 2 else 360
 
 BALL_CLASS = 32                           # COCO "sports ball"
 CONF = 0.05                               # deliberately low -- we want to SEE the misses too

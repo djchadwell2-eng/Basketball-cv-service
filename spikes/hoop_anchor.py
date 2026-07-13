@@ -152,7 +152,10 @@ def main():
     CLIP = clip_config.HARD_CLIP
     clip_config.ACTIVE_CLIP = CLIP
 
-    SPAN_START, SPAN_LEN = 1020, 360     # same span as the ball spike/trajectory
+    # Optional CLI override for a wider harvest (e.g. the full clip):
+    # hoop_anchor.py <start> <len>. Default = same span as the ball spike.
+    SPAN_START = int(sys.argv[1]) if len(sys.argv) > 1 else 1020
+    SPAN_LEN = int(sys.argv[2]) if len(sys.argv) > 2 else 360
     rim_ref900, track, KF, Hs_opt = build_hoop_track(CLIP.video_path, SPAN_START, SPAN_LEN)
 
     out_json = os.path.join(_HERE, "out", f"{CLIP.name}_hoop_track.json")
