@@ -38,6 +38,13 @@ sys.path.insert(0, _HERE)
 sys.path.insert(0, _ROOT)
 sys.path.insert(0, os.path.join(_ROOT, "phase2"))
 
+import clips_config as _cc                # noqa: E402
+# KNOWN TRAP (DECISIONS.md KNOWN DEBT): stage1/2/4/5 read clip identity from
+# clips_config.ACTIVE, bound AT IMPORT TIME -- must be set BEFORE importing
+# them or they silently bind to whatever clip was last active (this module
+# is HARD-only today: RIM_KEYFRAME/RIM_PIXEL above are HARD-specific).
+_cc.ACTIVE = "HARD"
+
 import stage1_keyframe_match as s1        # noqa: E402
 import stage2_multikeyframe as s2         # noqa: E402
 import stage4_courtmap as s4              # noqa: E402

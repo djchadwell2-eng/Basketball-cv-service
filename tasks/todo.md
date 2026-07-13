@@ -1,4 +1,60 @@
-# PHASE 5 STEP 2 — TRAJECTORY LAYER (current task, 2026-07-13)
+# PHASE 5 STEP 3 — SHOT ATTEMPTS (current task, 2026-07-13)
+
+Goal: pick the SHOTS out of the step-2 arc claims. ROADMAP rule: a shot
+attempt = an arc terminating at the HOOP REGION; shooter = nearest identity
+at release, stamped with identity_state (unconfirmed shooter = review item,
+never guessed). Dribbles/passes are correctly-claimed flight that must NOT
+become shots.
+
+Hoop pixel problem + chosen design: every calibration landmark is a FLOOR
+point — a floor homography cannot give the ELEVATED rim pixel directly.
+Chosen: ONE-CLICK RIM ANCHOR — mark the rim once in a keyframe still (user
+confirms a marked image; click-seeding philosophy, one trusted human input
+per clip per visible basket), then carry it to every frame through the
+EXISTING frame->keyframe SIFT homographies. Valid because the camera pans
+in place (rotation-only => the homography holds for the whole scene incl.
+elevated points — the same assumption the calibration spine already makes).
+Eyeball gate before use: render the carried hoop region on the arc overlay.
+
+Data reality (stated up front, not discovered later): HARD tracks cache
+covers frames 600-1200 only; the ball span runs to 1380. Any arc after
+frame 1200 gets an honest "no identity data" review item for its shooter —
+abstention, not a guess. Also §14's release-point blindness: claims start
+near apex, so "release" = first claimed point, an approximation logged in
+the output, not hidden.
+
+## Plan
+- [x] 0: check in with user on this plan.
+- [x] A: hoop anchor DONE + user eyeball PASSED ("glued to the hoop").
+      Marked rim at keyframe-1100 px (1855,228), user-confirmed still.
+      spikes/hoop_anchor.py carries it via Hs_opt @ Hfk (rotation-only
+      camera => valid for elevated points). Hit + fixed the SAME
+      clip-selector trap as ball_spike.py (spikes/clips_config.ACTIVE
+      binds stage1/2/4/5 AT IMPORT — must set BEFORE importing, not just
+      clip_config.ACTIVE_CLIP). Carrying run: 360/360 frames matched (100%,
+      zero abstentions); user verified against stills incl. frames matched
+      to a DIFFERENT keyframe (1200) than the anchor (1100) — confirms the
+      carry math, not just the anchor point. 6 math tests, suite 100->106.
+- [ ] B: tests first, then spikes/shot_attempts.py — a claimed arc is a
+      SHOT ATTEMPT iff its fitted path intersects the hoop region while
+      descending or at its peak (floor-level dribble arcs can never reach
+      it). Synthetic tests: arc through region = shot; same arc, region
+      moved away = not; floor-bounce arc = not.
+- [ ] C: shooter at release — nearest tracked body (feet pixel) to the
+      arc's first claimed point, joined to identity stamps from the merged
+      player events; stamp identity_state; unconfirmed/none/post-1200 =
+      review item. Writes {clip}_shot_attempts.json + annotated overlay.
+- [ ] D: run on HARD; ground truth: the ~40s user-verified shot MUST come
+      out as an attempt; dribble arcs MUST NOT; the 45.2s at-rim flight is
+      reported honestly (outside tracked span -> shooter review item) and
+      user-verified against footage. DECISIONS §15 with verdict.
+- Commit after tests+module green, again after the measured run.
+
+NOT in scope: make/miss (step 5, timeboxed later); shot location / court
+feet (step 4); possessions feedback (step 6); writing into team_events or
+ANY existing artifact (ball layer stays beside the spine, forever).
+
+# PHASE 5 STEP 2 — TRAJECTORY LAYER (DONE 2026-07-13 — DECISIONS §14, gate to step 3 PASSED)
 
 Goal: turn the spike's raw detections into honest BALL-IN-FLIGHT claims.
 Input = the existing spike log (spikes/out/HARD_ball_spike_log.json, ALL
