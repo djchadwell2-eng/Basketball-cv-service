@@ -1,4 +1,32 @@
-# PHASE 5 STEP 5 — MAKE/MISS, TIMEBOXED (current task, 2026-07-13)
+# PHASE 5 GATE-4 HARVEST — full-clip ball detection (current task, 2026-07-13)
+
+User chose option 1 (harvest more shots) after step 5's ground truth
+passed at n=1. Scoping caveat given + accepted: hoop calibration only
+covers frames 600-1200 (20-40s of the 91.5s clip) -- shots outside that
+window will get raw ball data + physics arcs, but NO hoop position (no
+shot-attempt classification possible there) unless calibration is later
+extended. User chose full 91.5s clip anyway (raw ball data has value on
+its own, e.g. flicker/false-positive stats per DECISIONS 13's spirit).
+
+- [x] Backed up the verified 12s-span artifacts (HARD_ball_spike_log,
+      HARD_hoop_track, HARD_ball_arcs, HARD_shot_attempts,
+      HARD_shot_outcomes, HARD_shot_locations) with a
+      `.backup-2026-07-13-pre-fullclip.json` suffix before overwriting.
+- [x] Added optional CLI span override to ball_spike.py / hoop_anchor.py
+      (default unchanged = today's verified 1020/360 span). Suite green.
+- [~] RUNNING (background, parallel, independent of each other):
+      `ball_spike.py 0 2746` (full clip, ~90 min) and
+      `hoop_anchor.py 0 2746` (full clip, hoop position only inside the
+      calibrated 600-1200 window, honest no-match elsewhere).
+- [ ] Once both land: rerun ball_trajectory.py (reads span from the log,
+      no changes needed), shot_attempts.py, shot_outcome.py,
+      shot_location.py over the full-clip data. Report: how many NEW
+      shot attempts surfaced inside 600-1200 (the only scoreable window),
+      what the outcome accuracy looks like at the new sample size, and
+      whether Gate 4 is now measurable.
+- [ ] DECISIONS §18 with the harvest result.
+
+# PHASE 5 STEP 5 — MAKE/MISS, TIMEBOXED (DONE 2026-07-13 — DECISIONS §17, Gate 4 unmeasurable at n=1)
 
 Goal (ROADMAP step 5 + GATE 4): simple visual outcome discriminators whose
 outputs are CANDIDATE labels feeding review — candidate_make /
