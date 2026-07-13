@@ -1,0 +1,29 @@
+{
+  "clip": "HARD",
+  "outcomes": [
+    {
+      "start_frame": 1188,
+      "end_frame": 1211,
+      "checked_after_frame": 1211,
+      "outcome": "candidate_miss",
+      "evidence": {
+        "chain_start_frame": 1217,
+        "start_dist_px": 26.2,
+        "end_frame": 1257,
+        "end_dist_px": 344.2
+      }
+    },
+    {
+      "start_frame": 1217,
+      "end_frame": 1250,
+      "checked_after_frame": 1227,
+      "outcome": "candidate_miss",
+      "evidence": {
+        "chain_start_frame": 1228,
+        "start_dist_px": 88.4,
+        "end_frame": 1257,
+        "end_dist_px": 344.2
+      }
+    }
+  ]
+}

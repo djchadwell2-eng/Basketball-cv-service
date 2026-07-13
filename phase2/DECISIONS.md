@@ -779,6 +779,51 @@ real footage, neither by the test suite, which is exactly why the eyeball
 gate stays mandatory at every step rather than becoming optional once
 tests are green.
 
+## 17. MAKE/MISS — Phase 5 step 5, timeboxed, GATE 4 UNMEASURABLE (2026-07-13)
+`spikes/shot_outcome.py`, tests-first (12 synthetic), zero pipeline edits.
+Suite 128 -> 140. Two geometric signals over data steps 2-4 already
+produced: MAKE evidence (raw, unclaimed detections falling through a
+narrow corridor below the hoop, y increasing -- uses raw detections
+because a net-drop may be too short to earn ball_trajectory's own arc
+claim) and MISS evidence (a chain whose earliest point in the post-shot
+window starts near the hoop and whose later points clearly escape it --
+the exact rim-out shape from section 15/16, now read as a real signal
+instead of an accidental second "shot attempt"). Both signals present ->
+unknown (conflict, never resolved by guessing); neither -> unknown (no
+evidence). Every output is a CANDIDATE label per ROADMAP -- this module
+never claims a stat, only proposes one for review.
+
+GROUND TRUTH: the known HARD shot (1188-1211) classified candidate_miss,
+matching the user-verified rim-out from sections 15/16 exactly. Evidence
+traced to the SAME deflection chain already found in section 15 (starts
+26.2px from the carried hoop position at frame 1217, ends 344.2px away
+at frame 1257) -- a satisfying closure: the thing that was a measured
+FALSE POSITIVE for "shot attempt" in step 3 is the CORRECT signal for
+"this shot missed" in step 5. Zero make evidence found, correctly -- the
+ball never entered the below-rim falling corridor because it deflected
+away instead of dropping through.
+
+GATE 4, STATED HONESTLY: ROADMAP's gate asks whether automatic outcome
+accuracy on eyeballed samples clears ~85%; that requires an accuracy RATE,
+which requires more than one sample. This session produced exactly ONE
+real shot with a user-verified outcome (a miss) and the classifier got it
+right -- 1/1 is not a rate, it is an anecdote. Gate 4 is explicitly logged
+as UNMEASURABLE this session, not passed and not failed. NOT built as a
+workaround: synthetic shots, assumed accuracy, or shipping this as
+"validated." The honest next step (handed to the user, not decided here)
+is harvesting more real shots to get an actual sample -- e.g. a full-clip
+HARD ball-detection run (the ~91s clip vs. today's 12s span) would surface
+every shot in the game for real eyeballed accuracy scoring, at the cost of
+a ~90min background run (same order as the existing tracking caches).
+
+VERDICT: the discriminator design is sound and ground-truth-consistent,
+but per ROADMAP's own instruction ("do not chase make/miss for weeks"),
+this is where step 5 stops for now without a real sample to validate
+against. Attempts + locations + this reviewed (never auto-trusted)
+outcome are the shippable unit, exactly as the ROADMAP anticipated for
+the low-accuracy case -- except here the honest state isn't "measured low
+accuracy," it's "not yet measured at all."
+
 ## 4. KNOWN DEBT (logged, not fixed)
 - **A claimed ball arc can be over-counted as a shot attempt when a miss
   deflects off the rim/backboard into a second physics-consistent

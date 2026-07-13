@@ -31,15 +31,19 @@ have — raw detections + claimed arcs + carried hoop positions):
   outcomes are review items by design (candidate labels, per ROADMAP).
 
 ## Plan
-- [ ] 0: check in with user on this plan.
-- [ ] A: tests first (synthetic below-rim fall -> candidate_make;
-      deflection away -> candidate_miss; nothing -> unknown; both ->
-      unknown/conflict), then spikes/shot_outcome.py.
-- [ ] B: run on HARD; the known shot MUST come out candidate_miss (user
-      verified rim-out on film). Report the evidence trail.
-- [ ] C: DECISIONS §17: result + the explicit Gate-4 statement (n=1,
-      unmeasurable) + the harvest-more-shots decision handed to user.
-- Commit after tests+code green, again after the measured run.
+- [x] 0: check in with user on this plan.
+- [x] A: tests first (12 synthetic), then spikes/shot_outcome.py. Suite
+      128->140.
+- [x] B: run on HARD — GROUND TRUTH PASSED: the known shot (1188-1211)
+      classified candidate_miss, matching the user-verified rim-out.
+      Evidence traced to the EXACT deflection chain from DECISIONS §15
+      (starts 26.2px from the hoop at f=1217, ends 344.2px away at
+      f=1257) -- the same signal that was a false-positive "shot attempt"
+      in step 3 is a correct outcome signal here. Zero make evidence
+      found (correct -- ball never fell through the below-rim corridor).
+- [ ] C: DECISIONS §17: result + explicit Gate-4 statement (n=1-2,
+      unmeasurable) + harvest-more-shots decision handed to user.
+- Commit after tests+code green (done), again after DECISIONS write-up.
 
 NOT in scope: scoreboard-OCR outcome second-signal (later project, per
 ROADMAP); rebounds/assists/steals; possessions (step 6); any non-review
