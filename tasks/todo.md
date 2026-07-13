@@ -1,4 +1,65 @@
-# PHASE 5 STEP 3 — SHOT ATTEMPTS (current task, 2026-07-13)
+# PHASE 5 STEP 4 — SHOT LOCATION (current task, 2026-07-13)
+
+Goal: put the user-verified shot on a court diagram — shooter position in
+court feet at release, rendered as a shot-chart dot, with review status
+propagated (an unconfirmed shooter's dot is a REVIEW dot, never presented
+as attributed).
+
+OPENING FINDING (diagnosed before building, spikes/out/
+HARD_shooter_diag_1188.jpg): step 3's shooter HINT is wrong on the real
+shot. Track 3317 (recorded hint) is a bystander on the far baseline;
+the real shooter is the white/red player in follow-through at the left
+of the paint. Cause: §14 release-blindness compounding — the arc claim
+starts near APEX, so "nearest body to arc start" picks whoever stands
+under the apex, not who released 5-8 frames earlier. Safety held (it was
+a review_item, never auto-credited) but the hint would misdirect the
+human reviewer. Location depends on the shooter, so this gets fixed
+FIRST, with a gate, as part of this step.
+
+Design:
+- RELEASE BACK-EXTRAPOLATION (bounded + gated, tests first): the claimed
+  arc carries its fitted quadratic. Extend it BACKWARD a bounded number
+  of frames (<= ~10); at each backward frame, measure distance from the
+  extrapolated ball position to each tracked body (distance to the bbox,
+  since release happens at hands, not feet). Best (frame, track) under a
+  distance gate = shooter hint; nothing under the gate = honest
+  no_confident_shooter review item. Extrapolation is a CLAIM EXTENSION:
+  it only ever produces a review HINT + a release-frame estimate, never
+  an auto-attribution (unconfirmed shooter stays a review item, same as
+  today).
+- SHOT LOCATION = the hinted shooter track's FEET court position at the
+  estimated release frame, read from the oncourt cache (court_feet is
+  already stored per track per frame — free join, zero new geometry).
+  NOTE, deviation from ROADMAP wording: "arc origin -> court feet" would
+  floor-project an ELEVATED point through the floor homography (wrong —
+  same reason the hoop needed its own anchor); the shooter's feet are
+  the honest ground point at release. No shooter hint -> no location ->
+  the attempt surfaces as a location-unknown review item.
+- SHOT CHART: court diagram (reuse stage4_courtmap.court_polylines +
+  stage6's 3pt geometry, drawn in court-feet space, no homography needed
+  for a flat diagram) with the dot + status label. User eyeballs the dot
+  against where the shooter actually stood on film.
+
+## Plan
+- [ ] 0: check in with user on this plan.
+- [ ] A: tests first, then extend spikes/shot_attempts.py with the
+      back-extrapolated release finder (bounded, gated). Synthetic tests:
+      releaser bbox back along the curve -> picked; all bodies far from
+      the backward path -> no_confident_shooter; extrapolation never
+      exceeds the frame bound.
+- [ ] B: rerun on HARD; diagnostic still of the new hint; user confirms
+      the real shooter is now the hinted track (and tells me if not).
+- [ ] C: spikes/shot_location.py — oncourt join + shot chart render;
+      dot for the verified shot, review-status labeled.
+- [ ] D: user eyeballs the dot vs film; DECISIONS §16 (incl. the wrong-
+      hint finding + fix measurements); update §15's shooter record note.
+- Commit after tests+code green, again after the measured run.
+
+NOT in scope: make/miss (step 5); possessions (step 6); auto-attribution
+of any shooter (review-only until identity is CONFIRMED); writing into
+team_events or any existing artifact.
+
+# PHASE 5 STEP 3 — SHOT ATTEMPTS (DONE 2026-07-13 — DECISIONS §15, gate to step 4 PASSED)
 
 Goal: pick the SHOTS out of the step-2 arc claims. ROADMAP rule: a shot
 attempt = an arc terminating at the HOOP REGION; shooter = nearest identity

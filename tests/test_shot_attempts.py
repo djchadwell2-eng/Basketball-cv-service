@@ -14,7 +14,9 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(_ROOT, "spikes"))
 
 from shot_attempts import (  # noqa: E402
-    HOOP_RADIUS_PX, apex_index, classify_shot, nearest_track_feet,
+    HOOP_RADIUS_PX, RELEASE_BACK_MAX_FRAMES, RELEASE_DIST_GATE_PX,
+    apex_index, classify_shot, find_release, nearest_track_feet,
+    point_to_bbox_dist,
 )
 
 
@@ -101,3 +103,76 @@ def test_nearest_track_feet_picks_the_closest_body():
 
 def test_nearest_track_feet_on_empty_frame_is_none():
     assert nearest_track_feet([], 15, 100) is None
+
+
+# --------------------------------------------------- point-to-bbox distance
+
+def test_point_inside_bbox_is_zero_distance():
+    assert point_to_bbox_dist(50, 50, (0, 0, 100, 100)) == 0.0
+
+
+def test_point_outside_bbox_measures_to_nearest_edge():
+    # 10px right of the right edge, 0 vertical offset (inside y-range)
+    assert point_to_bbox_dist(110, 50, (0, 0, 100, 100)) == 10.0
+    # diagonal: 3-4-5 triangle to the corner
+    assert point_to_bbox_dist(103, 104, (0, 0, 100, 100)) == 5.0
+
+
+# ---------------------------------------------- release back-extrapolation
+
+def _fit_of(pts_by_t):
+    """Exact quadratic fit through 3 (t, value) pairs -- lets tests build a
+    fit_x/fit_y whose backward extrapolation lands EXACTLY on a chosen point."""
+    import numpy as np
+    ts = np.array([t for t, _ in pts_by_t], dtype=float)
+    vs = np.array([v for _, v in pts_by_t], dtype=float)
+    a, b, c = np.polyfit(ts, vs, 2)
+    return [float(a), float(b), float(c)]
+
+
+def test_release_finder_picks_body_near_backward_extrapolated_path():
+    # Ball path: cy(t) descends toward the hoop for t>=0; extrapolated
+    # backward it should pass through (200,500) at t=-5 (release).
+    fit_y = _fit_of([(-5, 500), (0, 300), (10, 200)])
+    fit_x = _fit_of([(-5, 200), (0, 250), (10, 400)])
+    start_frame = 1188
+    tracks_by_frame = {1183: [{"track_id": 42, "bbox": [180, 480, 220, 560]}]}
+    out = find_release(fit_x, fit_y, start_frame, tracks_by_frame)
+    assert out["status"] == "found"
+    assert out["release_frame"] == 1183
+    assert out["track_id"] == 42
+
+
+def test_release_finder_abstains_when_nothing_is_close():
+    fit_y = _fit_of([(-5, 500), (0, 300), (10, 200)])
+    fit_x = _fit_of([(-5, 200), (0, 250), (10, 400)])
+    tracks_by_frame = {f: [{"track_id": 1, "bbox": [1500, 1500, 1550, 1600]}]
+                       for f in range(1178, 1188)}
+    out = find_release(fit_x, fit_y, 1188, tracks_by_frame)
+    assert out["status"] == "no_confident_shooter"
+
+
+def test_release_finder_never_looks_past_the_frame_bound():
+    """A body sitting exactly on the extrapolated path, but only at a frame
+    BEYOND RELEASE_BACK_MAX_FRAMES, must be invisible to the finder."""
+    fit_y = _fit_of([(-20, 500), (0, 300), (10, 200)])
+    fit_x = _fit_of([(-20, 200), (0, 250), (10, 400)])
+    start_frame = 1188
+    too_far_frame = start_frame - RELEASE_BACK_MAX_FRAMES - 5
+    ax, bx, cx = fit_x
+    ay, by, cy = fit_y
+    t = too_far_frame - start_frame
+    x, y = ax * t * t + bx * t + cx, ay * t * t + by * t + cy
+    tracks_by_frame = {too_far_frame: [{"track_id": 9,
+                                        "bbox": [x - 10, y - 10, x + 10, y + 10]}]}
+    out = find_release(fit_x, fit_y, start_frame, tracks_by_frame)
+    assert out["status"] == "no_confident_shooter"
+
+
+def test_release_finder_respects_the_distance_gate():
+    fit_y = _fit_of([(-5, 500), (0, 300), (10, 200)])
+    fit_x = _fit_of([(-5, 200), (0, 250), (10, 400)])
+    far_bbox = [200 + RELEASE_DIST_GATE_PX * 3, 500, 220 + RELEASE_DIST_GATE_PX * 3, 560]
+    tracks_by_frame = {1183: [{"track_id": 7, "bbox": far_bbox}]}
+    out = find_release(fit_x, fit_y, 1188, tracks_by_frame)
+    assert out["status"] == "no_confident_shooter"

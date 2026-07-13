@@ -35,6 +35,16 @@ HOOP_RADIUS_PX = 100.0   # measured slack: DECISIONS 15 marker sat ~20-40px off
                          # this adds room for ball size + motion blur without
                          # reaching anywhere near a dribble's floor-level apex
 
+# RELEASE back-extrapolation (DECISIONS 15/16): the arc claim starts near
+# APEX (detector blindness at true release, DECISIONS 14), so "nearest body
+# to the arc's first point" picks whoever stands under the apex, not who
+# released the ball. Instead extend the arc's own fit BACKWARD a bounded
+# window and look for a tracked body the extrapolated ball position lands
+# on -- a genuine CLAIM EXTENSION, so it stays bounded + gated and only ever
+# produces a review HINT, never an auto-attribution.
+RELEASE_BACK_MAX_FRAMES = 10
+RELEASE_DIST_GATE_PX = 120.0
+
 
 def apex_index(points):
     """Index of the highest point (MIN cy -- image y grows downward)."""
@@ -60,6 +70,42 @@ def classify_shot(points, hoop_at, radius=HOOP_RADIUS_PX):
                 "at_frame": best[1]}
     return {"verdict": "not_shot",
             "min_dist": round(best[0], 1) if best else None}
+
+
+def point_to_bbox_dist(x, y, bbox):
+    """Distance from (x,y) to the nearest point ON or IN bbox (0 if inside).
+    Used for release matching -- the ball leaves the HANDS, not the feet, so
+    bbox proximity (not feet-pixel distance) is the right test."""
+    x1, y1, x2, y2 = bbox
+    dx = max(x1 - x, 0.0, x - x2)
+    dy = max(y1 - y, 0.0, y - y2)
+    return (dx * dx + dy * dy) ** 0.5
+
+
+def find_release(fit_x, fit_y, start_frame, tracks_by_frame,
+                 max_back=RELEASE_BACK_MAX_FRAMES, dist_gate=RELEASE_DIST_GATE_PX):
+    """Walk the arc's own quadratic fit BACKWARD from start_frame (t=0) up
+    to max_back frames, looking for a tracked body whose bbox the
+    extrapolated ball position lands on. Returns the CLOSEST match found in
+    that window if it clears dist_gate; otherwise an honest
+    no_confident_shooter -- never a guess past the gate or the frame bound."""
+    ax, bx, cx0 = fit_x
+    ay, by, cy0 = fit_y
+    best = None
+    for k in range(1, max_back + 1):
+        t = -k
+        f = start_frame - k
+        x = ax * t * t + bx * t + cx0
+        y = ay * t * t + by * t + cy0
+        for tr in tracks_by_frame.get(f, []):
+            d = point_to_bbox_dist(x, y, tr["bbox"])
+            if best is None or d < best[0]:
+                best = (d, f, tr["track_id"], x, y)
+    if best is not None and best[0] <= dist_gate:
+        return {"status": "found", "release_frame": best[1], "track_id": best[2],
+                "dist_px": round(best[0], 1),
+                "ball_xy": [round(best[3], 1), round(best[4], 1)]}
+    return {"status": "no_confident_shooter", "checked_frames": max_back}
 
 
 def nearest_track_feet(tracks, x, y):
@@ -117,33 +163,39 @@ def main():
             rec = {"start_frame": a["start_frame"], "end_frame": a["end_frame"],
                    "accel_y": a["accel_y"], **shot}
             if shot["verdict"] == "shot_attempt":
-                rel_f, rel_x, rel_y = seg[0]
-                if not (tracks_span[0] <= rel_f < tracks_span[1]):
+                # RELEASE: extrapolate the arc's own fit backward (DECISIONS
+                # 16 -- "nearest body to the arc's first point" picks whoever
+                # stands under the APEX, not the shooter; the first point is
+                # already several frames past release per DECISIONS 14).
+                rel = find_release(a["fit_x"], a["fit_y"], a["start_frame"], tracks_by_frame)
+                if rel["status"] != "found":
+                    rec["shooter"] = {"status": "no_confident_shooter",
+                                      "reason": f"no tracked body within "
+                                                f"{RELEASE_DIST_GATE_PX}px of the "
+                                                f"back-extrapolated release path within "
+                                                f"{RELEASE_BACK_MAX_FRAMES} frames"}
+                elif not (tracks_span[0] <= rel["release_frame"] < tracks_span[1]):
                     rec["shooter"] = {"status": "no_identity_data",
-                                      "reason": f"frame {rel_f} outside tracks "
-                                                f"cache span {tracks_span}"}
+                                      "reason": f"release frame {rel['release_frame']} "
+                                                f"outside tracks cache span {tracks_span}",
+                                      "release": rel}
                 else:
-                    nearest = nearest_track_feet(tracks_by_frame.get(rel_f, []), rel_x, rel_y)
-                    if nearest is None:
+                    tid = rel["track_id"]
+                    ident = identity_by_ft.get((rel["release_frame"], tid))
+                    if ident is None:
                         rec["shooter"] = {"status": "no_identity_data",
-                                          "reason": "no tracked bodies that frame"}
+                                          "reason": f"track {tid} has no identity "
+                                                    f"event at release frame "
+                                                    f"{rel['release_frame']}",
+                                          "release": rel}
                     else:
-                        tid, dist = nearest
-                        ident = identity_by_ft.get((rel_f, tid))
-                        if ident is None:
-                            rec["shooter"] = {"status": "no_identity_data",
-                                              "reason": f"track {tid} has no identity "
-                                                        f"event at frame {rel_f}",
-                                              "nearest_track_id": tid,
-                                              "nearest_track_dist_px": round(dist, 1)}
-                        else:
-                            identity_id, identity_state = ident
-                            status = ("attributed" if identity_state == "confirmed"
-                                     else "review_item")
-                            rec["shooter"] = {"status": status, "track_id": tid,
-                                              "identity_id": identity_id,
-                                              "identity_state": identity_state,
-                                              "dist_px": round(dist, 1)}
+                        identity_id, identity_state = ident
+                        status = ("attributed" if identity_state == "confirmed"
+                                 else "review_item")
+                        rec["shooter"] = {"status": status, "track_id": tid,
+                                          "identity_id": identity_id,
+                                          "identity_state": identity_state,
+                                          "release": rel}
             results.append(rec)
 
     out_json = os.path.join(out_dir, f"{CLIP_NAME}_shot_attempts.json")
@@ -158,10 +210,12 @@ def main():
         if r["verdict"] != "shot_attempt":
             continue
         sh = r.get("shooter", {})
+        rel = sh.get("release", {})
         print(f"  SHOT {r['start_frame']}..{r['end_frame']} "
               f"min_dist={r['min_dist']}px at f={r['at_frame']}  "
               f"shooter={sh.get('status')} "
-              f"{sh.get('identity_id', sh.get('nearest_track_id', ''))} "
+              f"track={rel.get('track_id', sh.get('track_id', ''))} "
+              f"release_f={rel.get('release_frame', '')} "
               f"{sh.get('identity_state', sh.get('reason',''))}")
     print(f"  wrote {out_json}")
 
