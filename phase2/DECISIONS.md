@@ -936,6 +936,93 @@ enough clearly-resolved shots in view to still leave the sample thin.
 Next honest step for a real Gate-4 rate: more games/clips, not more
 processing of this one.
 
+## 19. TEST1 + THE APEX-RULE FIX — second clip, first full attribution (2026-07-14)
+User feedback opened this unit twice over: (1) chose to grow the Gate-4
+sample by running Phase 5 on TEST1 (second real game, already calibrated
++ identity-resolved, zero new footage needed); (2) explicitly reaffirmed
+priorities -- "ship ASAP" means defer polish, NEVER correctness: "if its
+not working then we dont even have an MVP" (recorded in auto-memory as
+standing feedback).
+
+MULTI-CLIP GENERALIZATION: ball_spike/hoop_anchor/ball_trajectory/
+shot_attempts/shot_outcome/shot_location all take an optional clip name
+(default HARD, behavior unchanged). Real bug found DURING the refactor:
+reading sys.argv at hoop_anchor's module level broke pytest's import of
+it (pytest's own argv misread as a clip name) -- guarded by __main__.
+TEST1's two rims marked + user-confirmed (far: kf-120 px (582,143);
+near: kf-580 px (1377,233)). Full-clip runs: 472 raw ball detections
+(31.9% of frames -- HALF of HARD's 65.5% rate; harder footage for the
+ball detector), hoop coverage complementary near-full-clip, zero
+out-of-bounds, 13 candidate arcs.
+
+FIRST RESULT: 0 shot attempts -- while the user counted ~4 real ones
+(incl. layups). User's hypothesis: the origin gate (added from their own
+deflection feedback in section 18) over-restricted. DIAGNOSIS SAID
+OTHERWISE, and this matters: the origin gate rejected ZERO arcs on TEST1.
+The real defect was the AT/AFTER-APEX rule from section 15's original
+design: on truncated ascent-only arcs (TEST1's sparse detection loses the
+ball near the rim, in backboard/body clutter) the last observed point
+computes as the "apex", excluding nearly the entire arc from the
+proximity check -- arc 315-327's genuine 101px approach at f=324 was
+ignored as "pre-apex".
+
+REDESIGN, measured on ALL 43 arcs across both clips (the same
+data-first discipline as the origin gate): real shots' closest approach
+-- observed, or via a bounded forward extension of the arc's own
+already-physics-gated fit -- is <= 110px; every non-shot arc is >= 163px.
+A clean separation gap. Three changes, tests-first (suite 151 -> 156,
+incl. 2 literal-data TEST1 regressions):
+  1. ALL observed points count for arrival. The origin gate provably
+     covers the launch-proximity case the apex rule guarded (the existing
+     synthetic test now rejects via the origin gate instead -- verified,
+     not assumed).
+  2. HOOP_RADIUS_PX 100 -> 125: inside the measured 110/163 separation
+     gap, consistent with section 15's measured anchor slack (~20-40px)
+     + ball size. NOT gate-loosening-to-chase-a-case: the same radius
+     drives the origin gate where BIGGER = STRICTER, and both known
+     deflections stay rejected.
+  3. ARRIVAL FORWARD EXTENSION: when no observed point arrives, extend
+     the fitted quadratic forward <= 15 frames (~0.5s, half a flight),
+     DESCENDING portion only (past the fit's own apex), hoop position
+     required per predicted frame. Same bounded-claim-extension pattern
+     as the release finder, opposite direction. Arrivals found this way
+     are stamped "arrival": "extrapolated" (vs "observed") -- review
+     always sees the evidence class.
+
+VERIFIED: HARD ground truth BYTE-STABLE (exactly the same 2 shots, same
+distances). TEST1: 2 shots claimed -- 59-71 (2.0-2.4s, extrapolated
+arrival 87.2px) and 315-327 (10.5-10.9s, observed 101.5px). The second
+is the project's FIRST FULL-CHAIN ATTRIBUTION: ball -> arc -> hoop ->
+release extrapolation landing at 0.0px on a tracked body's bbox ->
+track 87 -> identity 40 -> jersey #14 (Little Miami), an identity the
+user's own review session had confirmed (confirmed_retroactive, source
+human). Status still review_item by policy (confirmed_retroactive is
+deliberately not auto-"attributed" -- an open policy question, noted
+below). Location: (-0.6, 21.0) court-ft -- a baseline shot ~7ft from
+the far hoop; x=-0.6 is nominally behind the baseline, within the
+calibration's ~1ft error for a baseline release, flagged not hidden.
+
+HONEST LIMITS, logged:
+- The user counted ~4 TEST1 attempts incl. layups; the pipeline found 2.
+  The other ~2 never formed arcs AT ALL: raw at-rim detections exist
+  (e.g. 51px from the hoop at 5.8s, 23px at 37.5s) but the flights are
+  too short/sparse to pass the physics gate. That is a DETECTOR-COVERAGE
+  limit on this footage (31.9% detection rate), not a gating problem --
+  no gate change can recover a flight that was never tracked. Known
+  lever remains footage quality (zoom/4K, DECISIONS 4c), or later a
+  rim-region detection-sensitivity unit.
+- Outcomes for both TEST1 shots: unknown (no evidence either way) --
+  the same sparse detection that truncates the arcs also starves the
+  outcome discriminators. Honest unknowns, not guesses.
+- Policy question deferred to the user: should a confirmed_retroactive
+  shooter be "attributed" like a live confirmed one (box score already
+  trusts both, reported separately)? Conservative review_item for now.
+
+GATE-4 TALLY after two clips: 4 genuine shot attempts (2 HARD + 2
+TEST1), 1 with a user-verified outcome, 2 with honest unknowns, 1
+unverified. Still not an accuracy rate; the sample grows by clips, and
+each clip is contributing ~2 scoreable shots at current footage quality.
+
 ## 4. KNOWN DEBT (logged, not fixed)
 - **RESOLVED 2026-07-14 (section 18):** the shot-arc over-count from a
   rim deflection (originally logged here) is now caught by classify_shot's
