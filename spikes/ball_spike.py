@@ -29,7 +29,16 @@ sys.path.insert(0, os.path.join(_ROOT, "phase2"))
 
 import clip_config
 
-CLIP = clip_config.HARD_CLIP
+# CLI: ball_spike.py [clip_name] [span_start] [span_len]. No args = exact
+# original behavior (HARD, the user-identified ~35-45s shot span). Passing
+# a clip_name REQUIRES span_start/span_len too (no per-clip auto-default --
+# explicit beats hidden magic when adding a brand-new clip, e.g. TEST1).
+# Guarded by __main__: no test imports this module today, but the same
+# trap as hoop_anchor.py applies if one ever does (pytest's own argv would
+# get misread as a clip name).
+_is_main = __name__ == "__main__"
+CLIP_NAME = sys.argv[1] if _is_main and len(sys.argv) > 1 else "HARD"
+CLIP = getattr(clip_config, f"{CLIP_NAME}_CLIP")
 clip_config.ACTIVE_CLIP = CLIP          # set BEFORE importing run_tracking (binds at import;
                                         # otherwise the temp subclip gets the wrong clip's name)
 
@@ -38,10 +47,9 @@ import tracking as trk                    # reuse MODEL_NAME / IMG_SIZE (same mo
 
 from ultralytics import YOLO
 # User-identified shot attempt: HARD.mp4 ~35-45s (30fps -> frames 1050-1350).
-# +/-30 frame buffer so the shot isn't cut off at either edge. Optional CLI
-# override for a wider harvest (e.g. the full clip): ball_spike.py <start> <len>.
-SPAN_START = int(sys.argv[1]) if len(sys.argv) > 1 else 1020
-SPAN_LEN = int(sys.argv[2]) if len(sys.argv) > 2 else 360
+# +/-30 frame buffer so the shot isn't cut off at either edge.
+SPAN_START = int(sys.argv[2]) if _is_main and len(sys.argv) > 2 else 1020
+SPAN_LEN = int(sys.argv[3]) if _is_main and len(sys.argv) > 3 else 360
 
 BALL_CLASS = 32                           # COCO "sports ball"
 CONF = 0.05                               # deliberately low -- we want to SEE the misses too

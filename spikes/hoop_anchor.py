@@ -13,10 +13,10 @@ every scene point regardless of depth. That's the same assumption stage4's
 docstring already leans on for the floor; here it's exactly what makes an
 elevated rim carryable at all.
 
-ONE human-confirmed input: RIM_KEYFRAME / RIM_PIXEL, marked by eyeball and
-confirmed by the user against spikes/out/HARD_hoop_anchor_f1100.jpg
-(2026-07-13) -- same click-seeding philosophy as the rest of the project:
-system proposes, human confirms, once per basket per clip.
+TWO human-confirmed inputs per clip (RIM_ANCHORS below), marked by eyeball
+and confirmed by the user against a marked still -- same click-seeding
+philosophy as the rest of the project: system proposes, human confirms,
+once per basket per clip.
 
 Per-frame carrying can fail honestly (weak SIFT match -> no hoop pixel that
 frame) -- that frame's hoop position is simply ABSENT from the output, not
@@ -38,22 +38,35 @@ sys.path.insert(0, _HERE)
 sys.path.insert(0, _ROOT)
 sys.path.insert(0, os.path.join(_ROOT, "phase2"))
 
+# CLI: hoop_anchor.py [clip_name] [span_start] [span_len]. No clip_name =
+# HARD (exact original behavior). Must be read BEFORE importing
+# clips_config-dependent modules below (KNOWN TRAP, DECISIONS.md KNOWN
+# DEBT: stage1/2/4/5 read clip identity from clips_config.ACTIVE, bound AT
+# IMPORT TIME). Guarded by __main__ -- this module is also imported
+# directly by tests (test_hoop_anchor*.py), where sys.argv belongs to
+# pytest, not this script; only read argv when actually run as a script.
+CLIP_NAME_ARG = sys.argv[1] if __name__ == "__main__" and len(sys.argv) > 1 else "HARD"
+
 import clips_config as _cc                # noqa: E402
-# KNOWN TRAP (DECISIONS.md KNOWN DEBT): stage1/2/4/5 read clip identity from
-# clips_config.ACTIVE, bound AT IMPORT TIME -- must be set BEFORE importing
-# them or they silently bind to whatever clip was last active (this module
-# is HARD-only today: RIM_KEYFRAME/RIM_PIXEL above are HARD-specific).
-_cc.ACTIVE = "HARD"
+_cc.ACTIVE = CLIP_NAME_ARG
 
 import stage1_keyframe_match as s1        # noqa: E402
 import stage2_multikeyframe as s2         # noqa: E402
 import stage4_courtmap as s4              # noqa: E402
 import stage5_courtmap as s5              # noqa: E402  (sift_of, signfix)
 
-RIM_KEYFRAME = 1100
-RIM_PIXEL = (1855.0, 228.0)               # FAR hoop, user-confirmed 2026-07-13 (DECISIONS 15)
-RIM_KEYFRAME_NEAR = 600
-RIM_PIXEL_NEAR = (633.0, 190.0)           # NEAR hoop, user-confirmed 2026-07-14 (DECISIONS 18)
+# Two human-confirmed rim pixels per clip (click-seeding philosophy: system
+# proposes on a marked still, human confirms, once per basket per clip).
+RIM_ANCHORS = {
+    "HARD": {
+        "far": (1100, (1855.0, 228.0)),    # user-confirmed 2026-07-13 (DECISIONS 15)
+        "near": (600, (633.0, 190.0)),     # user-confirmed 2026-07-14 (DECISIONS 18)
+    },
+    "TEST1": {
+        "far": (120, (582.0, 143.0)),      # user-confirmed 2026-07-14 (DECISIONS 19)
+        "near": (580, (1377.0, 233.0)),    # user-confirmed 2026-07-14 (DECISIONS 19)
+    },
+}
 
 NFEAT, RATIO, RANSAC_PX, MIN_INLIERS = 1500, 0.75, 3.0, 30
 
@@ -126,11 +139,12 @@ def _match_frame(frame, sift, kf_db):
     return None
 
 
-def build_hoop_track(video_path, span_start, span_len):
+def build_hoop_track(video_path, span_start, span_len, anchors):
     """Carries BOTH hoop anchors (far + near) through every frame's SAME
     per-frame SIFT match -- one extra point projection per frame, no extra
     SIFT cost, since both anchors share the identical Hs_opt[pos] @ Hfk
-    transform for a given frame. Return (rim_ref900_far, rim_ref900_near,
+    transform for a given frame. anchors: {"far": (keyframe, (x,y)),
+    "near": (keyframe, (x,y))}. Return (rim_ref900_far, rim_ref900_near,
     [{frame_index, hoop_far_px, hoop_near_px, matched_kf, inliers, ratio}
     or {frame_index, hoop_far_px: None, hoop_near_px: None} on no-match],
     KF, Hs_opt)."""
@@ -145,8 +159,8 @@ def build_hoop_track(video_path, span_start, span_len):
               f"-> ref-900 px {tuple(round(v, 1) for v in ref900)}")
         return ref900
 
-    rim_ref900_far = _anchor_ref900(RIM_KEYFRAME, RIM_PIXEL, "far")
-    rim_ref900_near = _anchor_ref900(RIM_KEYFRAME_NEAR, RIM_PIXEL_NEAR, "near")
+    rim_ref900_far = _anchor_ref900(*anchors["far"], "far")
+    rim_ref900_near = _anchor_ref900(*anchors["near"], "near")
 
     sift = cv2.SIFT_create(nfeatures=NFEAT)
     kf_db = _keyframe_db(video_path, KF, sift)
@@ -194,21 +208,23 @@ def build_hoop_track(video_path, span_start, span_len):
 
 def main():
     import clip_config
-    CLIP = clip_config.HARD_CLIP
+    CLIP = getattr(clip_config, f"{CLIP_NAME_ARG}_CLIP")
     clip_config.ACTIVE_CLIP = CLIP
+    anchors = RIM_ANCHORS[CLIP_NAME_ARG]
 
     # Optional CLI override for a wider harvest (e.g. the full clip):
-    # hoop_anchor.py <start> <len>. Default = same span as the ball spike.
-    SPAN_START = int(sys.argv[1]) if len(sys.argv) > 1 else 1020
-    SPAN_LEN = int(sys.argv[2]) if len(sys.argv) > 2 else 360
+    # hoop_anchor.py [clip_name] <start> <len>. Default = same span as the
+    # ball spike (HARD only -- a new clip should pass an explicit span).
+    SPAN_START = int(sys.argv[2]) if len(sys.argv) > 2 else 1020
+    SPAN_LEN = int(sys.argv[3]) if len(sys.argv) > 3 else 360
     rim_ref900_far, rim_ref900_near, track, KF, Hs_opt = build_hoop_track(
-        CLIP.video_path, SPAN_START, SPAN_LEN)
+        CLIP.video_path, SPAN_START, SPAN_LEN, anchors)
 
     out_json = os.path.join(_HERE, "out", f"{CLIP.name}_hoop_track.json")
     json.dump({"clip": CLIP.name, "span_start": SPAN_START, "span_len": SPAN_LEN,
-               "rim_keyframe_far": RIM_KEYFRAME, "rim_pixel_far": list(RIM_PIXEL),
+               "rim_keyframe_far": anchors["far"][0], "rim_pixel_far": list(anchors["far"][1]),
                "rim_ref900_far": list(rim_ref900_far),
-               "rim_keyframe_near": RIM_KEYFRAME_NEAR, "rim_pixel_near": list(RIM_PIXEL_NEAR),
+               "rim_keyframe_near": anchors["near"][0], "rim_pixel_near": list(anchors["near"][1]),
                "rim_ref900_near": list(rim_ref900_near), "frames": track},
               open(out_json, "w", encoding="utf-8"), indent=2)
     print(f"[hoop_anchor] wrote {out_json}")

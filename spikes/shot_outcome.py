@@ -125,7 +125,7 @@ def classify_outcome(make_evidence, miss_evidence):
 # ---------------------------------------------------------------- runner ----
 
 def main():
-    CLIP_NAME = "HARD"
+    CLIP_NAME = sys.argv[1] if len(sys.argv) > 1 else "HARD"   # shot_outcome.py [clip_name]
     out_dir = os.path.join(_HERE, "out")
 
     sa_doc = json.load(open(os.path.join(out_dir, f"{CLIP_NAME}_shot_attempts.json"),

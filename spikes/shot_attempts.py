@@ -154,7 +154,7 @@ def _load(path):
 
 
 def main():
-    CLIP_NAME = "HARD"
+    CLIP_NAME = sys.argv[1] if len(sys.argv) > 1 else "HARD"   # shot_attempts.py [clip_name]
     out_dir = os.path.join(_HERE, "out")
 
     arcs_doc = _load(os.path.join(out_dir, f"{CLIP_NAME}_ball_arcs.json"))
