@@ -237,7 +237,8 @@ def _render_overlay(video_path, span_start, span_len, chains, results, out_path)
 
 def main():
     import clip_config
-    CLIP = clip_config.HARD_CLIP
+    CLIP_NAME = sys.argv[1] if len(sys.argv) > 1 else "HARD"   # ball_trajectory.py [clip_name]
+    CLIP = getattr(clip_config, f"{CLIP_NAME}_CLIP")
     clip_config.ACTIVE_CLIP = CLIP     # BEFORE run_tracking import inside render
 
     log_path = os.path.join(_HERE, "out", f"{CLIP.name}_ball_spike_log.json")
