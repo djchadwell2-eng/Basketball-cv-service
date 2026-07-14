@@ -1,3 +1,41 @@
+# PHASE 5 ON TEST1 — second clip, real Gate-4 sample (current task, 2026-07-14)
+
+Goal: run the same Phase 5 pipeline (already built + validated on HARD)
+on TEST1.mp4 -- a second real game clip, already calibrated, tracked,
+and identity-resolved, that Phase 5 has never touched. This is the
+cheapest path to an actual Gate-4 sample: no new footage needed, just
+background compute, reusing code already proven on HARD.
+
+User feedback logged (memory: feedback_ship_speed_vs_working_product.md):
+"ship ASAP" defers polish/scaling, never correctness -- a broken
+pipeline isn't a faster MVP, it's no MVP. Keep applying every eyeball
+gate and regression-test habit from the HARD sessions; don't skip them
+to move faster.
+
+## Plan
+- [x] Generalized ball_spike.py / hoop_anchor.py / shot_attempts.py /
+      shot_outcome.py / shot_location.py to accept an optional clip name
+      (default HARD, zero behavior change). Fixed a real bug in the same
+      pass: reading sys.argv at hoop_anchor.py's module level broke
+      pytest's own import of it (pytest's argv misread as a clip name) --
+      guarded by __main__. Suite green (151) throughout.
+- [x] Marked TEST1's two hoops, user-confirmed after fine-tuning: far at
+      keyframe-120 px (582,143), near at keyframe-580 px (1377,233).
+- [~] RUNNING (background, parallel): `ball_spike.py TEST1 0 1299`
+      (full 43.3s clip, ~40-45 min) and `hoop_anchor.py TEST1 0 1299`
+      (both hoops, same span).
+- [ ] Once both land: run ball_trajectory.py, shot_attempts.py,
+      shot_outcome.py, shot_location.py over TEST1 (all already
+      clip-name-parameterized). Report candidate arcs, shot attempts
+      (origin-gate applies automatically), outcomes, locations.
+- [ ] User eyeball pass on whatever TEST1 surfaces, same rigor as HARD:
+      confirm real shots, check for camera-pan distortion, check for any
+      NEW failure mode this different footage might expose.
+- [ ] DECISIONS §19 with the full TEST1 result + combined Gate-4 sample
+      size (HARD's 2 + TEST1's new shots).
+- Commit after each stage lands, same as every prior Phase 5 unit.
+
+# PHASE 5 GATE-4 HARVEST — full-clip HARD (DONE 2026-07-14 — DECISIONS §18, n=2 clean genuine shots, still unmeasurable)
 # PHASE 5 GATE-4 HARVEST — full-clip ball detection (current task, 2026-07-13)
 
 User chose option 1 (harvest more shots) after step 5's ground truth
