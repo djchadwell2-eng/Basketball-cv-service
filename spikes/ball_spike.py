@@ -50,12 +50,20 @@ from ultralytics import YOLO
 # +/-30 frame buffer so the shot isn't cut off at either edge.
 SPAN_START = int(sys.argv[2]) if _is_main and len(sys.argv) > 2 else 1020
 SPAN_LEN = int(sys.argv[3]) if _is_main and len(sys.argv) > 3 else 360
+# imgsz override (DECISIONS 20): stock detection downscales the 1920px frame
+# to 1280 before inference, shrinking an already-small ball. A higher imgsz
+# keeps more of the ball's real pixels. Default = the validated 1280.
+IMG_SIZE = int(sys.argv[4]) if _is_main and len(sys.argv) > 4 else trk.IMG_SIZE
 
 BALL_CLASS = 32                           # COCO "sports ball"
 CONF = 0.05                               # deliberately low -- we want to SEE the misses too
 OUT_DIR = os.path.join(_HERE, "out")
-OUT_VIDEO = os.path.join(OUT_DIR, f"{CLIP.name}_ball_spike_overlay.mp4")
-OUT_JSON = os.path.join(OUT_DIR, f"{CLIP.name}_ball_spike_log.json")
+# A non-default imgsz writes to a SUFFIXED file so a measurement run never
+# clobbers the canonical log the downstream pipeline reads (measure first,
+# adopt only on the numbers -- same discipline as the reid probe, DECISIONS 11).
+_SUFFIX = "" if IMG_SIZE == trk.IMG_SIZE else f"_imgsz{IMG_SIZE}"
+OUT_VIDEO = os.path.join(OUT_DIR, f"{CLIP.name}_ball_spike_overlay{_SUFFIX}.mp4")
+OUT_JSON = os.path.join(OUT_DIR, f"{CLIP.name}_ball_spike_log{_SUFFIX}.json")
 BOX_COLOR = (0, 165, 255)                 # orange, easy to spot against court colors
 
 
@@ -67,9 +75,9 @@ def main():
     print(f"[ball_spike] {n} frames -> {subclip}")
 
     model = YOLO(trk.MODEL_NAME)
-    print(f"[ball_spike] running YOLOv8m (imgsz={trk.IMG_SIZE}, conf={CONF}, "
+    print(f"[ball_spike] running YOLOv8m (imgsz={IMG_SIZE}, conf={CONF}, "
           f"class=sports ball) -- CPU, ~2s/frame ...")
-    results = model.predict(source=subclip, classes=[BALL_CLASS], imgsz=trk.IMG_SIZE,
+    results = model.predict(source=subclip, classes=[BALL_CLASS], imgsz=IMG_SIZE,
                              conf=CONF, stream=True, verbose=False)
 
     cap = cv2.VideoCapture(subclip)
@@ -107,7 +115,7 @@ def main():
     writer.release()
 
     doc = {"clip": CLIP.name, "span_start": SPAN_START, "span_len": len(frames_out),
-           "fps": fps, "conf_threshold": CONF, "frames": frames_out}
+           "fps": fps, "conf_threshold": CONF, "imgsz": IMG_SIZE, "frames": frames_out}
     with open(OUT_JSON, "w", encoding="utf-8") as f:
         json.dump(doc, f, indent=2)
 
