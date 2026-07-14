@@ -30,10 +30,31 @@ sys.path.insert(0, _HERE)
 sys.path.insert(0, _ROOT)
 sys.path.insert(0, os.path.join(_ROOT, "phase2"))
 
-HOOP_RADIUS_PX = 100.0   # measured slack: DECISIONS 15 marker sat ~20-40px off
-                         # the true rim center even across a keyframe switch;
-                         # this adds room for ball size + motion blur without
-                         # reaching anywhere near a dribble's floor-level apex
+# HOOP_RADIUS_PX 100 -> 125 (DECISIONS 19, measured on ALL 43 arcs across
+# both clips): real shots' closest approach (observed, or bounded forward
+# extension of the fit) is <= 110px; every non-shot arc is >= 163px -- a
+# clean separation gap, so 125 sits between them with margin on both sides.
+# Also consistent with the anchor's own measured slack (DECISIONS 15: the
+# carried rim marker sits ~20-40px off true center) + ball size. NOT a
+# loosened threshold to chase a marginal case: the same radius also drives
+# the ORIGIN gate, where BIGGER = stricter (rejects more
+# deflection/continuation starts), and both known deflections (start 26-69px
+# from the hoop) stay rejected.
+HOOP_RADIUS_PX = 125.0
+
+# ARRIVAL forward-extension (DECISIONS 19): on sparse-detection footage the
+# tracker loses the ball near the rim (backboard/body clutter), so a claimed
+# arc may cover ONLY the ascent -- the flight's actual arrival at the hoop is
+# unobserved. The arc's own fitted quadratic (already physics-gated) predicts
+# the missing remainder: extend it forward a bounded window, descending
+# portion only (past the FIT's apex -- a rising ball hasn't arrived). Same
+# claim-extension pattern as RELEASE_BACK_MAX_FRAMES, opposite direction; an
+# arrival found this way is stamped "extrapolated" (vs "observed") so review
+# always knows which evidence class it is. Bound: measured need on the
+# user-confirmed truncated shot was +13 frames; 15 (~0.5s, about half a
+# shot's flight time) adds a small margin without inviting long fantasy
+# extrapolation.
+ARRIVAL_FORWARD_MAX_FRAMES = 15
 
 # RELEASE back-extrapolation (DECISIONS 15/16): the arc claim starts near
 # APEX (detector blindness at true release, DECISIONS 14), so "nearest body
@@ -51,26 +72,36 @@ def apex_index(points):
     return min(range(len(points)), key=lambda i: points[i][2])
 
 
-def classify_shot(points, hoop_at, radius=HOOP_RADIUS_PX):
+def classify_shot(points, hoop_at, radius=HOOP_RADIUS_PX,
+                  fit_x=None, fit_y=None,
+                  max_forward=ARRIVAL_FORWARD_MAX_FRAMES):
     """points: [(frame, cx, cy), ...] of one claimed arc (chronological).
     hoop_at: callable frame -> (hx, hy) or None if no hoop position that
-    frame. Only points at-or-after the apex are checked (descending half,
-    apex inclusive) -- a rising ball cannot have reached the rim yet.
+    frame. fit_x/fit_y: the arc's quadratic coefficients ([a,b,c] over
+    t = frame - start_frame) enabling the bounded forward extension.
 
-    ORIGIN GATE (DECISIONS 18, KNOWN DEBT candidate fix (b), validated on
-    real data): a real shot RELEASES away from the hoop and ARRIVES close;
-    a rim deflection/continuation STARTS already close and moves away.
-    Measured on all 4 arcs found so far: real shots start 285-338px from
-    the hoop and end 19-55px away; the two known false positives start
-    26-69px away and end 374-384px away -- a clean, consistent split. If
-    the arc's FIRST point is within `radius` of the hoop AT THAT FRAME,
-    reject it regardless of what happens later -- it did not originate as
-    a fresh release. If the hoop position at the first frame is unknown,
-    this gate is skipped (absence of data must not manufacture a
-    rejection) and classification falls back to the apex-based check only.
-    KNOWN TRADE-OFF, accepted not fixed: a genuine close-range shot (e.g.
-    a layup released near the rim) would also fail this gate -- logged as
-    an accepted limitation, not silently ignored."""
+    ORIGIN GATE (DECISIONS 18, validated on real data): a real shot
+    RELEASES away from the hoop and ARRIVES close; a rim deflection/
+    continuation STARTS already close and moves away. Measured: real shots
+    start 209-338px from the hoop; both known false positives start
+    26-69px away and end 374-384px away. If the arc's FIRST point is
+    within `radius` of the hoop AT THAT FRAME, reject it regardless of
+    what happens later. If the hoop position at the first frame is
+    unknown, the gate is skipped (absence of data must not manufacture a
+    rejection). KNOWN TRADE-OFF, accepted not fixed: a genuine close-range
+    layup released near the rim would also fail this gate.
+
+    ARRIVAL (DECISIONS 19, replaces the old at/after-apex rule): ALL
+    observed points count -- the origin gate already prevents the case the
+    apex rule guarded (proximity at launch), and the apex rule was
+    measured BROKEN on truncated ascent-only arcs (sparse detection loses
+    the ball near the rim, making the last observed point the 'apex' and
+    excluding nearly the whole arc). If no observed point is within
+    `radius`, the fitted curve is extended forward up to `max_forward`
+    frames, DESCENDING PORTION ONLY (past the fit's own apex -- a rising
+    ball hasn't arrived), hoop position required at each predicted frame.
+    An arrival found this way is stamped "arrival": "extrapolated" --
+    weaker evidence than "observed", surfaced to review as such."""
     f0, x0, y0 = points[0]
     h0 = hoop_at(f0)
     if h0 is not None:
@@ -80,18 +111,44 @@ def classify_shot(points, hoop_at, radius=HOOP_RADIUS_PX):
                     "reason": f"originates within {radius}px of the hoop "
                               f"({round(origin_dist, 1)}px) -- a deflection/"
                               f"continuation, not a fresh release"}
-    i0 = apex_index(points)
     best = None
-    for (f, x, y) in points[i0:]:
+    for (f, x, y) in points:
         h = hoop_at(f)
         if h is None:
             continue
         d = ((x - h[0]) ** 2 + (y - h[1]) ** 2) ** 0.5
         if best is None or d < best[0]:
-            best = (d, f, x, y)
+            best = (d, f)
     if best is not None and best[0] <= radius:
         return {"verdict": "shot_attempt", "min_dist": round(best[0], 1),
-                "at_frame": best[1]}
+                "at_frame": best[1], "arrival": "observed"}
+
+    # ---- bounded forward extension of the (already physics-gated) fit ----
+    if fit_x is not None and fit_y is not None:
+        ax, bx, cx0 = fit_x
+        ay, by, cy0 = fit_y
+        t_apex = (-by / (2 * ay)) if ay > 0 else 0.0
+        f_start, f_end = points[0][0], points[-1][0]
+        best_ext = None
+        for k in range(0, max_forward + 1):
+            f = f_end + k
+            t = (f_end - f_start) + k
+            if t < t_apex:
+                continue                       # still rising per the fit
+            h = hoop_at(f)
+            if h is None:
+                continue
+            x = ax * t * t + bx * t + cx0
+            y = ay * t * t + by * t + cy0
+            d = ((x - h[0]) ** 2 + (y - h[1]) ** 2) ** 0.5
+            if best_ext is None or d < best_ext[0]:
+                best_ext = (d, f)
+        if best_ext is not None and best_ext[0] <= radius:
+            return {"verdict": "shot_attempt", "min_dist": round(best_ext[0], 1),
+                    "at_frame": best_ext[1], "arrival": "extrapolated"}
+        if best_ext is not None and (best is None or best_ext[0] < best[0]):
+            best = best_ext
+
     return {"verdict": "not_shot",
             "min_dist": round(best[0], 1) if best else None}
 
@@ -192,8 +249,8 @@ def main():
         pts = [(p[0], p[1], p[2]) for p in chain["points"]]
         for a in chain["arcs"]:
             seg = [p for p in pts if a["start_frame"] <= p[0] <= a["end_frame"]]
-            shot_far = classify_shot(seg, hoop_at_far)
-            shot_near = classify_shot(seg, hoop_at_near)
+            shot_far = classify_shot(seg, hoop_at_far, fit_x=a["fit_x"], fit_y=a["fit_y"])
+            shot_near = classify_shot(seg, hoop_at_near, fit_x=a["fit_x"], fit_y=a["fit_y"])
             # prefer whichever PASSES; if both pass (shouldn't happen -- the
             # two hoops are far apart -- but stay honest if it ever does) or
             # both fail, prefer the smaller min_dist as the more informative report

@@ -14,9 +14,9 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(_ROOT, "spikes"))
 
 from shot_attempts import (  # noqa: E402
-    HOOP_RADIUS_PX, RELEASE_BACK_MAX_FRAMES, RELEASE_DIST_GATE_PX,
-    apex_index, classify_shot, find_release, nearest_track_feet,
-    point_to_bbox_dist,
+    ARRIVAL_FORWARD_MAX_FRAMES, HOOP_RADIUS_PX, RELEASE_BACK_MAX_FRAMES,
+    RELEASE_DIST_GATE_PX, apex_index, classify_shot, find_release,
+    nearest_track_feet, point_to_bbox_dist,
 )
 
 
@@ -74,6 +74,101 @@ def test_proximity_before_apex_does_not_count_as_a_shot():
     assert 2 < i_apex        # confirm this point IS before the apex
     out = classify_shot(pts, const_hoop(ex, ey))
     assert out["verdict"] == "not_shot"
+
+
+# ------------------------------------------- arrival extension (§19)
+
+def _fit_of_arc(x0, vx, y0, vy, ay):
+    """Exact quadratic coefficients matching arc_points()' generator, in the
+    [a, b, c] over t = frame - start form classify_shot expects."""
+    return [0.0, vx, x0], [0.5 * ay, vy, y0]
+
+
+def test_truncated_ascent_arc_reaches_hoop_via_bounded_extension():
+    """Sparse detection loses the ball before apex; the fit's forward
+    extension (descending portion) arrives at the hoop -> shot, stamped
+    'extrapolated' so review knows the evidence class."""
+    x0, vx, y0, vy, ay = 100.0, 15.0, 500.0, -20.0, 1.0   # apex at t=20
+    pts = arc_points(range(0, 13), x0=x0, vx=vx, y0=y0, vy=vy, ay=ay)  # ascent only
+    fit_x, fit_y = _fit_of_arc(x0, vx, y0, vy, ay)
+    # hoop exactly on the predicted DESCENT (t=24, i.e. 12 frames past the
+    # observed end, inside the bound) and >125px from every OBSERVED point
+    t = 24
+    hx, hy = x0 + vx * t, y0 + vy * t + 0.5 * ay * t * t
+    for (f, x, y) in pts:   # geometry sanity: no observed point can claim it
+        assert ((x - hx) ** 2 + (y - hy) ** 2) ** 0.5 > HOOP_RADIUS_PX
+    out = classify_shot(pts, const_hoop(hx, hy), fit_x=fit_x, fit_y=fit_y)
+    assert out["verdict"] == "shot_attempt"
+    assert out["arrival"] == "extrapolated"
+
+
+def test_arrival_extension_never_looks_past_its_frame_bound():
+    """The hoop position only becomes known at frames BEYOND the forward
+    bound -- the extension must not see it (it cannot claim through frames
+    it is not allowed to predict)."""
+    x0, vx, y0, vy, ay = 100.0, 15.0, 500.0, -20.0, 1.0
+    pts = arc_points(range(0, 13), x0=x0, vx=vx, y0=y0, vy=vy, ay=ay)
+    fit_x, fit_y = _fit_of_arc(x0, vx, y0, vy, ay)
+    beyond_f = 12 + ARRIVAL_FORWARD_MAX_FRAMES + 5
+    t = beyond_f
+    hx, hy = x0 + vx * t, y0 + vy * t + 0.5 * ay * t * t
+
+    def late_hoop(f):
+        return (hx, hy) if f >= beyond_f else None
+
+    out = classify_shot(pts, late_hoop, fit_x=fit_x, fit_y=fit_y)
+    assert out["verdict"] == "not_shot"
+
+
+def test_arrival_extension_ignores_the_rising_portion_of_the_fit():
+    """A hoop sitting on the fit's RISING extension (before the fit's own
+    apex) must not create a claim -- a rising ball hasn't arrived."""
+    x0, vx, y0, vy, ay = 100.0, 8.0, 800.0, -40.0, 1.0   # apex at t=40
+    pts = arc_points(range(0, 8), x0=x0, vx=vx, y0=y0, vy=vy, ay=ay)
+    fit_x, fit_y = _fit_of_arc(x0, vx, y0, vy, ay)
+    t = 12   # 5 frames past observed end but still RISING (t < 40)
+    hx = x0 + vx * t
+    hy = y0 + vy * t + 0.5 * ay * t * t
+    out = classify_shot(pts, const_hoop(hx, hy), fit_x=fit_x, fit_y=fit_y)
+    assert out["verdict"] == "not_shot"
+
+
+def test_real_test1_truncated_shot_59_71_claimed_via_extension():
+    """REGRESSION, real TEST1 data (DECISIONS 19): user-confirmed real shot
+    whose arc truncates 14+ frames before rim arrival (detector loses the
+    ball near the backboard). Observed min dist 140px; the fit's descent
+    reaches ~110px at +13 frames -> claimed, stamped extrapolated."""
+    pts = [(59, 382.9, 395.5), (61, 394.8, 317.0), (62, 400.1, 284.7),
+           (63, 406.8, 252.4), (64, 414.6, 221.9), (65, 420.3, 196.0),
+           (67, 434.4, 143.8), (68, 443.9, 121.8), (69, 448.5, 101.6),
+           (71, 464.4, 65.1)]
+    fit_x = [0.0805, 5.8728, 382.5844]
+    fit_y = [0.9901, -39.1816, 393.7412]
+    out = classify_shot(pts, const_hoop(582.0, 143.0), fit_x=fit_x, fit_y=fit_y)
+    assert out["verdict"] == "shot_attempt"
+    assert out["arrival"] == "extrapolated"
+
+
+def test_real_test1_shot_315_327_claimed_on_observed_preapex_point():
+    """REGRESSION, real TEST1 data (DECISIONS 19): the arc that exposed the
+    broken at/after-apex rule -- its closest observed approach (101px at
+    f=324) was 'pre-apex' only because truncation made the last point the
+    apex. All observed points now count; 101 <= 125 -> claimed, observed.
+    Camera pans hard here (hoop x 452->274 across the arc), so per-frame
+    hoop positions are used, not a constant."""
+    pts = [(315, 331.7, 312.7), (317, 338.9, 286.7), (318, 341.2, 274.5),
+           (319, 343.6, 263.1), (320, 348.2, 254.5), (321, 352.8, 245.4),
+           (324, 365.5, 228.0), (325, 372.0, 224.8), (326, 375.5, 223.5),
+           (327, 381.8, 221.5)]
+    hoop = {315: (452.8, 142.1), 317: (418.6, 141.2), 318: (402.1, 140.9),
+            319: (385.7, 140.8), 320: (370.1, 140.7), 321: (354.9, 140.7),
+            324: (312.4, 141.5), 325: (299.3, 141.9), 326: (286.4, 142.5),
+            327: (274.0, 142.9)}
+    out = classify_shot(pts, lambda f: hoop.get(f),
+                        fit_x=[0.1238, 2.652, 332.0272],
+                        fit_y=[0.5985, -14.8088, 313.2141])
+    assert out["verdict"] == "shot_attempt"
+    assert out["arrival"] == "observed"
 
 
 # ------------------------------------------------------ origin gate (§18)

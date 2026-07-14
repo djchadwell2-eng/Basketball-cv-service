@@ -1,0 +1,138 @@
+{
+  "clip": "TEST1",
+  "hoop_radius_px": 125.0,
+  "tracks_span": [
+    120,
+    581
+  ],
+  "attempts": [
+    {
+      "start_frame": 59,
+      "end_frame": 71,
+      "accel_y": 1.98,
+      "hoop": "far",
+      "verdict": "shot_attempt",
+      "min_dist": 87.2,
+      "at_frame": 86,
+      "arrival": "extrapolated",
+      "shooter": {
+        "status": "no_confident_shooter",
+        "reason": "no tracked body within 120.0px of the back-extrapolated release path within 10 frames"
+      }
+    },
+    {
+      "start_frame": 315,
+      "end_frame": 327,
+      "accel_y": 1.197,
+      "hoop": "far",
+      "verdict": "shot_attempt",
+      "min_dist": 101.5,
+      "at_frame": 324,
+      "arrival": "observed",
+      "shooter": {
+        "status": "review_item",
+        "track_id": 87,
+        "identity_id": 40,
+        "identity_state": "confirmed_retroactive",
+        "release": {
+          "status": "found",
+          "release_frame": 313,
+          "track_id": 87,
+          "dist_px": 0.0,
+          "ball_xy": [
+            327.2,
+            345.2
+          ]
+        }
+      }
+    },
+    {
+      "start_frame": 354,
+      "end_frame": 371,
+      "accel_y": 1.342,
+      "hoop": "far",
+      "verdict": "not_shot",
+      "min_dist": 195.0
+    },
+    {
+      "start_frame": 375,
+      "end_frame": 386,
+      "accel_y": 1.563,
+      "hoop": "far",
+      "verdict": "not_shot",
+      "min_dist": 226.7
+    },
+    {
+      "start_frame": 387,
+      "end_frame": 400,
+      "accel_y": 1.412,
+      "hoop": "far",
+      "verdict": "not_shot",
+      "min_dist": 225.9
+    },
+    {
+      "start_frame": 439,
+      "end_frame": 457,
+      "accel_y": 1.107,
+      "hoop": "far",
+      "verdict": "not_shot",
+      "min_dist": 361.8
+    },
+    {
+      "start_frame": 718,
+      "end_frame": 741,
+      "accel_y": 1.14,
+      "hoop": "near",
+      "verdict": "not_shot",
+      "min_dist": 521.9
+    },
+    {
+      "start_frame": 745,
+      "end_frame": 762,
+      "accel_y": 1.106,
+      "hoop": "near",
+      "verdict": "not_shot",
+      "min_dist": 867.4
+    },
+    {
+      "start_frame": 769,
+      "end_frame": 783,
+      "accel_y": 1.235,
+      "hoop": "far",
+      "verdict": "not_shot",
+      "min_dist": 1044.1
+    },
+    {
+      "start_frame": 793,
+      "end_frame": 800,
+      "accel_y": 0.982,
+      "hoop": "far",
+      "verdict": "not_shot",
+      "min_dist": 917.2
+    },
+    {
+      "start_frame": 809,
+      "end_frame": 828,
+      "accel_y": 1.574,
+      "hoop": "far",
+      "verdict": "not_shot",
+      "min_dist": 916.1
+    },
+    {
+      "start_frame": 944,
+      "end_frame": 957,
+      "accel_y": 0.935,
+      "hoop": "far",
+      "verdict": "not_shot",
+      "min_dist": 268.9
+    },
+    {
+      "start_frame": 959,
+      "end_frame": 974,
+      "accel_y": 1.192,
+      "hoop": "far",
+      "verdict": "not_shot",
+      "min_dist": 473.4
+    }
+  ]
+}

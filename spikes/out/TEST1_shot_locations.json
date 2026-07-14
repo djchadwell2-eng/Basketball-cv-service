@@ -1,0 +1,24 @@
+{
+  "clip": "TEST1",
+  "locations": [
+    {
+      "start_frame": 59,
+      "end_frame": 71,
+      "shooter_status": "no_confident_shooter",
+      "status": "location_unknown",
+      "reason": "no release estimate (shooter status: no_confident_shooter)"
+    },
+    {
+      "start_frame": 315,
+      "end_frame": 327,
+      "shooter_status": "review_item",
+      "status": "located",
+      "court_feet": [
+        -0.6,
+        21.0
+      ],
+      "release_frame": 313,
+      "track_id": 87
+    }
+  ]
+}

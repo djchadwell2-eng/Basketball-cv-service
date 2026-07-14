@@ -1,0 +1,21 @@
+{
+  "clip": "TEST1",
+  "outcomes": [
+    {
+      "start_frame": 59,
+      "end_frame": 71,
+      "hoop": "far",
+      "checked_after_frame": 86,
+      "outcome": "unknown",
+      "reason": "no evidence either way"
+    },
+    {
+      "start_frame": 315,
+      "end_frame": 327,
+      "hoop": "far",
+      "checked_after_frame": 324,
+      "outcome": "unknown",
+      "reason": "no evidence either way"
+    }
+  ]
+}
