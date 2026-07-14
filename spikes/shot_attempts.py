@@ -55,7 +55,31 @@ def classify_shot(points, hoop_at, radius=HOOP_RADIUS_PX):
     """points: [(frame, cx, cy), ...] of one claimed arc (chronological).
     hoop_at: callable frame -> (hx, hy) or None if no hoop position that
     frame. Only points at-or-after the apex are checked (descending half,
-    apex inclusive) -- a rising ball cannot have reached the rim yet."""
+    apex inclusive) -- a rising ball cannot have reached the rim yet.
+
+    ORIGIN GATE (DECISIONS 18, KNOWN DEBT candidate fix (b), validated on
+    real data): a real shot RELEASES away from the hoop and ARRIVES close;
+    a rim deflection/continuation STARTS already close and moves away.
+    Measured on all 4 arcs found so far: real shots start 285-338px from
+    the hoop and end 19-55px away; the two known false positives start
+    26-69px away and end 374-384px away -- a clean, consistent split. If
+    the arc's FIRST point is within `radius` of the hoop AT THAT FRAME,
+    reject it regardless of what happens later -- it did not originate as
+    a fresh release. If the hoop position at the first frame is unknown,
+    this gate is skipped (absence of data must not manufacture a
+    rejection) and classification falls back to the apex-based check only.
+    KNOWN TRADE-OFF, accepted not fixed: a genuine close-range shot (e.g.
+    a layup released near the rim) would also fail this gate -- logged as
+    an accepted limitation, not silently ignored."""
+    f0, x0, y0 = points[0]
+    h0 = hoop_at(f0)
+    if h0 is not None:
+        origin_dist = ((x0 - h0[0]) ** 2 + (y0 - h0[1]) ** 2) ** 0.5
+        if origin_dist <= radius:
+            return {"verdict": "not_shot", "min_dist": None,
+                    "reason": f"originates within {radius}px of the hoop "
+                              f"({round(origin_dist, 1)}px) -- a deflection/"
+                              f"continuation, not a fresh release"}
     i0 = apex_index(points)
     best = None
     for (f, x, y) in points[i0:]:
