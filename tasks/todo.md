@@ -24,13 +24,24 @@ perfect detector won't recover TEST1's layups (too brief at the rim).
 - [~] MEASURING (background): `ball_spike.py TEST1 0 450 1920` -- native
       resolution on a span covering both known TEST1 shots (59-71,
       315-327) + general play. ~20-25 min.
-- [ ] Compare detection rate on frames 0-450: existing 1280 log vs new
-      1920 log. Did coverage rise from 32%? Did the 2 known shots gain
-      more of their flight (closing the truncation gap that forced the
-      arrival-extrapolation in DECISIONS 19)?
-- [ ] Decide with user: adopt 1920 (full-clip rerun + re-run pipeline),
-      climb to option 2 (tiling), or accept current detection as the
-      footage-quality ceiling. DECISIONS 20 with the measurement.
+- [x] imgsz 1920 measured, frames 0-450: NEGATIVE RESULT. Raw coverage
+      rose 34%->44% BUT physics-gated arcs got WORSE -- 1280 formed 6
+      arcs incl. both known shots; 1920 formed 5 and LOST BOTH SHOTS.
+      Detection detail: on the flights, 1920 fires on FEWER frames (shot
+      A 10->3) at HIGHER conf -- motion-blurred ball looks less like a
+      compact "sports ball" at high res, so it's rejected; downscaling
+      compacts the blur into a ball-like blob. The +10pp coverage is junk
+      elsewhere, not better ball tracking. DECISIONS 13 lesson repeats:
+      raw coverage is misleading; trusting it would have shipped a
+      REGRESSION. Higher = worse; tiling (option 2) now downweighted
+      (it's essentially more resolution).
+- [~] MEASURING (background): `ball_spike.py TEST1 0 450 1024` -- test
+      the OTHER direction, since downscaling apparently helps blur.
+      Cheaper + faster than 1280. Compare ARCS (not raw coverage) vs the
+      1280 baseline: do the 2 shots survive / gain flight frames?
+- [ ] Decide with user: adopt a resolution (full-clip rerun), or accept
+      1280 as the footage-quality ceiling. DECISIONS 20 with all three
+      measurements (1024/1280/1920) as a bracket.
 
 # PHASE 5 ON TEST1 — second clip, real Gate-4 sample (DONE 2026-07-14 — DECISIONS §19)
 
