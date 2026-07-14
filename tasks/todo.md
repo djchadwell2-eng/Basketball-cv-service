@@ -21,19 +21,48 @@ to move faster.
       guarded by __main__. Suite green (151) throughout.
 - [x] Marked TEST1's two hoops, user-confirmed after fine-tuning: far at
       keyframe-120 px (582,143), near at keyframe-580 px (1377,233).
-- [~] RUNNING (background, parallel): `ball_spike.py TEST1 0 1299`
-      (full 43.3s clip, ~40-45 min) and `hoop_anchor.py TEST1 0 1299`
-      (both hoops, same span).
-- [ ] Once both land: run ball_trajectory.py, shot_attempts.py,
-      shot_outcome.py, shot_location.py over TEST1 (all already
-      clip-name-parameterized). Report candidate arcs, shot attempts
-      (origin-gate applies automatically), outcomes, locations.
-- [ ] User eyeball pass on whatever TEST1 surfaces, same rigor as HARD:
-      confirm real shots, check for camera-pan distortion, check for any
-      NEW failure mode this different footage might expose.
-- [ ] DECISIONS §19 with the full TEST1 result + combined Gate-4 sample
-      size (HARD's 2 + TEST1's new shots).
-- Commit after each stage lands, same as every prior Phase 5 unit.
+- [x] Both full-clip runs landed clean: 472 raw detections (31.9% of
+      frames — HALF of HARD's rate, harder footage for the ball
+      detector), hoop coverage complementary near-full-clip, zero
+      out-of-bounds, 13 candidate arcs.
+- [x] FIRST RESULT: 0 shot attempts vs user's ~4 real ones. User asked
+      me to re-examine my restrictions. DIAGNOSIS: the origin gate
+      (their suspect) rejected ZERO TEST1 arcs; the REAL bug was the
+      at/after-apex rule breaking on truncated ascent-only arcs (315-327
+      approached 101px but the point was "pre-apex" only because
+      truncation made the last point the apex).
+- [x] REDESIGN (DECISIONS §19), measured on all 43 arcs both clips
+      (shots <=110px vs non-shots >=163px, clean gap): all observed
+      points count; HOOP_RADIUS_PX 100->125 (origin gate gets STRICTER);
+      bounded forward extension of the fit (<=15 frames, descending
+      only, stamped observed|extrapolated). 5 new tests, suite 156.
+      HARD ground truth byte-stable (same 2 shots).
+- [x] TEST1: 2 shots. 315-327 = FIRST FULL-CHAIN ATTRIBUTION: jersey
+      #14 (user-confirmed identity), release extrapolation 0.0px on her
+      bbox, located (-0.6, 21.0) ct-ft (baseline ~7ft; x within ~1ft
+      calibration error, flagged). Layups honestly unrecoverable at
+      detector level (raw at-rim dets exist, flights too sparse to ever
+      chain — footage-quality lever, not a gate problem).
+- [~] User eyeball pass on TEST1's 2 claimed shots (overlay/chart)
+      pending.
+- [x] DECISIONS §19 written; Gate-4 tally = 4 genuine attempts / 2 clips
+      (1 verified outcome, 2 unknown, 1 unverified) — still not a rate.
+
+## Review (TEST1 + apex-rule fix, 2026-07-14)
+- The user's challenge was RIGHT that the pipeline was over-restricting
+  and WRONG about which restriction — and the difference matters: the
+  origin gate they suspected is regression-tested against real
+  deflections and rejected nothing here; the apex rule I'd designed in
+  §15 was the actual defect, invisible until sparser footage produced
+  truncated arcs. Diagnosis-before-change prevented removing the wrong
+  gate.
+- Every change is justified by the measured 110/163 separation across
+  all 43 arcs on both clips, not by chasing a marginal case; HARD's
+  verified ground truth stayed byte-stable as the regression bar.
+- The first full-chain shot attribution (#14) exists because every
+  layer underneath (identity confirmation, oncourt court_feet, release
+  extrapolation) was already individually validated — the "foundation
+  first" bet paying off visibly for the first time.
 
 # PHASE 5 GATE-4 HARVEST — full-clip HARD (DONE 2026-07-14 — DECISIONS §18, n=2 clean genuine shots, still unmeasurable)
 # PHASE 5 GATE-4 HARVEST — full-clip ball detection (current task, 2026-07-13)
