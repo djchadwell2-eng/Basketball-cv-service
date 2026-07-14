@@ -137,9 +137,15 @@ def main():
     log_doc = json.load(open(os.path.join(out_dir, f"{CLIP_NAME}_ball_spike_log.json"),
                              encoding="utf-8"))
 
-    hoop_by_frame = {r["frame_index"]: tuple(r["hoop_px"]) for r in hoop_doc["frames"]
-                     if r["hoop_px"] is not None}
-    hoop_at = lambda f: hoop_by_frame.get(f)  # noqa: E731
+    # TWO hoops (DECISIONS 18): use whichever hoop shot_attempts.py already
+    # matched this shot to (recorded as "hoop": "far"/"near") -- avoids
+    # re-guessing which basket is relevant when evaluating outcome evidence.
+    def _hoop_lookup(key):
+        by_frame = {r["frame_index"]: tuple(r[key]) for r in hoop_doc["frames"]
+                   if r.get(key) is not None}
+        return lambda f: by_frame.get(f)
+
+    hoop_lookups = {"far": _hoop_lookup("hoop_far_px"), "near": _hoop_lookup("hoop_near_px")}
     raw_by_frame = {fr["frame_index"]: fr["detections"] for fr in log_doc["frames"]}
     chains = arcs_doc["chains"]
 
@@ -147,11 +153,13 @@ def main():
     for a in sa_doc["attempts"]:
         if a["verdict"] != "shot_attempt":
             continue
+        hoop_at = hoop_lookups[a.get("hoop", "far")]
         after = a["at_frame"]     # closest hoop approach -- outcome plays out AFTER this
         make_ev = below_rim_fall_evidence(raw_by_frame, hoop_at, after)
         miss_ev = deflection_evidence(chains, hoop_at, after)
         outcome = classify_outcome(make_ev, miss_ev)
         results.append({"start_frame": a["start_frame"], "end_frame": a["end_frame"],
+                        "hoop": a.get("hoop", "far"),
                         "checked_after_frame": after, **outcome})
 
     n_total = len(results)

@@ -51,7 +51,9 @@ import stage4_courtmap as s4              # noqa: E402
 import stage5_courtmap as s5              # noqa: E402  (sift_of, signfix)
 
 RIM_KEYFRAME = 1100
-RIM_PIXEL = (1855.0, 228.0)               # user-confirmed 2026-07-13 (DECISIONS 15)
+RIM_PIXEL = (1855.0, 228.0)               # FAR hoop, user-confirmed 2026-07-13 (DECISIONS 15)
+RIM_KEYFRAME_NEAR = 600
+RIM_PIXEL_NEAR = (633.0, 190.0)           # NEAR hoop, user-confirmed 2026-07-14 (DECISIONS 18)
 
 NFEAT, RATIO, RANSAC_PX, MIN_INLIERS = 1500, 0.75, 3.0, 30
 
@@ -125,15 +127,26 @@ def _match_frame(frame, sift, kf_db):
 
 
 def build_hoop_track(video_path, span_start, span_len):
-    """Return (rim_ref900, [{frame_index, hoop_px, matched_kf, inliers,
-    ratio} or {frame_index, hoop_px: None} on no-match], KF, Hs_opt)."""
+    """Carries BOTH hoop anchors (far + near) through every frame's SAME
+    per-frame SIFT match -- one extra point projection per frame, no extra
+    SIFT cost, since both anchors share the identical Hs_opt[pos] @ Hfk
+    transform for a given frame. Return (rim_ref900_far, rim_ref900_near,
+    [{frame_index, hoop_far_px, hoop_near_px, matched_kf, inliers, ratio}
+    or {frame_index, hoop_far_px: None, hoop_near_px: None} on no-match],
+    KF, Hs_opt)."""
     print("[hoop_anchor] recovering optimized keyframe transforms (Hs_opt) ...")
     KF, ref_pos, Hs_opt, L_opt, tags = s4.run_optimization()
-    rim_pos = KF.index(RIM_KEYFRAME)
-    rim_ref900 = project_point(Hs_opt[rim_pos], *RIM_PIXEL)
-    assert rim_ref900 is not None, "rim anchor projected to a degenerate point"
-    print(f"[hoop_anchor] rim anchor: keyframe {RIM_KEYFRAME} px {RIM_PIXEL} "
-          f"-> ref-900 px {tuple(round(v, 1) for v in rim_ref900)}")
+
+    def _anchor_ref900(keyframe, pixel, label):
+        pos = KF.index(keyframe)
+        ref900 = project_point(Hs_opt[pos], *pixel)
+        assert ref900 is not None, f"{label} rim anchor projected to a degenerate point"
+        print(f"[hoop_anchor] {label} rim anchor: keyframe {keyframe} px {pixel} "
+              f"-> ref-900 px {tuple(round(v, 1) for v in ref900)}")
+        return ref900
+
+    rim_ref900_far = _anchor_ref900(RIM_KEYFRAME, RIM_PIXEL, "far")
+    rim_ref900_near = _anchor_ref900(RIM_KEYFRAME_NEAR, RIM_PIXEL_NEAR, "near")
 
     sift = cv2.SIFT_create(nfeatures=NFEAT)
     kf_db = _keyframe_db(video_path, KF, sift)
@@ -144,7 +157,7 @@ def build_hoop_track(video_path, span_start, span_len):
     for _ in range(span_start):
         cap.grab()
     out = []
-    matched = 0
+    matched_far = matched_near = 0
     rejected_implausible = 0
     for i in range(span_len):
         ok, frame = cap.read()
@@ -153,25 +166,30 @@ def build_hoop_track(video_path, span_start, span_len):
         f = span_start + i
         m = _match_frame(frame, sift, kf_db)
         if m is None:
-            out.append({"frame_index": f, "hoop_px": None})
+            out.append({"frame_index": f, "hoop_far_px": None, "hoop_near_px": None})
             continue
         pos, Hfk, inl, ratio = m
         T = Hs_opt[pos] @ Hfk                       # frame -> ref-900
         Tinv = np.linalg.inv(T)
-        hoop_px = project_point(Tinv, *rim_ref900)   # ref-900 -> frame
-        if hoop_px is not None and not in_plausible_bounds(hoop_px, frame_w, frame_h):
+        far_px = project_point(Tinv, *rim_ref900_far)     # ref-900 -> frame
+        near_px = project_point(Tinv, *rim_ref900_near)
+        if far_px is not None and not in_plausible_bounds(far_px, frame_w, frame_h):
             rejected_implausible += 1
-            hoop_px = None
-        out.append({"frame_index": f, "hoop_px": hoop_px, "matched_kf": KF[pos],
-                     "inliers": inl, "ratio": round(ratio, 2)})
-        if hoop_px is not None:
-            matched += 1
+            far_px = None
+        if near_px is not None and not in_plausible_bounds(near_px, frame_w, frame_h):
+            rejected_implausible += 1
+            near_px = None
+        out.append({"frame_index": f, "hoop_far_px": far_px, "hoop_near_px": near_px,
+                     "matched_kf": KF[pos], "inliers": inl, "ratio": round(ratio, 2)})
+        matched_far += far_px is not None
+        matched_near += near_px is not None
         if i % 60 == 0:
             print(f"  ...{i}/{span_len}", flush=True)
     cap.release()
-    print(f"[hoop_anchor] hoop pixel found in {matched}/{len(out)} frames "
+    print(f"[hoop_anchor] far hoop found in {matched_far}/{len(out)} frames, "
+          f"near hoop found in {matched_near}/{len(out)} frames "
           f"({rejected_implausible} matched-but-implausible results rejected)")
-    return rim_ref900, out, KF, Hs_opt
+    return rim_ref900_far, rim_ref900_near, out, KF, Hs_opt
 
 
 def main():
@@ -183,16 +201,19 @@ def main():
     # hoop_anchor.py <start> <len>. Default = same span as the ball spike.
     SPAN_START = int(sys.argv[1]) if len(sys.argv) > 1 else 1020
     SPAN_LEN = int(sys.argv[2]) if len(sys.argv) > 2 else 360
-    rim_ref900, track, KF, Hs_opt = build_hoop_track(CLIP.video_path, SPAN_START, SPAN_LEN)
+    rim_ref900_far, rim_ref900_near, track, KF, Hs_opt = build_hoop_track(
+        CLIP.video_path, SPAN_START, SPAN_LEN)
 
     out_json = os.path.join(_HERE, "out", f"{CLIP.name}_hoop_track.json")
     json.dump({"clip": CLIP.name, "span_start": SPAN_START, "span_len": SPAN_LEN,
-               "rim_keyframe": RIM_KEYFRAME, "rim_pixel": list(RIM_PIXEL),
-               "rim_ref900": list(rim_ref900), "frames": track},
+               "rim_keyframe_far": RIM_KEYFRAME, "rim_pixel_far": list(RIM_PIXEL),
+               "rim_ref900_far": list(rim_ref900_far),
+               "rim_keyframe_near": RIM_KEYFRAME_NEAR, "rim_pixel_near": list(RIM_PIXEL_NEAR),
+               "rim_ref900_near": list(rim_ref900_near), "frames": track},
               open(out_json, "w", encoding="utf-8"), indent=2)
     print(f"[hoop_anchor] wrote {out_json}")
 
-    # --- eyeball overlay: hoop marker per frame + match confidence text ---
+    # --- eyeball overlay: BOTH hoop markers per frame + match confidence text ---
     out_video = os.path.join(_HERE, "out", f"{CLIP.name}_hoop_track_overlay.mp4")
     cap = cv2.VideoCapture(CLIP.video_path)
     for _ in range(SPAN_START):
@@ -201,16 +222,19 @@ def main():
     w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     writer = cv2.VideoWriter(out_video, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
-    MAGENTA = (255, 0, 255)
+    MAGENTA, CYAN = (255, 0, 255), (255, 255, 0)
     for i, rec in enumerate(track):
         ok, frame = cap.read()
         if not ok:
             break
         f = rec["frame_index"]
-        if rec["hoop_px"] is not None:
-            x, y = rec["hoop_px"]
-            cv2.circle(frame, (int(x), int(y)), 30, MAGENTA, 3)
-            cv2.drawMarker(frame, (int(x), int(y)), MAGENTA, cv2.MARKER_CROSS, 20, 2)
+        for px, color, label in ((rec["hoop_far_px"], MAGENTA, "far"),
+                                 (rec["hoop_near_px"], CYAN, "near")):
+            if px is not None:
+                x, y = px
+                cv2.circle(frame, (int(x), int(y)), 30, color, 3)
+                cv2.drawMarker(frame, (int(x), int(y)), color, cv2.MARKER_CROSS, 20, 2)
+        if "matched_kf" in rec:
             txt = f"f={f} t={f/fps:04.1f}s kf={rec['matched_kf']} inl={rec['inliers']}"
         else:
             txt = f"f={f} t={f/fps:04.1f}s NO MATCH"

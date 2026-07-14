@@ -139,9 +139,18 @@ def main():
     events_doc = _load(os.path.join(_ROOT, "phase2", "out",
                                     f"{CLIP_NAME}_player_events_merged.json"))
 
-    hoop_by_frame = {r["frame_index"]: tuple(r["hoop_px"]) for r in hoop_doc["frames"]
-                     if r["hoop_px"] is not None}
-    hoop_at = lambda f: hoop_by_frame.get(f)  # noqa: E731
+    # TWO hoops (DECISIONS 18): each is its own hoop_at callable, reusing the
+    # SAME already-tested classify_shot() unchanged -- try both, keep whichever
+    # (if either) passes, preferring the closer one on a tie/both-pass.
+    def _hoop_lookup(key):
+        by_frame = {r["frame_index"]: tuple(r[key]) for r in hoop_doc["frames"]
+                   if r.get(key) is not None}
+        return lambda f: by_frame.get(f)
+
+    hoop_at_far = _hoop_lookup("hoop_far_px")
+    hoop_at_near = _hoop_lookup("hoop_near_px")
+    hoop_by_frame = {r["frame_index"]: tuple(r["hoop_far_px"]) for r in hoop_doc["frames"]
+                     if r.get("hoop_far_px") is not None}   # kept for the overlay render
 
     tracks_by_frame = {fr["frame_index"]: fr["tracks"] for fr in tracks_doc["frames"]}
     tracks_span = (tracks_doc["span_start"], tracks_doc["span_start"] + tracks_doc["span_len"])
@@ -159,9 +168,21 @@ def main():
         pts = [(p[0], p[1], p[2]) for p in chain["points"]]
         for a in chain["arcs"]:
             seg = [p for p in pts if a["start_frame"] <= p[0] <= a["end_frame"]]
-            shot = classify_shot(seg, hoop_at)
+            shot_far = classify_shot(seg, hoop_at_far)
+            shot_near = classify_shot(seg, hoop_at_near)
+            # prefer whichever PASSES; if both pass (shouldn't happen -- the
+            # two hoops are far apart -- but stay honest if it ever does) or
+            # both fail, prefer the smaller min_dist as the more informative report
+            candidates = [(shot_far, "far"), (shot_near, "near")]
+            passing = [c for c in candidates if c[0]["verdict"] == "shot_attempt"]
+            if passing:
+                passing.sort(key=lambda c: c[0]["min_dist"])
+                shot, hoop_label = passing[0]
+            else:
+                candidates.sort(key=lambda c: (c[0]["min_dist"] is None, c[0]["min_dist"]))
+                shot, hoop_label = candidates[0]
             rec = {"start_frame": a["start_frame"], "end_frame": a["end_frame"],
-                   "accel_y": a["accel_y"], **shot}
+                   "accel_y": a["accel_y"], "hoop": hoop_label, **shot}
             if shot["verdict"] == "shot_attempt":
                 # RELEASE: extrapolate the arc's own fit backward (DECISIONS
                 # 16 -- "nearest body to the arc's first point" picks whoever
@@ -211,7 +232,7 @@ def main():
             continue
         sh = r.get("shooter", {})
         rel = sh.get("release", {})
-        print(f"  SHOT {r['start_frame']}..{r['end_frame']} "
+        print(f"  SHOT {r['start_frame']}..{r['end_frame']} hoop={r.get('hoop')} "
               f"min_dist={r['min_dist']}px at f={r['at_frame']}  "
               f"shooter={sh.get('status')} "
               f"track={rel.get('track_id', sh.get('track_id', ''))} "
@@ -219,10 +240,12 @@ def main():
               f"{sh.get('identity_state', sh.get('reason',''))}")
     print(f"  wrote {out_json}")
 
-    _render_overlay(CLIP_NAME, arcs_doc, hoop_by_frame, results, out_dir)
+    hoop_near_by_frame = {r["frame_index"]: tuple(r["hoop_near_px"]) for r in hoop_doc["frames"]
+                          if r.get("hoop_near_px") is not None}
+    _render_overlay(CLIP_NAME, arcs_doc, hoop_by_frame, hoop_near_by_frame, results, out_dir)
 
 
-def _render_overlay(clip_name, arcs_doc, hoop_by_frame, results, out_dir):
+def _render_overlay(clip_name, arcs_doc, hoop_by_frame, hoop_near_by_frame, results, out_dir):
     import cv2
     import clip_config
     import run_tracking
@@ -235,7 +258,8 @@ def _render_overlay(clip_name, arcs_doc, hoop_by_frame, results, out_dir):
     h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     out_path = os.path.join(out_dir, f"{clip_name}_shot_attempts_overlay.mp4")
     writer = cv2.VideoWriter(out_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
-    RED, GREEN, GRAY, MAGENTA = (0, 0, 255), (0, 255, 0), (150, 150, 150), (255, 0, 255)
+    RED, GREEN, GRAY = (0, 0, 255), (0, 255, 0), (150, 150, 150)
+    MAGENTA, CYAN = (255, 0, 255), (255, 255, 0)
 
     shot_spans = {(r["start_frame"], r["end_frame"]): r for r in results
                   if r["verdict"] == "shot_attempt"}
@@ -258,6 +282,9 @@ def _render_overlay(clip_name, arcs_doc, hoop_by_frame, results, out_dir):
         hp = hoop_by_frame.get(f)
         if hp is not None:
             cv2.circle(frame, (int(hp[0]), int(hp[1])), int(HOOP_RADIUS_PX), MAGENTA, 2)
+        hp_near = hoop_near_by_frame.get(f)
+        if hp_near is not None:
+            cv2.circle(frame, (int(hp_near[0]), int(hp_near[1])), int(HOOP_RADIUS_PX), CYAN, 2)
         live_shot = False
         for (sf, ef, seg, color) in curves:
             if f < sf:
