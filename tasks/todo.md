@@ -35,13 +35,30 @@ perfect detector won't recover TEST1's layups (too brief at the rim).
       raw coverage is misleading; trusting it would have shipped a
       REGRESSION. Higher = worse; tiling (option 2) now downweighted
       (it's essentially more resolution).
-- [~] MEASURING (background): `ball_spike.py TEST1 0 450 1024` -- test
-      the OTHER direction, since downscaling apparently helps blur.
-      Cheaper + faster than 1280. Compare ARCS (not raw coverage) vs the
-      1280 baseline: do the 2 shots survive / gain flight frames?
-- [ ] Decide with user: adopt a resolution (full-clip rerun), or accept
-      1280 as the footage-quality ceiling. DECISIONS 20 with all three
-      measurements (1024/1280/1920) as a bracket.
+- [x] imgsz 1024 measured. THREE-WAY BRACKET COMPLETE (arcs on 0-450):
+      1024 -> 3 arcs (loses shot B), 1280 -> 6 arcs (ONLY one with BOTH
+      shots), 1920 -> 5 arcs (loses both). 1280 is the proven optimum,
+      bracketed both sides. Bonus finding: the two shots have OPPOSITE
+      optimal resolutions (A best at 1024, B needs 1280+), so no single
+      setting wins everything -- 1280 is the robust choice.
+- [x] VERDICT (DECISIONS 20): 1280 STAYS, resolution lever EXHAUSTED
+      (do not re-run, like the reid probe). Tiling abandoned unmeasured
+      (it's more effective-resolution = the direction that hurt).
+      Ball-seeing is FOOTAGE-limited (ball size + motion blur), not
+      tuning-limited. Real lever = zoom/4K for future recordings.
+      Layups unrecoverable by any resolution (too brief/occluded).
+
+## Review (ball-seeing sweep, 2026-07-14)
+- Clean negative result, honestly measured: the intuitive fix (higher
+  resolution) BACKFIRED, and only bracketing both directions on the
+  RIGHT metric (physics-gated arcs, not raw coverage) revealed 1280 as
+  the genuine optimum rather than the untested middle.
+- Raw coverage was actively misleading a THIRD time (§13, §18, now §20):
+  1920 had the most coverage and the worst arcs. The discipline of never
+  trusting raw detection count is the load-bearing habit here.
+- No code adopted (1280 was already the default); the only lasting code
+  change is the now-configurable imgsz, useful for any future sweep.
+  Measurement logs kept as evidence; throwaway overlay mp4s removed.
 
 # PHASE 5 ON TEST1 — second clip, real Gate-4 sample (DONE 2026-07-14 — DECISIONS §19)
 

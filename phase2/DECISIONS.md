@@ -1023,6 +1023,74 @@ TEST1), 1 with a user-verified outcome, 2 with honest unknowns, 1
 unverified. Still not an accuracy rate; the sample grows by clips, and
 each clip is contributing ~2 scoreable shots at current footage quality.
 
+## 20. BALL-SEEING RESOLUTION SWEEP — NEGATIVE RESULT (2026-07-14)
+User raised the "ball seeing problem": TEST1's ball-detection rate is
+half of HARD's (32% vs 66% of frames). Root cause confirmed with data
+BEFORE proposing fixes: detection tracks apparent ball SIZE -- HARD's
+ball is 39px wide (median), TEST1's is 24px (camera further back). Same
+root cause as jersey OCR (section 4c: distance, not contrast).
+
+Hypothesis tested: stock detection runs at imgsz=1280, DOWNSCALING the
+1920px frame before inference and shrinking the already-small ball --
+so a HIGHER imgsz should see the ball more. `ball_spike.py` gained a
+configurable imgsz (suffixed output, never clobbers the canonical log --
+measure-first discipline, same as the reid probe section 11). Swept
+1024 / 1280 / 1920 on TEST1 frames 0-450 (both known shots + play).
+
+RESULT, measured on PHYSICS-GATED ARCS (not raw coverage -- section 13
+already established raw count is misleading):
+  imgsz | raw coverage | arcs formed | both known shots?
+  1024  |     30%      |     3       | NO  (shot B collapses)
+  1280  |     34%      |     6       | YES (only resolution with both)
+  1920  |     44%      |     5       | NO  (loses BOTH shots)
+
+1280 is the CLEAR OPTIMUM, bracketed on both sides. The result is doubly
+instructive:
+1. Raw coverage is ANTI-CORRELATED with usefulness here: 1920 has the
+   HIGHEST coverage (44%) and the WORST arc result (0 known shots). The
+   extra coverage is false positives elsewhere in the frame, not better
+   ball tracking. Trusting the 44% number would have shipped a
+   REGRESSION -- section 13's lesson, now triple-confirmed.
+2. WHY higher res hurts: a fast ball is MOTION-BLURRED; at high
+   resolution the smear looks LESS like the compact round "sports ball"
+   the model learned, so it's rejected (higher conf when it DOES fire,
+   but on far fewer frames -- shot A: 10 tracked frames at 1280 -> 5 at
+   1920). Downscaling to 1280 compacts the blur into a ball-like blob.
+
+DEEPER FINDING (why no single setting wins everything): the two shots
+have OPPOSITE optimal resolutions. Shot A (blurrier/faster) is seen best
+at 1024 (14 frames vs 10 at 1280); shot B (cleaner) needs 1280+ (11
+frames vs only 3 at 1024, where it collapses). 1280 is the robust choice
+because it's the only setting that clears the arc-forming bar for BOTH.
+
+VERDICT: 1280 STAYS. The resolution lever is EXHAUSTED -- swept, optimum
+found, both directions measured worse. Do NOT re-run this sweep (same
+status as the reid probe, section 11). Tiling / sliced inference (the
+former "option 2") is ABANDONED unmeasured: it is essentially
+higher-effective-resolution, the direction just shown to hurt via motion
+blur. Custom-trained detector stays ROADMAP-gated and now LESS
+attractive -- the ceiling here is footage capture (ball size + motion
+blur), not model quality on the pixels we have.
+
+THE REAL LEVERS for ball-seeing, going forward:
+- Footage quality (zoom / 4K / closer camera) -- the true root fix,
+  helps FUTURE recordings only; already guidance for the user's dad
+  (section 4c). This is where the actual gain lives.
+- (Speculative, NOT built, would need its own measure-first spike):
+  a multi-resolution ensemble (detect at 1024 AND 1280, merge) could in
+  principle catch shot A's extra frames AND shot B -- but it doubles
+  compute for a gain the current 1280 pipeline mostly already gets
+  (both shots form arcs at 1280). Deferred unless a real need is
+  measured.
+- Layups remain UNRECOVERABLE by any resolution setting: the ball is at
+  the rim too briefly and too occluded (bodies + backboard) to form a
+  trackable flight. This is a fundamentally different problem from ball
+  SIZE and is orthogonal to imgsz. Not pursued.
+
+Net for the product: the shots that form flights already work at 1280
+(both TEST1 shots, both HARD shots). Ball-seeing is footage-limited, not
+tuning-limited, on the clips in hand.
+
 ## 4. KNOWN DEBT (logged, not fixed)
 - **RESOLVED 2026-07-14 (section 18):** the shot-arc over-count from a
   rim deflection (originally logged here) is now caught by classify_shot's
