@@ -1,3 +1,60 @@
+# BALL DETECTION R2 + LAYUP SYSTEM (current task, 2026-07-14)
+
+User pushback (correct): §20's "footage-limited, done" was premature.
+Two product-critical asks:
+  1. Ball detection still misses too much -> NEEDS improving (more levers
+     exist beyond the exhausted input-resolution one).
+  2. Layups are unrecoverable by the arc tracker AND are a big part of the
+     game -> build a SEPARATE layup-detection system.
+(Lesson logged: memory/feedback_ship_speed_vs_working_product.md corollary
+-- don't declare a product-critical avenue exhausted after one lever.)
+
+## Ask 1 — ball detection, remaining levers (ranked cheap->dear)
+- [~] MODEL CAPACITY (running): yolov8x.pt vs yolov8m.pt, held at the
+      proven-best imgsz 1280, TEST1 0-450. Bigger model = more capacity
+      for BOTH failure modes (small size + motion blur). Compare ARCS
+      (not raw coverage). ~30-40 min. DECISIONS 21.
+- [ ] If x helps: adopt for the ball layer (measure cost; the identity
+      tracker keeps yolov8m -- this is ball-only). If not: next lever.
+- [ ] MULTI-RES ENSEMBLE (only if single-model insufficient): detect at
+      1024 AND 1280, merge -- §20 showed the two shots have OPPOSITE
+      optimal resolutions, so a merge could catch both. 2x compute;
+      measure before adopting.
+- [ ] Motion-based gap-fill / custom fine-tune: deferred, heavier, only
+      if the above stall.
+
+## Ask 2 — layup detection (NEW separate system, measure-first)
+Why layups fail the arc tracker: short + occluded ball flight -> no
+parabola -> no arc. So key on a DIFFERENT signal than the ball arc.
+PRIMARY HYPOTHESIS (to validate, not assume): a layup = a tracked player
+drives into the hoop/paint region and their court-path TERMINATES at the
+rim (jump/gather), optionally corroborated by raw ball detections near
+the rim pixel in that window (which exist even when no arc forms). Reuses
+the validated foundation (oncourt court_feet + tracking + carried hoop
+pixel) -- no new perception model.
+THE HARD PART (the reason to measure first): the paint is crowded --
+rebounds, post-ups, cuts, kick-out drives, defense all put players near
+the rim. Is a layup SEPARABLE from that traffic, or not? Unknown until
+we look at real data.
+
+- [ ] NEED FROM USER: 1-2 timestamps of real layups in TEST1 or HARD
+      (same as the original ball spike needed the jump-shot timestamp --
+      I can't watch the footage).
+- [ ] MEASUREMENT SPIKE (before any detector): for a window around each
+      known layup, extract + plot every tracked identity's court_feet
+      path + raw ball detections near the carried hoop pixel. Eyeball:
+      does the shooter's drive-to-rim (+ ball-at-rim blip) stand out
+      from the crowd? Honest go/no-go, same as the ball spike (§13).
+- [ ] If separable signal exists -> design the layup detector (tests
+      first, abstention-first: an unclear case is a review item, never a
+      guessed layup). If not -> honest negative; layups may need better
+      footage or heavier machinery (pose estimation), logged not forced.
+- [ ] DECISIONS 22 with the layup measurement + verdict.
+
+Constraints (unchanged): tests-first, eyeball-gate before trusting,
+never write into team_events, ball/layup layers sit BESIDE the spine.
+
+# BALL-SEEING FIX — resolution sweep (DONE 2026-07-14 — DECISIONS §20, 1280 optimal, resolution lever exhausted)
 # BALL-SEEING FIX — resolution bump measurement (current task, 2026-07-14)
 
 Root cause CONFIRMED with data, not assumed: ball detection rate tracks
