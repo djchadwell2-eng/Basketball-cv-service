@@ -1,4 +1,38 @@
-# PHASE 5 ON TEST1 — second clip, real Gate-4 sample (current task, 2026-07-14)
+# BALL-SEEING FIX — resolution bump measurement (current task, 2026-07-14)
+
+Root cause CONFIRMED with data, not assumed: ball detection rate tracks
+apparent ball SIZE. HARD median ball width 39px -> 66% frames covered;
+TEST1 median 24px -> 32% covered. Same root cause as jersey OCR (DECISIONS
+4c: camera distance, not contrast). Stock detection also DOWNSCALES the
+1920px frame to imgsz=1280 before inference, shrinking the already-small
+ball further.
+
+Fix ladder (cheap -> expensive, MEASURE at each rung before climbing):
+1. imgsz bump (native 1920+) -- stop throwing away resolution. One
+   parameter, ~2x slower. FIRST, being measured now.
+2. Tiled/sliced inference (SAHI-style) -- only if #1 falls short.
+3. Custom-trained ball detector -- ROADMAP-gated ("only if stock +
+   trajectory measurably fails"); DEFERRED until 1+2 exhausted.
+NOT on the ladder: lower conf (already 0.05, physics is the gate);
+widening trajectory gap tolerance (risks fake arcs in validated code);
+zoom/4K (real root fix but only helps FUTURE footage). Caveat: even a
+perfect detector won't recover TEST1's layups (too brief at the rim).
+
+- [x] Made imgsz configurable in ball_spike.py (4th CLI arg; non-default
+      writes to a suffixed file, never clobbers the validated 1280 log).
+      Suite green (156).
+- [~] MEASURING (background): `ball_spike.py TEST1 0 450 1920` -- native
+      resolution on a span covering both known TEST1 shots (59-71,
+      315-327) + general play. ~20-25 min.
+- [ ] Compare detection rate on frames 0-450: existing 1280 log vs new
+      1920 log. Did coverage rise from 32%? Did the 2 known shots gain
+      more of their flight (closing the truncation gap that forced the
+      arrival-extrapolation in DECISIONS 19)?
+- [ ] Decide with user: adopt 1920 (full-clip rerun + re-run pipeline),
+      climb to option 2 (tiling), or accept current detection as the
+      footage-quality ceiling. DECISIONS 20 with the measurement.
+
+# PHASE 5 ON TEST1 — second clip, real Gate-4 sample (DONE 2026-07-14 — DECISIONS §19)
 
 Goal: run the same Phase 5 pipeline (already built + validated on HARD)
 on TEST1.mp4 -- a second real game clip, already calibrated, tracked,
