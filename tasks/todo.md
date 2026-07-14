@@ -42,11 +42,49 @@ its own, e.g. flicker/false-positive stats per DECISIONS 13's spirit).
       Not a bug -- correct abstention -- but it caps the real sample at
       n=2 regardless of how much more footage gets processed, until a
       second hoop anchor is added.
-- [ ] DECIDE (user): add a second hoop anchor (cheap -- one more marked
-      keyframe click + a hoop_anchor rerun, ball detection already done
-      for the whole clip) to actually grow the Gate-4 sample, or accept
-      n=2 as final and close Phase 5 here per "don't chase this for
-      weeks."
+- [x] User chose: add a second hoop anchor. Marked near hoop at
+      keyframe-600 px (633,190), 3 rounds of fine-tuning, user-confirmed.
+      hoop_anchor.py generalized to carry BOTH anchors via the same
+      per-frame match (no extra SIFT cost). Coverage: near 0-40s, far
+      ~33-91s -- complementary, spans nearly the whole clip. Zero
+      out-of-bounds for either. Suite unaffected (145 green).
+- [x] Re-ran shot_attempts.py/shot_outcome.py: sample DOUBLED to 4 (2 new
+      near-hoop candidates, ~12.7s and ~14.6s).
+- [x] USER EYEBALL on the 2 new candidates, two real findings:
+      (1) 356-381 real shot BUT camera panned mid-arc, distorting the
+      fit (~300px hoop-position drift from camera motion alone) -- first
+      CONFIRMED instance of DECISIONS 14's hypothetical pan-model gap.
+      Impact stayed contained (still classified correctly; outcome
+      correctly abstained) -- logged as KNOWN DEBT, not fixed (bigger
+      than today's timebox).
+      (2) 418-438 user-identified as "a shot falling down after a shot"
+      -- the SAME double-count pattern from section 15, now a second
+      independent instance. FIXED: classify_shot gained an ORIGIN GATE
+      (arc must start >HOOP_RADIUS_PX from the hoop, else rejected as a
+      continuation) -- validated as a clean, consistent split across all
+      4 real arcs found this session. 6 tests incl. 4 literal-data
+      regressions; suite 145->151.
+- [x] Re-ran the classifier with the origin-gate fix: sample settles at
+      2 -- but a CLEANER 2 than before (two independent genuine shots at
+      two different baskets, not one shot plus its own duplicate).
+      DECISIONS §18 written with the full story.
+
+## Review (Gate-4 harvest, 2026-07-14)
+- Two real bugs found and root-fixed (implausible hoop extrapolation;
+  arc double-counting), one real limitation found and logged, not fixed
+  (camera pan distorting the trajectory fit).
+- Every fix is backed by a literal-data regression test built from the
+  exact real chains that exposed the bug -- not just synthetic cases.
+- Gate 4 stays UNMEASURABLE: n=2 genuine shots is higher QUALITY than
+  before (no duplicate) but still not an accuracy rate. The actual
+  harvest yield was bugs found and fixed, not sample size grown -- this
+  clip has few enough clean, resolvable shots that more processing of
+  THIS footage won't produce a real rate. Next honest step is more
+  games, not more compute on this one.
+- Phase 5 stopping point: attempts + locations + reviewed (never
+  auto-trusted) outcomes, exactly as ROADMAP anticipated for the
+  low-sample case -- except here it's "not yet measured" rather than
+  "measured low."
 - [ ] DECISIONS §18 with the full harvest result + the single-hoop-anchor
       scoping finding.
       whether Gate 4 is now measurable.

@@ -824,17 +824,145 @@ outcome are the shippable unit, exactly as the ROADMAP anticipated for
 the low-accuracy case -- except here the honest state isn't "measured low
 accuracy," it's "not yet measured at all."
 
+## 18. GATE-4 HARVEST — full clip, second hoop, origin gate (2026-07-14)
+User chose to harvest more shots after step 5 (section 17) left Gate 4
+unmeasurable at n=1. Multi-part session, each fix verified before the
+next: full-clip processing exposed a real geometry bug (fixed), then a
+real scoping limit (fixed by adding a second hoop), then a real
+double-counting bug the user caught by eyeball (fixed + regression-
+tested against all real data found).
+
+BACKED UP the verified 12s-span artifacts before any overwrite
+(`.backup-2026-07-13-pre-fullclip.json` suffix), per standing practice.
+
+FULL-CLIP BALL DETECTION: `ball_spike.py 0 2746` (whole 91.5s clip, CLI
+span override added, default unchanged) -> 3102 raw detections, 65.5% of
+frames with >=1 detection (consistent with the original 12s sample's
+rate). `ball_trajectory.py` (unchanged) found 30 candidate arcs across
+the full game, up from 2 in the original slice.
+
+BUG FOUND + FIXED: `hoop_anchor.py 0 2746` FIRST run reported "hoop pixel
+found in 2746/2746 frames" -- but 1089 of those (all matched to
+keyframes 600-1000, outside the previously-validated 1100/1200 range)
+were geometrically absurd (e.g. x=42625 in a 1920px-wide frame). Root
+cause: a SIFT match can clear MIN_INLIERS on OTHER visible features
+(floor lines, bleachers) while still being poorly conditioned for
+extrapolating specifically to the rim, if the rim sits outside the
+convex hull of matched keypoints for that view -- a near-zero
+perspective-divide denominator, NOT a sign bug (verified: negating a
+homogeneous matrix cannot change its projective-divide output, since
+numerator and denominator flip together). Fixed: `in_plausible_bounds()`
+rejects a hoop position wildly outside the frame, treated as an honest
+no-match. 5 tests; suite 140->145.
+
+SCOPING FINDING: re-run clean (1702/2746 far-hoop matches, zero
+out-of-bounds), covering ~33s-91s -- BETTER than expected (the camera's
+framing stayed close to keyframe 1200's view for most of the second
+half, not just the originally-calibrated 20-40s pan). But shot-attempt
+count STAYED AT 2 (both re-confirming the same known shot) despite 30
+candidate arcs across a 58s-covered window. Diagnosis: several
+non-qualifying arcs DID have a valid hoop position at their check frame
+but sat 295-1043px away -- the signature of shots at the OTHER basket,
+which was never anchored. Correct abstention (never guessed those were
+misses), but it capped the real sample regardless of how much footage
+got processed.
+
+SECOND HOOP ADDED: user confirmed a near-hoop anchor at keyframe-600 px
+(633,190) after 3 rounds of on-image fine-tuning. `hoop_anchor.py`
+generalized to carry BOTH anchors through the SAME per-frame SIFT match
+(one extra point projection per frame, zero extra SIFT cost). Coverage
+turned out clean and complementary: near hoop 0-40s (100% for 0-30s),
+far hoop ~33-91s -- together spanning nearly the whole clip. Zero
+out-of-bounds leaked through for either hoop. `shot_attempts.py` /
+`shot_outcome.py` orchestration updated to try both hoops per arc and
+use whichever matches (the already-tested pure classify_shot/evidence
+functions were NOT touched -- only main()'s hoop-lookup construction
+changed). Suite unaffected (145 green). Result: shot-attempt count
+DOUBLED to 4 (2 new candidates at the near hoop, ~12.7s and ~14.6s).
+
+USER EYEBALL ON THE 2 NEW CANDIDATES, TWO FINDINGS, NEITHER SILENTLY
+PATCHED:
+1. **356-381 (real shot): confirmed real, but "the camera moved mid arc
+   [so] the arc was messed up."** First CONFIRMED real instance of a
+   risk DECISIONS 14 had only flagged hypothetically (no pan model in
+   v1). Measured: the carried hoop position (a fixed world point) drifts
+   ~300px in image-pixel space across this 25-frame shot, purely from
+   camera motion -- proof the ball's own fitted curve was distorted by
+   the same pan. Practical impact stayed CONTAINED here (still correctly
+   classified as a shot attempt, min_dist 19.4px; its outcome correctly
+   abstained as unknown rather than guessing through the distortion) --
+   but this is now a measured, not hypothetical, gap. Root fix (camera-
+   motion-compensated fitting) logged as KNOWN DEBT, not built --
+   bigger than today's timebox; revisit if an arc fails OUTRIGHT rather
+   than just distorted, or on user request.
+2. **418-438: user identified this as "a shot falling down after a
+   shot"** -- i.e. NOT a fresh attempt, and asked "is there a way
+   around this?" YES: this is the exact double-counting pattern from
+   section 15 (rim deflection re-fit as a new arc), now observed a
+   SECOND independent time. Measured across all 4 arcs found this
+   session, a clean and consistent split: real shots (356-381, 1188-
+   1211) originate 285-338px from the hoop and arrive 19-55px away;
+   both false positives (1217-1250, 418-438) start 26-69px away and
+   END 374-384px away -- moving OUT, not arriving. FIXED:
+   `classify_shot` gained an ORIGIN GATE -- an arc whose first point is
+   already within HOOP_RADIUS_PX of the hoop at that frame is rejected
+   as a continuation, regardless of what the apex-based descent check
+   finds. Skips the gate (no rejection) when the first-frame hoop
+   position is unknown, so absence of data can never manufacture a
+   rejection. 6 new tests, 4 of them literal-data regressions built
+   from the exact real chains (both directions: real shots must survive,
+   both known deflections must be rejected); suite 145->151. ACCEPTED
+   TRADE-OFF, logged not hidden: a genuine close-range layup released
+   near the rim would also fail this gate -- not yet observed on real
+   footage; revisit if it is.
+
+FINAL RESULT after both fixes: shot-attempt count is 2 -- but a
+DIFFERENT, CLEANER 2 than section 17's: two independent genuine shots at
+two different baskets (356-381 near, 1188-1211 far), both correctly
+surviving the origin gate, both correctly NOT auto-attributing an
+unconfirmed shooter. The new near-hoop shot's outcome is honestly
+`unknown` (no evidence either way) -- plausibly a downstream consequence
+of the same camera-pan distortion noted above, not investigated further
+this session.
+
+GATE 4 STATUS: still UNMEASURABLE. n=2 genuine, independent shots is a
+real improvement in QUALITY over section 17's n=1-plus-a-duplicate, but
+it is still not a rate. The harvest's actual yield was two found-and-
+fixed bugs (implausible extrapolation, arc over-counting) and one
+found-and-logged limitation (camera pan), not a bigger accuracy sample
+-- the single-basket coverage gap turned out to be the binding
+constraint, now removed, but this specific clip apparently has few
+enough clearly-resolved shots in view to still leave the sample thin.
+Next honest step for a real Gate-4 rate: more games/clips, not more
+processing of this one.
+
 ## 4. KNOWN DEBT (logged, not fixed)
-- **A claimed ball arc can be over-counted as a shot attempt when a miss
-  deflects off the rim/backboard into a second physics-consistent
-  segment.** Found 2026-07-13 (section 15, HARD 1217-1250): a rim-out
-  deflection is correctly re-fit by the trajectory layer as a NEW arc
-  (a real velocity change happened), but "new arc" != "new shot attempt"
-  once the ball has already been shot once. Confirmed by user eyeball:
-  one shot, rim-out, ball to floor -- not two attempts. Root fix options
-  logged in section 15 (merge chains close in time+space before
-  classifying; or require a shot segment to originate OUTSIDE the hoop
-  region) -- not built yet, this is one measured example, not yet a rate.
+- **RESOLVED 2026-07-14 (section 18):** the shot-arc over-count from a
+  rim deflection (originally logged here) is now caught by classify_shot's
+  ORIGIN GATE -- an arc whose first point already starts within
+  HOOP_RADIUS_PX of the hoop is rejected as a continuation/deflection,
+  not a fresh release. Validated against all 4 real arcs found in the
+  full-clip harvest (2 genuine shots, 2 deflections), each as a literal-
+  data regression test. See section 18 for the full story and the
+  ACCEPTED remaining trade-off (a genuine close-range layup would also
+  fail this gate -- not yet observed on real footage, logged not hidden).
+- **Camera pan during a shot distorts the ball-trajectory fit.**
+  Found 2026-07-14 (section 18, HARD 356-381): the trajectory layer fits
+  parabolas in raw IMAGE-pixel space with no camera-motion compensation
+  (DECISIONS 14 flagged this as a hypothetical risk; this is the first
+  confirmed real instance). User caught it by eyeball: "the camera moved
+  mid arc [so] the arc was messed up." Measured: the carried hoop
+  position (a fixed WORLD point) drifts ~300px in image-space over this
+  25-frame shot, purely from camera motion -- the ball's fitted curve is
+  distorted by the same motion. Practical impact so far: CONTAINED, not
+  silent-wrong -- the shot was still correctly classified as an attempt
+  (min_dist 19.4px) and its outcome correctly abstained (unknown) rather
+  than guessing through the distortion. Root fix (not built, bigger than
+  today's timebox): compensate the per-frame ball position by the SAME
+  camera-motion transform already computed for the hoop-carrying
+  (Hs_opt @ Hfk) before fitting, so the trajectory layer fits in a
+  camera-STABILIZED frame. Revisit if a future arc fails outright (gets
+  dropped as no_claim) rather than merely distorted, or if the user asks.
 - **Part-1 track-labels and Part-2 queue-resolutions never cross-check the
   SAME track/identity against each other.** Found 2026-07-13 (section 12,
   finding 2): a human can label a track in Part 1, then separately resolve

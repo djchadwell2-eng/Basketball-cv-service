@@ -10,69 +10,84 @@
       "start_frame": 15,
       "end_frame": 25,
       "accel_y": 1.834,
+      "hoop": "near",
       "verdict": "not_shot",
-      "min_dist": null
+      "min_dist": 553.8
     },
     {
       "start_frame": 29,
       "end_frame": 38,
       "accel_y": 1.291,
+      "hoop": "near",
       "verdict": "not_shot",
-      "min_dist": null
+      "min_dist": 541.2
     },
     {
       "start_frame": 61,
       "end_frame": 78,
       "accel_y": 1.616,
+      "hoop": "near",
       "verdict": "not_shot",
-      "min_dist": null
+      "min_dist": 753.5
     },
     {
       "start_frame": 79,
       "end_frame": 91,
       "accel_y": 1.429,
+      "hoop": "near",
       "verdict": "not_shot",
-      "min_dist": null
+      "min_dist": 900.7
     },
     {
       "start_frame": 195,
       "end_frame": 210,
       "accel_y": 1.057,
+      "hoop": "near",
       "verdict": "not_shot",
-      "min_dist": null
+      "min_dist": 676.3
     },
     {
       "start_frame": 293,
       "end_frame": 304,
       "accel_y": 1.105,
+      "hoop": "near",
       "verdict": "not_shot",
-      "min_dist": null
+      "min_dist": 401.5
     },
     {
       "start_frame": 306,
       "end_frame": 316,
       "accel_y": 1.433,
+      "hoop": "near",
       "verdict": "not_shot",
-      "min_dist": null
+      "min_dist": 467.7
     },
     {
       "start_frame": 327,
       "end_frame": 337,
       "accel_y": 0.351,
+      "hoop": "near",
       "verdict": "not_shot",
-      "min_dist": null
+      "min_dist": 1355.1
     },
     {
       "start_frame": 356,
       "end_frame": 381,
       "accel_y": 0.981,
-      "verdict": "not_shot",
-      "min_dist": null
+      "hoop": "near",
+      "verdict": "shot_attempt",
+      "min_dist": 19.4,
+      "at_frame": 381,
+      "shooter": {
+        "status": "no_confident_shooter",
+        "reason": "no tracked body within 120.0px of the back-extrapolated release path within 10 frames"
+      }
     },
     {
       "start_frame": 418,
       "end_frame": 438,
       "accel_y": 1.032,
+      "hoop": "far",
       "verdict": "not_shot",
       "min_dist": null
     },
@@ -80,48 +95,55 @@
       "start_frame": 439,
       "end_frame": 453,
       "accel_y": 1.071,
+      "hoop": "near",
       "verdict": "not_shot",
-      "min_dist": null
+      "min_dist": 352.4
     },
     {
       "start_frame": 652,
       "end_frame": 661,
       "accel_y": 1.17,
+      "hoop": "near",
       "verdict": "not_shot",
-      "min_dist": null
+      "min_dist": 200.2
     },
     {
       "start_frame": 677,
       "end_frame": 687,
       "accel_y": 1.075,
+      "hoop": "near",
       "verdict": "not_shot",
-      "min_dist": null
+      "min_dist": 213.1
     },
     {
       "start_frame": 688,
       "end_frame": 698,
       "accel_y": 1.131,
+      "hoop": "near",
       "verdict": "not_shot",
-      "min_dist": null
+      "min_dist": 283.0
     },
     {
       "start_frame": 1007,
       "end_frame": 1020,
       "accel_y": 0.921,
+      "hoop": "near",
       "verdict": "not_shot",
-      "min_dist": null
+      "min_dist": 313.6
     },
     {
       "start_frame": 1031,
       "end_frame": 1038,
       "accel_y": 2.165,
+      "hoop": "near",
       "verdict": "not_shot",
-      "min_dist": null
+      "min_dist": 413.6
     },
     {
       "start_frame": 1092,
       "end_frame": 1101,
       "accel_y": 1.638,
+      "hoop": "far",
       "verdict": "not_shot",
       "min_dist": 1042.6
     },
@@ -129,6 +151,7 @@
       "start_frame": 1136,
       "end_frame": 1149,
       "accel_y": 1.198,
+      "hoop": "far",
       "verdict": "not_shot",
       "min_dist": 466.8
     },
@@ -136,6 +159,7 @@
       "start_frame": 1188,
       "end_frame": 1211,
       "accel_y": 0.886,
+      "hoop": "far",
       "verdict": "shot_attempt",
       "min_dist": 54.6,
       "at_frame": 1211,
@@ -160,18 +184,16 @@
       "start_frame": 1217,
       "end_frame": 1250,
       "accel_y": 1.177,
-      "verdict": "shot_attempt",
-      "min_dist": 83.7,
-      "at_frame": 1227,
-      "shooter": {
-        "status": "no_confident_shooter",
-        "reason": "no tracked body within 120.0px of the back-extrapolated release path within 10 frames"
-      }
+      "hoop": "far",
+      "verdict": "not_shot",
+      "min_dist": null,
+      "reason": "originates within 100.0px of the hoop (26.2px) -- a deflection/continuation, not a fresh release"
     },
     {
       "start_frame": 1273,
       "end_frame": 1287,
       "accel_y": 1.707,
+      "hoop": "far",
       "verdict": "not_shot",
       "min_dist": 406.7
     },
@@ -179,6 +201,7 @@
       "start_frame": 1292,
       "end_frame": 1306,
       "accel_y": 2.559,
+      "hoop": "far",
       "verdict": "not_shot",
       "min_dist": 448.1
     },
@@ -186,6 +209,7 @@
       "start_frame": 1310,
       "end_frame": 1322,
       "accel_y": 1.795,
+      "hoop": "far",
       "verdict": "not_shot",
       "min_dist": 452.4
     },
@@ -193,6 +217,7 @@
       "start_frame": 1394,
       "end_frame": 1406,
       "accel_y": 1.14,
+      "hoop": "far",
       "verdict": "not_shot",
       "min_dist": 451.9
     },
@@ -200,6 +225,7 @@
       "start_frame": 1479,
       "end_frame": 1488,
       "accel_y": 0.886,
+      "hoop": "far",
       "verdict": "not_shot",
       "min_dist": 294.5
     },
@@ -207,6 +233,7 @@
       "start_frame": 1489,
       "end_frame": 1501,
       "accel_y": 0.897,
+      "hoop": "far",
       "verdict": "not_shot",
       "min_dist": 488.1
     },
@@ -214,6 +241,7 @@
       "start_frame": 2380,
       "end_frame": 2388,
       "accel_y": 0.809,
+      "hoop": "far",
       "verdict": "not_shot",
       "min_dist": 317.9
     },
@@ -221,6 +249,7 @@
       "start_frame": 2456,
       "end_frame": 2466,
       "accel_y": 1.667,
+      "hoop": "far",
       "verdict": "not_shot",
       "min_dist": 721.8
     },
@@ -228,6 +257,7 @@
       "start_frame": 2593,
       "end_frame": 2604,
       "accel_y": 1.495,
+      "hoop": "far",
       "verdict": "not_shot",
       "min_dist": 515.3
     },
@@ -235,6 +265,7 @@
       "start_frame": 2611,
       "end_frame": 2633,
       "accel_y": 0.849,
+      "hoop": "far",
       "verdict": "not_shot",
       "min_dist": 523.6
     }
