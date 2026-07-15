@@ -1091,6 +1091,34 @@ Net for the product: the shots that form flights already work at 1280
 (both TEST1 shots, both HARD shots). Ball-seeing is footage-limited, not
 tuning-limited, on the clips in hand.
 
+## 21. MODEL-CAPACITY PROBE — yolov8x, NEGATIVE (2026-07-14)
+After §20 (input-resolution exhausted), tested the other detection axis --
+MODEL CAPACITY -- prompted by the user (rightly) pushing back that
+ball-seeing still needs work and the resolution result didn't close the
+goal. yolov8x.pt (extra-large, ~68M params) vs yolov8m.pt (medium, ~26M),
+both at the proven-best imgsz 1280, TEST1 0-450.
+
+RESULT (arcs, not raw coverage): WASH. Both = 6 arcs, both capture both
+known shots; per-shot flight frames essentially unchanged (shot A 10->8,
+shot B 11->11). Raw coverage rose 34%->39% -- junk again (§13). A 2.6x
+bigger model, 2-3x slower, moved the shot metric by ZERO.
+
+INTERPRETATION (load-bearing for the product's compute/model strategy):
+the bottleneck is NOT model capacity. Medium already extracts what's
+extractable from these pixels; extra-large finds no more shots because
+the missed balls are motion-blurred / tiny / occluded -- i.e. the
+limiting factor is INFORMATION IN THE FOOTAGE, not the model's power to
+read it. Corollary for spending: a bigger GENERAL detector is not the
+lever, and GPUs buy SPEED (throughput on full games + the ability to
+TRAIN), not accuracy-by-themselves. The real model lever, if pursued, is
+a FINE-TUNED basketball-ball detector (trained on small/blurry/occluded
+basketballs -- the exact hard cases stock COCO "sports ball" misses),
+which is a different thing from "use the biggest stock model" and is the
+ROADMAP's custom-detector path, now evidence-justified. Highest leverage
+overall remains FOOTAGE (pixels on the ball): a closer/zoom/4K camera
+makes the ball bigger and less blurred at the source, which no model or
+GPU can substitute for. yolov8m stays the default; yolov8x not adopted.
+
 ## 4. KNOWN DEBT (logged, not fixed)
 - **RESOLVED 2026-07-14 (section 18):** the shot-arc over-count from a
   rim deflection (originally logged here) is now caught by classify_shot's

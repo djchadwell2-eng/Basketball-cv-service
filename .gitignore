@@ -29,3 +29,4 @@ phase2/out/
 
 # Probe outputs (regenerable via spikes/reid_fragment_probe.py; verdict in DECISIONS §11)
 spikes/out/TEST1_tracks_botsort*.json
+yolov8x.pt
