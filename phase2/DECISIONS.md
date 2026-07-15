@@ -1247,6 +1247,38 @@ model is the accuracy 10x, the GPU is what runs it at game scale.
 yolov8m/stock remain the committed defaults until the adoption +
 HARD-verification is done.
 
+## 25. LAYUPS CAUGHT — arriving-vs-leaving gate (2026-07-15)
+With the fine-tuned model making the ball visible at the rim (§24), the
+only thing left blocking layups was the §18 origin gate: it rejected ANY
+arc starting within HOOP_RADIUS_PX of the rim as a deflection -- and a
+layup releases near the rim, so it tripped the same wire (the exact
+trade-off §18 flagged). FIX: a near-rim arc is a fresh shot (LAYUP) only
+if it ARRIVES -- ends at the rim (last observed point within radius, or a
+truncated arc carried to the rim by the forward extension). A deflection
+LEAVES: its closest point is its origin, then it moves away (ends far).
+The discriminator is where the ball ENDS, not where it starts. Measured
+on real arcs from both clips: layups end 13/25px from the rim,
+deflections end 131/167/374/384px -- a clean split. shot_type
+('layup'|'jumpshot') added as a transparent release-distance heuristic.
+
+SAFETY (this is the core classifier HARD's ground truth depends on):
+HARD byte-stable -- still exactly 2 shots (356-381, 1188-1211), both its
+deflections (1217-1250, 418-438) still rejected (they LEAVE). TEST1 stock
+still 2 shots. The refinement only ADDS near-rim arrivals; it removes
+nothing. 2 literal-data regression tests (real layup 165-184 arrives ->
+shot; real deflection 188-202 leaves -> reject), plus the prior
+deflection regressions still green. Suite 156->158.
+
+FIRST FULL LAYUP RESULT (fine-tuned ball + refined classifier, TEST1):
+5 shot attempts vs stock's 2 -- the 2 jump shots PLUS 3 layups: 165-184
+(5.5s) + 242-250 (8.1s) = the user's 3.5-9s attempt+putback sequence, and
+581-592 (19.4s, ball 1px from rim) = the user's 18-20s made layup. BOTH
+layup sequences the user confirmed on film are now caught, abstention-
+first discipline intact (unconfirmed shooters still review items). Layups
+are no longer a separate system -- they are short shots the existing
+pipeline catches once the ball is visible and the gate distinguishes
+arriving from leaving.
+
 ## 4. KNOWN DEBT (logged, not fixed)
 - **RESOLVED 2026-07-14 (section 18):** the shot-arc over-count from a
   rim deflection (originally logged here) is now caught by classify_shot's

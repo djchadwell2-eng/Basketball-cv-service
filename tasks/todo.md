@@ -27,11 +27,12 @@ detector (yolov8x) improves PLAYER tracking, not just the ball.
       (they release <125px from rim, like deflections). Clean separator
       measured: layups ARRIVE (start 83->end 13; 45->25), deflections
       LEAVE (30->131; 67->167).
-- [ ] NEXT UNIT (careful, tests-first, safety-critical): refine
-      classify_shot's origin gate to reject only LEAVING arcs, keep
-      ARRIVING ones. Must preserve HARD ground truth (its 2 deflections
-      LEAVE, its 2 shots ARRIVE) + TEST1's 2 shots + newly catch layups.
-      Regression tests from the real HARD + TEST1 arcs both directions.
+- [x] DONE (DECISIONS 25): arriving-vs-leaving gate replaces the §18 hard
+      origin gate. A near-rim arc is a shot (layup) only if it ENDS at the
+      rim; a deflection ends far. HARD byte-stable (2 shots, deflections
+      rejected), TEST1 stock 2. On fine-tuned ball data: 5 shots = 2 jump
+      + 3 layups, catching BOTH user-confirmed layup sequences (5.5/8.1s
+      + 19.4s). shot_type layup|jumpshot added. Suite 156->158.
 - [ ] ADOPTION diligence: verify fine-tuned model on HARD (no ground-
       truth break) before making it the ball-layer default. Cost: hosted
       = ~72k API calls/game -> free tier won't scale; production = paid
