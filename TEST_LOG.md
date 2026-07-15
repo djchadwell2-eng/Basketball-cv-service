@@ -371,3 +371,56 @@ spikes/reid_fragment_probe.py (read-only, TEST1 span, cached baseline
 comparison). Metric = fragmentation proxies (distinct ids, mean lifespan)
 — no ground-truth ID-switch labels exist; this is the same proxy §11/§23
 used, logged as such.
+
+### [2026-07-15 19:36] TEST 5 RESULT — raw probe output
+
+```
+================ FRAGMENTATION PROBE (TEST1) ================
+                       ByteTrack(cached)   BoT-SORT+reID
+  distinct track_ids            122             117
+  mean tracks/frame            28.0            29.5
+  mean lifespan (fr)          105.8           116.2
+  fragmentation ratio  1.04x fewer fragments
+  (baseline cache untouched; adoption is a separate decision)
+```
+(NOTE: the "BoT-SORT+reID" column header is the probe script's hardcoded
+label — the config actually run was phase2/botsort_gmc_only.yaml,
+with_reid: False, gmc_method: sparseOptFlow. Output json:
+spikes/out/TEST1_tracks_botsort_gmconly.json.)
+
+### TEST 5 VERDICT — MEASURED — pending DJ review
+
+- GMC-only BoT-SORT: 117 distinct ids (vs 122 baseline; vs 131 when re-ID
+  was ON, §11) and mean lifespan 116.2 vs 105.8 = +10% LONGER tracks.
+- This is the FIRST tracker variant measured to improve LIFESPAN — the
+  §23 detector swap and §11 re-ID both left it flat/worse. Directionally
+  consistent with the pan-compensation hypothesis (GMC helps a panning
+  camera). Magnitude is modest (4% fewer fragments, 10% longer lives).
+- Comparison across levers so far (TEST1 span, distinct ids / lifespan):
+  bytetrack baseline 122/105.8; botsort+reID 131/~106 (§11); yolov8x
+  detector 106/105.8 (§23); botsort GMC-only 117/116.2 (this test);
+  RF-Player dets 43/105.3 (Test 4 — different subject set, see caveat).
+- Nothing adopted; bytetrack.yaml remains committed.
+
+### [2026-07-15 19:21:45] Post-test regression suite
+```
+164 passed in 2.04s
+```
+(Timestamp correction: Test 5's probe finished and was logged at 19:21:45,
+not 19:36 — the entry header above was written from an estimate before the
+suite run; raw output is verbatim either way.)
+
+---
+
+## TEST 6 — ByteTrack parameter sweep (match_thresh, track_buffer)
+
+### [2026-07-15 19:21:45] Pre-test gate: regression suite
+```
+164 passed in 2.04s
+```
+GATE: GREEN. Grid (probe-only yamls in scratchpad, baseline params
+match_thresh=0.8/track_buffer=30): mt=0.7/buf=30, mt=0.9/buf=30,
+mt=0.8/buf=60. The 4th cell (mt=0.8/buf=120) was ALREADY MEASURED in
+DECISIONS §11: 128 distinct ids (worse than baseline 122) — reused, not
+re-run. Runner: spikes/reid_fragment_probe.py per config, sequential,
+TEST1 span, ~20 min each.
