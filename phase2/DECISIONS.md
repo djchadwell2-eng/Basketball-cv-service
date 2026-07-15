@@ -1177,6 +1177,76 @@ REAL PATHS (for the product decision, not built now):
   (any shot type). Doesn't localize or attribute, but corroborates -- the
   ROADMAP's Gate-4 "outcome second signal", a separate later project.
 
+## 23. PLAYER-DETECTOR PROBE — yolov8x for tracking, MODEST (2026-07-14)
+User asked (twice) whether a bigger detector improves PLAYER tracking, not
+just the ball. Measured (spikes/player_detector_probe.py, read-only, same
+span + same ByteTrack, only detector swapped): TEST1, 461 frames.
+  distinct track_ids: yolov8m 122 -> yolov8x 106 (1.15x fewer fragments)
+  mean lifespan:      105.8 -> 105.8 frames (IDENTICAL)
+  mean tracks/frame:  28.0 -> 24.3
+VERDICT: a MODEST win, not the "huge" one hoped. ~13% fewer fragments ->
+~13% fewer review clicks (§10: clicks scale with fragments). But the
+IDENTICAL mean lifespan is the tell: the bigger model makes slightly
+cleaner detections (fewer spurious crowd/partial bodies -> fewer junk
+fragments), it does NOT keep a player tracked longer through occlusion --
+that is an ASSOCIATION problem, unchanged by detector capacity (confirms
+the §11 read: the tracker, not the detector, is the player bottleneck).
+Still the best fragmentation result to date (§11 re-ID made it WORSE:
+122->131). Worth adopting once GPU makes the 2-3x slowdown free; not a
+transformation. Cache untouched; adoption is a separate decision.
+
+## 24. FINE-TUNED BALL MODEL — the breakthrough (2026-07-14/15)
+Camera is fixed (Hudl/Veo) -> the one remaining ball-seeing lever is a
+FINE-TUNED detector. User provided a Roboflow key; tested Universe model
+`roboflow-universe-projects/basketball-players-fy4c2` v25 (classes: Ball,
+Hoop, Player, Ref, + scoreboard: Team Points / Shot Clock / Time
+Remaining / Period). spikes/roboflow_ball_probe.py logs Ball dets in the
+ball_spike schema (key from env RF_KEY, never committed). TEST1 0-605
+(shots + both layup windows), conf floor 5% (matching stock).
+
+DRAMATIC on ball detection. On shot A the fine-tuned model traces the ball
+on ALL 20 frames at 0.79-0.89 conf; stock yolov8m saw ~10 sparse frames
+at 0.05-0.65. Physics-gated ARCS on 0-450: stock 6 -> fine-tuned 14, and
+shots come out LONGER (shot A 55-74 = 20 frames vs stock's 13). Real ball
+sits ~0.85, junk <0.10 -- cleanly separable. Two free bonuses in the same
+model: HOOP detection (could replace the manual rim-anchor clicks) and the
+SCOREBOARD (the door to score-based make/miss + real game-clock
+timestamps -- ROADMAP Gate-4 second signal, now one model away).
+
+LAYUPS REOPENED. §22 concluded layups undetectable because the ball was
+invisible at the rim (stock: 0-1 weak dets across a whole miss/rebound/
+putback). With the fine-tuned model, the ball is SEEN reaching the rim
+during the layup-1 sequence -- multiple arcs arriving at 13/25/30px from
+the rim. §22's fundamental blocker is GONE; layups are no longer a
+ball-SEEING problem.
+
+...but they surface a CLASSIFIER gap, precisely diagnosed. Running the
+existing shot classifier on the fine-tuned arcs caught the 2 jump shots
+but rejected the layups -- via the ORIGIN GATE (§18), which rejects any
+arc starting within 125px of the rim as a "deflection/continuation." A
+layup releases NEAR the rim, so it trips the same gate as a rim-out
+deflection. The measured separator (already the §18 signal): layups
+ARRIVE (start 83px -> end 13px; start 45px -> end 25px) while deflections
+LEAVE (start 30px -> end 131px; start 67px -> end 167px). Refining the
+gate to "reject only if the arc is LEAVING the rim (ends farther than it
+starts AND ends far), keep it if ARRIVING" should catch layups while
+still rejecting deflections -- AND preserve HARD's ground truth (its 2
+deflections 1217-1250 / 418-438 both LEAVE, end 384/374px; its 2 real
+shots ARRIVE). This is the next unit: a careful, tests-first,
+ground-truth-preserving change to classify_shot (safety-critical --
+HARD's verified 2 shots are the regression bar). NOT yet made.
+
+ADOPTION + COST (honest): validated on TEST1 only so far; before adopting
+the fine-tuned model for the ball layer, verify it on HARD without
+breaking HARD ground truth. Cost reality: hosted Roboflow inference = 1
+API call/frame = ~72k calls per full game -> the free tier won't scale;
+production needs either a paid plan or the model run LOCALLY (download
+weights / inference pkg) on a GPU. THIS is the concrete GPU justification
+and the coherent answer to the user's spend question: the fine-tuned
+model is the accuracy 10x, the GPU is what runs it at game scale.
+yolov8m/stock remain the committed defaults until the adoption +
+HARD-verification is done.
+
 ## 4. KNOWN DEBT (logged, not fixed)
 - **RESOLVED 2026-07-14 (section 18):** the shot-arc over-count from a
   rim deflection (originally logged here) is now caught by classify_shot's

@@ -9,27 +9,35 @@ FINE-TUNED ball model in; (b) answer definitively whether a bigger
 detector (yolov8x) improves PLAYER tracking, not just the ball.
 
 ## Player-tracker question (user asked twice) — MEASURING
-- [~] player_detector_probe.py running on TEST1 (yolov8x + ByteTrack vs
-      cached yolov8m, same span/tracker -> isolates detector). Compares
-      distinct-id count + mean lifespan = fragmentation. Hypothesis:
-      detection isn't the tracking bottleneck (association-through-
-      occlusion is, §11), but MEASURE not assert. DECISIONS 23.
+- [x] player_detector_probe.py DONE (DECISIONS 23): yolov8x = MODEST win.
+      122->106 distinct tracks (~13% fewer fragments = ~13% fewer clicks)
+      but IDENTICAL mean lifespan (105.8) -> cleaner detections, NOT
+      better occlusion-association. Tracker is the bottleneck, not the
+      detector (confirms §11). Worth it once GPU makes it free; not huge.
 
-## Fine-tuned ball model — SOURCING BLOCKED, needs user input
-- [x] Searched: no cleanly downloadable ready-made fine-tuned basketball
-      BALL detector (HF/GitHub leads either lack ball weights --
-      LittleFish-Coder has pose only -- or are private). Roboflow Universe
-      HAS fine-tuned basketball models (+ public datasets: YOLOBball 5386
-      imgs, Kaggle sets) but downloading weights / hosted inference needs
-      a ROBOFLOW API KEY.
-- [ ] NEED FROM USER, pick one: (a) a free Roboflow API key -> I pull a
-      hosted fine-tuned basketball model and MEASURE it on TEST1 (fast,
-      the cheap experiment that proves the model lever before GPU spend);
-      or (b) train our own on a public dataset -> real GPU use (ties to
-      the hardware decision), best long-term fit. (a) first is the honest
-      measure-before-spend path.
-- [ ] Whichever: test on TEST1 0-450, compare ARCS vs yolov8m baseline.
-      DECISIONS 24.
+## Fine-tuned ball model — VALIDATED, BREAKTHROUGH (DECISIONS 24)
+- [x] User provided Roboflow key. Model basketball-players-fy4c2 v25
+      (classes Ball/Hoop/Player/Ref/scoreboard). roboflow_ball_probe.py
+      (key from env, never committed). TEST1 0-605.
+- [x] DRAMATIC: shot A traced on ALL 20 frames @0.79-0.89 (stock: ~10
+      sparse). Arcs 0-450: stock 6 -> fine-tuned 14; shots LONGER.
+- [x] LAYUPS REOPENED: ball now SEEN reaching the rim during layup-1
+      (arcs arriving 13/25/30px) -- §22's ball-invisible blocker is GONE.
+- [x] Diagnosed the remaining gap: the ORIGIN GATE (§18) rejects layups
+      (they release <125px from rim, like deflections). Clean separator
+      measured: layups ARRIVE (start 83->end 13; 45->25), deflections
+      LEAVE (30->131; 67->167).
+- [ ] NEXT UNIT (careful, tests-first, safety-critical): refine
+      classify_shot's origin gate to reject only LEAVING arcs, keep
+      ARRIVING ones. Must preserve HARD ground truth (its 2 deflections
+      LEAVE, its 2 shots ARRIVE) + TEST1's 2 shots + newly catch layups.
+      Regression tests from the real HARD + TEST1 arcs both directions.
+- [ ] ADOPTION diligence: verify fine-tuned model on HARD (no ground-
+      truth break) before making it the ball-layer default. Cost: hosted
+      = ~72k API calls/game -> free tier won't scale; production = paid
+      plan OR local weights on GPU (= the concrete GPU justification).
+- [ ] BONUS levers this model unlocks (later): Hoop class -> auto rim
+      anchor (retire manual clicks); scoreboard -> make/miss + real clock.
 
 ## Prior asks this session (context)
 Ball detection R2: §20 resolution swept (1280 optimal), §21 model
