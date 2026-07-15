@@ -37,19 +37,36 @@ rebounds, post-ups, cuts, kick-out drives, defense all put players near
 the rim. Is a layup SEPARABLE from that traffic, or not? Unknown until
 we look at real data.
 
-- [ ] NEED FROM USER: 1-2 timestamps of real layups in TEST1 or HARD
-      (same as the original ball spike needed the jump-shot timestamp --
-      I can't watch the footage).
-- [ ] MEASUREMENT SPIKE (before any detector): for a window around each
-      known layup, extract + plot every tracked identity's court_feet
-      path + raw ball detections near the carried hoop pixel. Eyeball:
-      does the shooter's drive-to-rim (+ ball-at-rim blip) stand out
-      from the crowd? Honest go/no-go, same as the ball spike (§13).
-- [ ] If separable signal exists -> design the layup detector (tests
-      first, abstention-first: an unclear case is a review item, never a
-      guessed layup). If not -> honest negative; layups may need better
-      footage or heavier machinery (pose estimation), logged not forced.
-- [ ] DECISIONS 22 with the layup measurement + verdict.
+- [x] User gave 2 TEST1 layups: 3.5-9s (attempt->miss->rebound->putback
+      made), 18-20s (made layup).
+- [x] MEASUREMENT SPIKE done (read-only, existing data). NEGATIVE on all
+      three candidate signals: (1) ball at rim essentially invisible (1
+      weak det across the whole miss/rebound/putback; 0 for the made
+      layup) -- occlusion+blur+size; (2) player proximity too crowded (10
+      tracks within 4ft of the rim); (3) player trajectory fragmented (10
+      short 0.2-2.6s track fragments -- ByteTrack shatters in the paint,
+      the §10/§11 re-ID limit). Root cause = footage (small, distant,
+      crowded, occluded paint at 30fps), same theme as §20/§21.
+- [x] VERDICT (DECISIONS 22): do NOT build a layup detector on this
+      footage -- it would catch a fraction (0 of the MADE layups) while a
+      coach believed it tracked layups = confident-wrong, not built. Real
+      paths: FOOTAGE (closer + higher fps fixes ball-at-rim AND
+      fragmentation -- the common denominator behind §20/21/22), pose
+      estimation (heavy, unmeasured, needs no ball), scoreboard OCR
+      (partial make-confirmation, ROADMAP Gate-4 second signal).
+
+## Review (ball R2 + layup measurement, 2026-07-14)
+- Both of the user's product-critical asks came back the same way, and
+  it's a COHERENT signal not a coincidence: bigger model (§21) and layup
+  signals (§22) both failed for lack of information in the footage, not
+  lack of algorithm. Every ball-seeing lever this session (resolution,
+  model capacity, layup signals) points at the same root: capture quality.
+- Nothing broken was shipped: no layup detector built (would abstain/
+  false-fire), yolov8x not adopted (wash). The honest deliverable is the
+  measurements + a clear, evidence-backed spending recommendation.
+- The strongest, cheapest product lever is now unambiguous from data:
+  a closer, higher-frame-rate camera. It fixes ball detection, layups,
+  AND track fragmentation simultaneously -- more than any GPU or model.
 
 Constraints (unchanged): tests-first, eyeball-gate before trusting,
 never write into team_events, ball/layup layers sit BESIDE the spine.

@@ -1119,6 +1119,64 @@ overall remains FOOTAGE (pixels on the ball): a closer/zoom/4K camera
 makes the ball bigger and less blurred at the source, which no model or
 GPU can substitute for. yolov8m stays the default; yolov8x not adopted.
 
+## 22. LAYUP-DETECTION MEASUREMENT SPIKE — NEGATIVE on this footage (2026-07-14)
+User asked for a SEPARATE layup-detection system (layups are a big part
+of the game, and the arc tracker can't do them -- a layup has almost no
+parabolic flight). Gave two real TEST1 layups: 3.5-9s (attempt -> miss ->
+same-player rebound -> putback MADE) and 18-20s (made layup). Measure-
+first, same as the ball spike: before building, check whether the signal
+a cheap detector would need is even present. Read-only, existing data
+(oncourt court_feet + carried hoop pixels + ball log), no new perception.
+
+The design hypothesis was: reuse the validated foundation -- a layup =
+a tracked player DRIVES to the hoop region and their path TERMINATES
+there, corroborated by a ball detection near the rim. Measured all three
+signals that hypothesis needs. ALL THREE FAIL on this footage:
+
+1. BALL AT THE RIM -- essentially invisible. Across the entire 5.5s
+   miss->rebound->putback (ball at the rim MULTIPLE times), exactly ONE
+   ball detection landed within 100px of a rim (5.8s, conf 0.15). The
+   made layup at 18-20s: ZERO. The ball is too occluded (shooter's body,
+   rim, defenders) + small + motion-blurred to detect at the rim.
+2. PLAYER PROXIMITY -- too crowded to separate. 10 distinct tracks came
+   within 4ft of the left hoop during the layup-1 window. "Near the rim"
+   does not distinguish a shooter from rebounders, post players,
+   defenders, cutters.
+3. PLAYER TRAJECTORY -- fragmented exactly where needed. Those 10 tracks
+   are mostly 0.2-2.6s fragments (ByteTrack shatters in the paint scrum,
+   the known re-ID limit of §10/§11 -- identical uniforms + occlusion).
+   There is no clean continuous "drive to the rim" curve to detect; the
+   trajectory is shattered into pieces precisely in the paint.
+
+ROOT CAUSE (same theme as §13/§20/§21): the paint is a small, distant,
+crowded, occluded region, at 30fps (motion blur). The footage does not
+preserve the information a layup detector needs, on ANY of the three
+channels.
+
+VERDICT: do NOT build a layup detector on this footage. A detector keying
+on ball-at-rim would fire for ~1 of 3 attempts here (and 0 of the MADE
+ones -- the ones that matter most for a box score); one keying on player
+proximity/trajectory can't separate the shooter from traffic and rides
+fragmented tracks. Building it would silently catch a fraction while a
+coach believed it tracked layups -- worse than honest abstention, and a
+direct violation of the project's don't-ship-confident-wrong principle.
+Not built.
+
+REAL PATHS (for the product decision, not built now):
+- FOOTAGE (root fix, consistent across every ball-seeing finding this
+  session): a closer/zoom camera makes the ball visible at the rim AND
+  reduces track fragmentation; HIGHER FRAME RATE (60/120fps) cuts the
+  motion blur that hides the ball and breaks tracks. This single lever
+  improves ball detection AND layups AND fragmentation at once -- it is
+  the common denominator behind §20/§21/§22.
+- POSE ESTIMATION (the only signal that needs NEITHER the ball NOR clean
+  tracking): detect the shooting/layup BODY motion directly. A new model,
+  hard in an occluded paint, unmeasured -- the heavy path if layups are
+  required without better footage. Speculative; would need its own spike.
+- SCOREBOARD OCR (partial): a +2 score change confirms a MAKE happened
+  (any shot type). Doesn't localize or attribute, but corroborates -- the
+  ROADMAP's Gate-4 "outcome second signal", a separate later project.
+
 ## 4. KNOWN DEBT (logged, not fixed)
 - **RESOLVED 2026-07-14 (section 18):** the shot-arc over-count from a
   rim deflection (originally logged here) is now caught by classify_shot's
