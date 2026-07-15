@@ -146,10 +146,73 @@ def _fit_segment(points):
     return ok, info
 
 
+# Robust fallback (DECISIONS 26): a denser detector (fine-tuned model) adds
+# occasional junk members to otherwise-clean chains; one bad point fails the
+# whole-window fit (found on TEST1's user-verified shot B: 11-pt chain with 3
+# junk members -> no_claim). Bounded remedy, never "drop until it fits":
+ROBUST_MAX_DROP_FRACTION = 0.25   # at most 25% of a chain's points dropped...
+ROBUST_MAX_DROPS_ABS = 4          # ...and never more than 4 total. HARD cap:
+                                  # dense fine-tuned logs produce 100+ point
+                                  # chains where an uncapped 25% budget makes
+                                  # the subset search combinatorial (measured:
+                                  # a full-log analysis hung for 2.4 CPU-hours
+                                  # before this cap). Physically consistent
+                                  # too -- a chain needing >4 junk drops isn't
+                                  # a trustworthy rescue; abstain instead.
+ROBUST_MIN_KEPT = MIN_FIT_LEN     # and never below the ordinary fit minimum
+
+
+def _robust_whole_chain_fit(pts):
+    """Bounded combination search: try dropping every subset (smallest
+    first) of the worst-residual candidate POOL, within the drop budget.
+    Greedy and one-step-lookahead both pick wrong drops when junk distorts
+    the fit they rank against (measured on the real shot-B chain: greedy
+    lands at rms 3.2 vs the true junk set's 2.37). Chains are tiny and the
+    pool is capped at budget+3 points, so exhausting subsets is at most a
+    few hundred cheap polyfits. Deterministic: fewest drops win, ties by
+    residual rank. Returns (kept_pts, info, dropped_frames) on a passing
+    fit, else None. Only ever called when the ordinary growth loop found
+    NO arcs, so it can add claims but never change existing ones."""
+    import itertools
+    import math
+    if len(pts) < ROBUST_MIN_KEPT:
+        return None            # §14 gate: <MIN_FIT_LEN points = too little
+                               # evidence for ANY physics claim, robust or not
+    ok, info = _fit_segment(pts)
+    if ok:
+        return list(pts), info, []
+    max_drops = math.ceil(len(pts) * ROBUST_MAX_DROP_FRACTION)
+    max_drops = min(max_drops, ROBUST_MAX_DROPS_ABS, len(pts) - ROBUST_MIN_KEPT)
+    if max_drops < 1:
+        return None
+    # candidate pool: the budget+3 points with the largest residuals against
+    # the full-chain fit (junk distorts that fit, but junk still ranks high)
+    t0 = pts[0][0]
+    cy2, cy1, cy0 = info["fit_y"]
+    cx2, cx1, cx0 = info["fit_x"]
+    def _resid(p):
+        t = p[0] - t0
+        rx = p[1] - (cx2 * t * t + cx1 * t + cx0)
+        ry = p[2] - (cy2 * t * t + cy1 * t + cy0)
+        return rx * rx + ry * ry
+    pool = sorted(range(len(pts)), key=lambda i: -_resid(pts[i]))[:max_drops + 3]
+    for size in range(1, max_drops + 1):
+        for combo in itertools.combinations(pool, size):
+            drop = set(combo)
+            kept = [p for i, p in enumerate(pts) if i not in drop]
+            t_ok, t_info = _fit_segment(kept)
+            if t_ok:
+                return kept, t_info, sorted(pts[i][0] for i in drop)
+    return None
+
+
 def classify_chain(chain):
     """Verdict for one chain: static_junk | too_short | arc | no_claim.
     An 'arc' carries the maximal passing sub-segments; a failing chain is
-    kept visible (no_claim), never silently dropped."""
+    kept visible (no_claim), never silently dropped. If the ordinary growth
+    loop finds nothing, a BOUNDED robust whole-chain fit (drop worst-residual
+    points, <=25%, physics gates unchanged) gets one more try -- arcs found
+    that way carry n_dropped/dropped_frames so review sees the difference."""
     pts = chain["points"]
     if len(pts) < MIN_CHAIN_LEN:
         return {"verdict": "too_short", "arcs": []}
@@ -181,6 +244,15 @@ def classify_chain(chain):
         arcs.append({"start_frame": seg[0][0], "end_frame": seg[-1][0],
                      "n_points": len(seg), **info_best})
         i = i + len(seg)
+
+    if not arcs:
+        robust = _robust_whole_chain_fit(pts)
+        if robust is not None:
+            kept, info, dropped = robust
+            arcs.append({"start_frame": kept[0][0], "end_frame": kept[-1][0],
+                         "n_points": len(kept), "n_dropped": len(dropped),
+                         "dropped_frames": dropped, **info})
+
     return {"verdict": "arc" if arcs else "no_claim", "arcs": arcs}
 
 
