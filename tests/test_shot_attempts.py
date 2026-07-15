@@ -249,6 +249,36 @@ def test_real_near_hoop_deflection_418_438_rejected_by_the_origin_gate():
     assert "originates" in out["reason"]
 
 
+def test_real_test1_layup_165_184_arrives_and_counts():
+    """REGRESSION, real TEST1 fine-tuned-ball data (DECISIONS 25): a LAYUP
+    -- the ball releases near the rim (83px) and ARRIVES at it (ends 13px).
+    The §18 hard origin gate rejected this; the §25 arriving-vs-leaving rule
+    keeps it as a shot (shot_type layup) while still rejecting deflections.
+    This is one of the two layup sequences the user confirmed on film."""
+    pts = [(165, 644.5, 183.0), (167, 639.5, 155.0), (168, 638.0, 143.5),
+           (169, 633.5, 133.0), (170, 628.0, 127.0), (171, 623.5, 117.0),
+           (172, 619.0, 109.5), (176, 598.5, 97.0), (177, 594.0, 97.0),
+           (178, 589.0, 100.0), (179, 584.5, 103.5), (180, 581.0, 106.5),
+           (181, 577.5, 110.0), (182, 575.0, 117.0), (183, 571.0, 126.5),
+           (184, 571.5, 126.0)]
+    out = classify_shot(pts, const_hoop(574.1, 138.7))
+    assert out["verdict"] == "shot_attempt"
+    assert out["shot_type"] == "layup"
+
+
+def test_real_test1_deflection_188_202_leaves_and_is_rejected():
+    """REGRESSION, real TEST1 fine-tuned-ball data (DECISIONS 25): a
+    deflection OUT of the rim -- starts near (30px) and LEAVES (ends 131px).
+    Must reject even though it starts near the rim like a layup: the
+    discriminator is where it ENDS, not where it starts."""
+    pts = [(188, 588.0, 112.0), (189, 595.0, 110.5), (190, 601.0, 112.0),
+           (191, 606.5, 114.0), (192, 614.0, 120.0), (193, 621.0, 121.0),
+           (194, 626.0, 129.0), (195, 632.0, 137.5), (196, 642.5, 144.0),
+           (200, 666.0, 190.0), (201, 668.5, 207.5), (202, 672.5, 225.0)]
+    out = classify_shot(pts, const_hoop(574.1, 138.7))
+    assert out["verdict"] == "not_shot"
+
+
 def test_real_far_hoop_shot_1188_1211_survives_the_origin_gate():
     """REGRESSION, real HARD data: the original user-verified shot. Camera
     is nearly static here (hoop x drifts only ~4px) -- must stay a shot."""

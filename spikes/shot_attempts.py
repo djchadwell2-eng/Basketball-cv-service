@@ -66,7 +66,6 @@ ARRIVAL_FORWARD_MAX_FRAMES = 15
 RELEASE_BACK_MAX_FRAMES = 10
 RELEASE_DIST_GATE_PX = 120.0
 
-
 def apex_index(points):
     """Index of the highest point (MIN cy -- image y grows downward)."""
     return min(range(len(points)), key=lambda i: points[i][2])
@@ -80,38 +79,31 @@ def classify_shot(points, hoop_at, radius=HOOP_RADIUS_PX,
     frame. fit_x/fit_y: the arc's quadratic coefficients ([a,b,c] over
     t = frame - start_frame) enabling the bounded forward extension.
 
-    ORIGIN GATE (DECISIONS 18, validated on real data): a real shot
-    RELEASES away from the hoop and ARRIVES close; a rim deflection/
-    continuation STARTS already close and moves away. Measured: real shots
-    start 209-338px from the hoop; both known false positives start
-    26-69px away and end 374-384px away. If the arc's FIRST point is
-    within `radius` of the hoop AT THAT FRAME, reject it regardless of
-    what happens later. If the hoop position at the first frame is
-    unknown, the gate is skipped (absence of data must not manufacture a
-    rejection). KNOWN TRADE-OFF, accepted not fixed: a genuine close-range
-    layup released near the rim would also fail this gate.
+    A shot attempt = an arc that ARRIVES at the hoop region (comes within
+    `radius`). ARRIVAL (DECISIONS 19): all observed points count; if none
+    is within `radius`, the fit is extended forward up to `max_forward`
+    frames, DESCENDING portion only (a rising ball hasn't arrived), hoop
+    position required per predicted frame. An arrival found only via the
+    extension is stamped "arrival": "extrapolated" (weaker evidence).
 
-    ARRIVAL (DECISIONS 19, replaces the old at/after-apex rule): ALL
-    observed points count -- the origin gate already prevents the case the
-    apex rule guarded (proximity at launch), and the apex rule was
-    measured BROKEN on truncated ascent-only arcs (sparse detection loses
-    the ball near the rim, making the last observed point the 'apex' and
-    excluding nearly the whole arc). If no observed point is within
-    `radius`, the fitted curve is extended forward up to `max_forward`
-    frames, DESCENDING PORTION ONLY (past the fit's own apex -- a rising
-    ball hasn't arrived), hoop position required at each predicted frame.
-    An arrival found this way is stamped "arrival": "extrapolated" --
-    weaker evidence than "observed", surfaced to review as such."""
+    ARRIVING vs LEAVING (DECISIONS 25, replaces the §18 hard origin gate):
+    an arc that STARTS near the rim is a fresh close-range shot (LAYUP) only
+    if it ARRIVES -- ends AT the rim (last point within `radius`, or the
+    forward-extension carried a truncated arc to the rim). Otherwise it
+    started near the rim and LEFT (a deflection/continuation: its closest
+    point is its origin, then it moves away) and is rejected. An arc
+    starting far that reaches the rim is an ordinary jump shot. shot_type
+    ('layup'|'jumpshot') is a transparent heuristic from release distance,
+    not a claim about shot form. Measured on real arcs from BOTH clips:
+    layups end 13/25px from the rim, deflections end 131/167/374/384px."""
     f0, x0, y0 = points[0]
     h0 = hoop_at(f0)
-    if h0 is not None:
-        origin_dist = ((x0 - h0[0]) ** 2 + (y0 - h0[1]) ** 2) ** 0.5
-        if origin_dist <= radius:
-            return {"verdict": "not_shot", "min_dist": None,
-                    "reason": f"originates within {radius}px of the hoop "
-                              f"({round(origin_dist, 1)}px) -- a deflection/"
-                              f"continuation, not a fresh release"}
-    best = None
+    origin_dist = (((x0 - h0[0]) ** 2 + (y0 - h0[1]) ** 2) ** 0.5) if h0 is not None else None
+
+    # closest approach to the rim: observed points, then (only if none reached)
+    # a bounded forward extension of the fit (descending portion only).
+    best = None            # (dist, frame)
+    arrival = None
     for (f, x, y) in points:
         h = hoop_at(f)
         if h is None:
@@ -119,17 +111,12 @@ def classify_shot(points, hoop_at, radius=HOOP_RADIUS_PX,
         d = ((x - h[0]) ** 2 + (y - h[1]) ** 2) ** 0.5
         if best is None or d < best[0]:
             best = (d, f)
-    if best is not None and best[0] <= radius:
-        return {"verdict": "shot_attempt", "min_dist": round(best[0], 1),
-                "at_frame": best[1], "arrival": "observed"}
-
-    # ---- bounded forward extension of the (already physics-gated) fit ----
-    if fit_x is not None and fit_y is not None:
+            arrival = "observed"
+    if (best is None or best[0] > radius) and fit_x is not None and fit_y is not None:
         ax, bx, cx0 = fit_x
         ay, by, cy0 = fit_y
         t_apex = (-by / (2 * ay)) if ay > 0 else 0.0
         f_start, f_end = points[0][0], points[-1][0]
-        best_ext = None
         for k in range(0, max_forward + 1):
             f = f_end + k
             t = (f_end - f_start) + k
@@ -141,16 +128,37 @@ def classify_shot(points, hoop_at, radius=HOOP_RADIUS_PX,
             x = ax * t * t + bx * t + cx0
             y = ay * t * t + by * t + cy0
             d = ((x - h[0]) ** 2 + (y - h[1]) ** 2) ** 0.5
-            if best_ext is None or d < best_ext[0]:
-                best_ext = (d, f)
-        if best_ext is not None and best_ext[0] <= radius:
-            return {"verdict": "shot_attempt", "min_dist": round(best_ext[0], 1),
-                    "at_frame": best_ext[1], "arrival": "extrapolated"}
-        if best_ext is not None and (best is None or best_ext[0] < best[0]):
-            best = best_ext
+            if best is None or d < best[0]:
+                best = (d, f)
+                arrival = "extrapolated"
 
-    return {"verdict": "not_shot",
-            "min_dist": round(best[0], 1) if best else None}
+    if best is None or best[0] > radius:
+        return {"verdict": "not_shot",
+                "min_dist": round(best[0], 1) if best else None,
+                "reason": "never reaches the hoop region"}
+
+    # reaches the rim -- fresh shot (arriving) or deflection (starts near, leaves)?
+    if origin_dist is not None and origin_dist <= radius:
+        # released near the rim: a LAYUP ends AT the rim; a deflection LEAVES.
+        # arrival=="extrapolated" means a truncated arc was carried to the rim
+        # by the forward extension (arriving); otherwise use the last point.
+        fN, xN, yN = points[-1]
+        hN = hoop_at(fN)
+        end_dist = (((xN - hN[0]) ** 2 + (yN - hN[1]) ** 2) ** 0.5) if hN is not None else None
+        arrived = arrival == "extrapolated" or (end_dist is not None and end_dist <= radius)
+        if not arrived:
+            end_txt = f"{round(end_dist, 1)}px" if end_dist is not None else "?"
+            return {"verdict": "not_shot", "min_dist": round(best[0], 1),
+                    "reason": f"originates {round(origin_dist, 1)}px from the hoop "
+                              f"and leaves it (ends {end_txt} away) -- a deflection/"
+                              f"continuation, not a fresh release"}
+        shot_type = "layup"
+    else:
+        shot_type = "jumpshot"
+
+    return {"verdict": "shot_attempt", "min_dist": round(best[0], 1),
+            "at_frame": best[1], "arrival": arrival, "shot_type": shot_type,
+            "origin_dist": round(origin_dist, 1) if origin_dist is not None else None}
 
 
 def point_to_bbox_dist(x, y, bbox):
