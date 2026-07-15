@@ -239,3 +239,58 @@ $ .venv/Scripts/python -m pytest tests/ -q
 ---
 
 ## PROTOCOL COMPLETE — stopped after Test 2 as instructed.
+
+---
+
+## TEST 3 — Auto hoop anchor: fine-tuned Hoop class vs hand-clicked anchors
+
+### [2026-07-15 18:55:03] Pre-test gate: regression suite
+```
+164 passed in 2.03s
+```
+GATE: GREEN. Probe: spikes/roboflow_hoop_probe.py, every 10th frame, ALL
+Hoop-class dets logged (conf floor 1%). TEST1: 130 sampled frames.
+HARD: 275 sampled frames. Anchors = per-frame carried positions from
+{clip}_hoop_track.json (hand-clicked, homography-carried, user-verified).
+
+### [2026-07-15 19:03:08] TEST 3 RESULT — raw analysis output
+
+```
+--- TEST1 (sampled every 10th frame) ---
+  conf>=0.4: anchor-points=183  matched(<=150px)=120  missed=63  median_dist=21.0px  p95=31.9px  extra-hoops(no anchor within 150px)=0
+  conf>=0.2: anchor-points=183  matched(<=150px)=121  missed=62  median_dist=21.0px  p95=31.7px  extra-hoops(no anchor within 150px)=0
+--- HARD (sampled every 10th frame) ---
+  conf>=0.4: anchor-points=280  matched(<=150px)=2  missed=278  median_dist=21.6px  p95=21.5px  extra-hoops(no anchor within 150px)=0
+  conf>=0.2: anchor-points=280  matched(<=150px)=6  missed=274  median_dist=21.6px  p95=24.8px  extra-hoops(no anchor within 150px)=1
+```
+
+Diagnostic (HARD, any-conf dets within 150px of an anchor):
+```
+HARD anchor points sampled: 280
+  no Hoop det within 150px at ANY conf: 26
+  det present: 254  conf median=0.021  max=0.50
+  conf buckets: {'<0.1': 245, '0.2-0.4': 4, '>=0.4': 2, '0.1-0.2': 3}
+```
+(The <0.1 "hits" are junk-flood coincidence — ~30 low-conf dets/frame make a
+150px hit likely by chance; usable-confidence detection is 2-6 of 280.)
+
+### TEST 3 VERDICT — MEASURED — pending DJ review
+
+- CLIP-DEPENDENT. TEST1: Hoop class localizes well when it fires — median
+  21px from the user-verified anchor, p95 ~32px, ZERO false extra hoops at
+  conf>=0.2 — but only 66% of anchor-points matched (34% missed). HARD:
+  effectively blind — 2/280 at conf>=0.4.
+- FLAG (rule 5): DECISIONS §24 hypothesized the Hoop class "could replace
+  the manual rim-anchor clicks." That hypothesis is now HALF-REFUTED by
+  measurement: viable as a PROPOSER/cross-check on TEST1-like footage,
+  NOT a universal replacement (HARD fails). §24's wording was speculative
+  ("could"), not a measured claim, so no measured contradiction — but the
+  distinction is now on the record.
+- Possible use pending DJ review: auto-PROPOSE anchors on new clips (user
+  confirms, same click-seeding flow) + drift cross-check where it fires.
+  NOT adopted; manual anchors remain the committed mechanism.
+
+### [2026-07-15 19:04:05] Post-test regression suite
+```
+164 passed in 1.60s
+```
