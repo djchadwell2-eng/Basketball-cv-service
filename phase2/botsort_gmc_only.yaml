@@ -1,0 +1,22 @@
+# TEST 5 (gated protocol, TEST_LOG.md): BoT-SORT with GLOBAL MOTION
+# COMPENSATION but WITHOUT re-ID. DECISIONS §11 tested BoT-SORT only WITH
+# re-ID (which is what failed on identical uniforms); GMC alone -- targeting
+# pan-induced ID switches -- is the untested variant. Same association params
+# as the committed bytetrack.yaml. Probe-only; nothing adopted.
+
+tracker_type: botsort
+track_high_thresh: 0.25
+track_low_thresh: 0.1
+new_track_thresh: 0.25
+track_buffer: 30
+match_thresh: 0.8
+fuse_score: True
+
+# Global motion compensation — the variable under test (panning camera)
+gmc_method: sparseOptFlow
+
+# Re-ID OFF: isolate GMC from the §11-measured re-ID failure mode
+proximity_thresh: 0.5
+appearance_thresh: 0.8
+with_reid: False
+model: auto

@@ -294,3 +294,80 @@ HARD anchor points sampled: 280
 ```
 164 passed in 1.60s
 ```
+
+---
+
+## TEST 4 — Fine-tuned Player/Ref classes as tracking input
+
+### [2026-07-15 19:04:05] Pre-test gate: regression suite
+```
+164 passed in 1.60s
+```
+GATE: GREEN. Probe: spikes/roboflow_player_probe.py — fetch Player+Ref dets
+for TEST1's full tracking span (frames 120-580, all 461), then run
+ultralytics BYTETracker STANDALONE (default bytetrack.yaml, same params as
+the committed pipeline) over Player dets only; compare fragmentation vs the
+cached COCO baseline; count Ref dets + baseline tracks IoU-matching refs.
+
+### [2026-07-15 19:12:35] TEST 4 RESULT — raw output
+
+(One probe-harness bug mid-test, fixed before measurement: BYTETracker() in
+this ultralytics version takes no frame_rate kwarg; fetch phase was already
+complete and reused.)
+
+```
+============ PLAYER/REF PROBE (TEST1) ============
+                          COCO-person(cached)   RF-Player(standalone BYTE)
+  distinct track_ids                 122                 43
+  mean tracks/frame                 28.0                9.8
+  mean lifespan (fr)               105.8              105.3
+  Ref detections total (all conf): 20759 (45.0/frame avg)
+  baseline track_ids IoU-matching a Ref det (conf>=0.4): 6 of 122
+  ref-matched baseline ids: [1, 7, 11, 14, 372, 927]
+```
+
+Follow-up figures (same data, stricter conf + apples-to-apples baseline):
+```
+baseline distinct track_ids classified ON-COURT anywhere: 43
+RF Ref dets/frame at conf>=0.4: mean=3.0 median=3
+RF Player dets/frame at conf>=0.4: mean=9.9 median=10
+```
+
+### TEST 4 VERDICT — MEASURED — pending DJ review
+
+- The headline 122->43 is MISLEADING without context: the committed
+  pipeline ALREADY filters to on-court bodies via the ROI mask (§9), and
+  the baseline's ON-COURT distinct ids = 43 — IDENTICAL to RF-Player's 43.
+  So the fine-tuned Player class is a clean SUBSTITUTE for ROI filtering
+  (median 10 players + 3 refs/frame at conf>=0.4 — sensible court reality),
+  NOT a fragmentation improvement: mean lifespan is unchanged (105.3 vs
+  105.8), consistent with §23's "association, not detection, is the player
+  bottleneck". The 45/frame Ref figure is the all-conf junk flood; the
+  strict-conf reality is 3/frame (= actual refs).
+- The REAL measurable win available: semantic REF EXCLUSION. 6 of the 43
+  on-court baseline ids IoU-match referees — refs are on court, so the ROI
+  filter cannot exclude them and they sit in today's review queue. The
+  Player class distinguishes them -> potential ~14% queue reduction (6/43)
+  + removes the per-clip ROI dependency. Pending DJ review; nothing adopted.
+- Caveats on record: detector conf scales differ; baseline used
+  model.track() plumbing vs standalone harness (same yaml params).
+
+### [2026-07-15 19:13:36] Post-test regression suite
+```
+164 passed in 1.68s
+```
+
+---
+
+## TEST 5 — BoT-SORT with motion compensation, WITHOUT re-ID
+
+### [2026-07-15 19:13:36] Pre-test gate: regression suite
+```
+164 passed in 1.68s
+```
+GATE: GREEN. Config: phase2/botsort_gmc_only.yaml (bytetrack-identical
+association params + gmc_method sparseOptFlow, with_reid False). Runner:
+spikes/reid_fragment_probe.py (read-only, TEST1 span, cached baseline
+comparison). Metric = fragmentation proxies (distinct ids, mean lifespan)
+— no ground-truth ID-switch labels exist; this is the same proxy §11/§23
+used, logged as such.
