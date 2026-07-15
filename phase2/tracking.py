@@ -37,13 +37,18 @@ class Track:
 
 
 def iter_tracks(video_path: str, max_frames: int | None = None,
-                tracker_config: str = TRACKER_CONFIG):
+                tracker_config: str = TRACKER_CONFIG,
+                model_name: str | None = None):
     """Yield (frame_index, frame_bgr, [Track, ...]) for each frame, in order.
 
     tracker_config defaults to the validated ByteTrack config; experiments
     (e.g. spikes/reid_fragment_probe.py) may pass an alternative yaml.
+    model_name defaults to the validated detector (MODEL_NAME); a probe may
+    pass a bigger model (e.g. yolov8x.pt, spikes/player_detector_probe.py) to
+    MEASURE whether detector capacity reduces track fragmentation -- the real
+    cache is never rebuilt from a probe, only compared against.
     """
-    model = YOLO(MODEL_NAME)
+    model = YOLO(model_name or MODEL_NAME)
     results = model.track(
         source=video_path, classes=[PERSON_CLASS], imgsz=IMG_SIZE,
         tracker=tracker_config, persist=True, stream=True, verbose=False,
