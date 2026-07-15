@@ -1,13 +1,42 @@
-# BALL DETECTION R2 + LAYUP SYSTEM (current task, 2026-07-14)
+# FINE-TUNED MODEL + PLAYER-TRACKER PROBE (current task, 2026-07-14)
 
-User pushback (correct): §20's "footage-limited, done" was premature.
-Two product-critical asks:
-  1. Ball detection still misses too much -> NEEDS improving (more levers
-     exist beyond the exhausted input-resolution one).
-  2. Layups are unrecoverable by the arc tracker AND are a big part of the
-     game -> build a SEPARATE layup-detection system.
-(Lesson logged: memory/feedback_ship_speed_vs_working_product.md corollary
--- don't declare a product-critical avenue exhausted after one lever.)
+HARD CONSTRAINT (user, 2026-07-14): the system is built around EXISTING
+infrastructure (Hudl / Veo). The CAMERA IS NOT CHANGING. -> my "better
+footage" recommendation (§20/21/22) is OFF THE TABLE for this product;
+everything must be solved in SOFTWARE on Hudl/Veo-quality footage. GPU is
+purely for SPEED unless a lever 10x's value. Directives: (a) get a
+FINE-TUNED ball model in; (b) answer definitively whether a bigger
+detector (yolov8x) improves PLAYER tracking, not just the ball.
+
+## Player-tracker question (user asked twice) — MEASURING
+- [~] player_detector_probe.py running on TEST1 (yolov8x + ByteTrack vs
+      cached yolov8m, same span/tracker -> isolates detector). Compares
+      distinct-id count + mean lifespan = fragmentation. Hypothesis:
+      detection isn't the tracking bottleneck (association-through-
+      occlusion is, §11), but MEASURE not assert. DECISIONS 23.
+
+## Fine-tuned ball model — SOURCING BLOCKED, needs user input
+- [x] Searched: no cleanly downloadable ready-made fine-tuned basketball
+      BALL detector (HF/GitHub leads either lack ball weights --
+      LittleFish-Coder has pose only -- or are private). Roboflow Universe
+      HAS fine-tuned basketball models (+ public datasets: YOLOBball 5386
+      imgs, Kaggle sets) but downloading weights / hosted inference needs
+      a ROBOFLOW API KEY.
+- [ ] NEED FROM USER, pick one: (a) a free Roboflow API key -> I pull a
+      hosted fine-tuned basketball model and MEASURE it on TEST1 (fast,
+      the cheap experiment that proves the model lever before GPU spend);
+      or (b) train our own on a public dataset -> real GPU use (ties to
+      the hardware decision), best long-term fit. (a) first is the honest
+      measure-before-spend path.
+- [ ] Whichever: test on TEST1 0-450, compare ARCS vs yolov8m baseline.
+      DECISIONS 24.
+
+## Prior asks this session (context)
+Ball detection R2: §20 resolution swept (1280 optimal), §21 model
+capacity yolov8x = wash. Layups: §22 measured NEGATIVE (3 signal
+failures) -- not built. All pointed at footage, which is now fixed by
+constraint -> fine-tuned model + tracking are the remaining SOFTWARE
+levers.
 
 ## Ask 1 — ball detection, remaining levers (ranked cheap->dear)
 - [~] MODEL CAPACITY (running): yolov8x.pt vs yolov8m.pt, held at the
