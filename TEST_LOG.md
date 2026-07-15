@@ -141,3 +141,101 @@ $ .venv/Scripts/python -m pytest tests/ -q
   shots PLUS 3 layups" is wrong about which jump shots — it was shot A +
   unverified 84-98, with shot B missing (now recovered by Test 1).
   Correction of that sentence is left for DJ review, per protocol.
+
+---
+
+## TEST 2 — Fine-tuned ball model on HARD.mp4 (adoption gate)
+
+Success condition: reproduces HARD's 2 verified shots (356-381 @ near hoop,
+1188-1211 @ far hoop) and correctly rejects its deflections (418-438,
+1217-1250).
+
+### [2026-07-15 17:17:05] Pre-test gate: regression suite
+
+```
+$ .venv/Scripts/python -m pytest tests/ -q
+....................                                                     [100%]
+164 passed in 1.31s
+```
+(All 158 pre-existing tests green within the 164.)
+
+GATE: GREEN — proceeding with Test 2. Roboflow probe launched on HARD
+frames 0-2746 (full clip), conf floor 5%, model basketball-players-fy4c2
+v25 — hosted inference, ~80 min expected.
+
+### [2026-07-15 18:00:23] TEST 2 RESULT — raw probe + analysis output
+
+Probe (hosted inference, full clip):
+```
+[rf_probe] 2746 frames, ball seen in 2665 (97%) -> spikes/out/HARD_ball_spike_log_roboflow.json
+```
+(Stock yolov8m on the same clip: 65.5% of frames — DECISIONS §18.)
+
+Analysis (trajectory + shot classifier, conf>=0.10, both hoops), raw:
+```
+frames analyzed: 2746   arcs: 58   wall: 0.5s
+arcs (start,end,n_dropped): [(15, 25, 0), (29, 40, 0), (52, 62, 0), (63, 78, 0), (79, 93, 0), (163, 177, 0), (178, 187, 0), (195, 207, 0), (220, 234, 0), (247, 256, 0), (269, 282, 0), (296, 305, 0), (307, 320, 0), (322, 337, 0), (341, 348, 0), (351, 376, 0), (416, 438, 0), (439, 463, 0), (464, 471, 0), (483, 492, 0), (652, 664, 0), (677, 687, 0), (688, 698, 0), (700, 712, 0), (892, 900, 0), (997, 1007, 0), (1008, 1021, 0), (1030, 1046, 0), (1079, 1086, 0), (1092, 1102, 0), (1119, 1129, 0), (1135, 1152, 0), (1184, 1213, 0), (1216, 1250, 0), (1251, 1259, 0), (1259, 1267, 0), (1270, 1285, 0), (1291, 1308, 0), (1310, 1326, 0), (1341, 1348, 0), (1352, 1378, 0), (1391, 1406, 0), (1410, 1419, 0), (1465, 1488, 0), (1489, 1508, 0), (2182, 2193, 0), (2194, 2205, 0), (2376, 2388, 0), (2394, 2408, 0), (2446, 2454, 0), (2456, 2469, 0), (2472, 2479, 0), (2482, 2491, 0), (2515, 2527, 0), (2556, 2564, 0), (2565, 2588, 0), (2590, 2604, 0), (2610, 2633, 0)]
+
+SHOT ATTEMPTS (start,end,hoop,type,min_dist,arrival,n_dropped):
+   (351, 376, 'near', 'jumpshot', 75.9, 'observed', 0)
+   (1184, 1213, 'far', 'jumpshot', 14.5, 'observed', 0)
+   (1352, 1378, 'far', 'jumpshot', 16.5, 'observed', 0)
+
+near-rim REJECTIONS (deflection/continuation reasons):
+   (416, 438, 'near', 'originates 60.0px from the hoop and leaves it (ends 377.3px away) -- a deflection/continuation, not a fresh release')
+   (1216, 1250, 'far', 'originates 24.3px from the hoop and leaves it (ends 382.3px away) -- a deflection/continuation, not a fresh release')
+   (1465, 1488, 'far', 'originates 108.0px from the hoop and leaves it (ends 455.1px away) -- a deflection/continuation, not a fresh release')
+   (2376, 2388, 'far', 'originates 108.7px from the hoop and leaves it (ends 316.5px away) -- a deflection/continuation, not a fresh release')
+
+GROUND TRUTH CHECK:
+  verified shot 356-381 (near): REPRODUCED (351, 376, 'near', 'jumpshot', 75.9, 'observed', 0)
+  verified shot 1188-1211 (far): REPRODUCED (1184, 1213, 'far', 'jumpshot', 14.5, 'observed', 0)
+  deflection 418-438: correctly NOT a shot
+  deflection 1217-1250: *** CLAIMED AS SHOT: [(1184, 1213, 'far', 'jumpshot', 14.5, 'observed', 0)] ***
+```
+
+NOTE on the last line: that `*** CLAIMED AS SHOT ***` is a FALSE ALARM in the
+CHECK SCRIPT, not the pipeline — its ±10-frame overlap window [1207..1260]
+caught the ADJACENT legitimate verified shot (1184-1213, ends 1213 >= 1207).
+The arc actually covering the deflection frames, (1216, 1250), was explicitly
+REJECTED with the correct reason (second line of the rejections list above:
+"originates 24.3px ... ends 382.3px away"). No shot attempt overlaps
+1216-1250 itself.
+
+### [2026-07-15 18:00:52] Post-test regression suite
+
+```
+$ .venv/Scripts/python -m pytest tests/ -q
+....................                                                     [100%]
+164 passed in 2.08s
+```
+
+### TEST 2 VERDICT — MEASURED — pending DJ review
+
+- SUCCESS CONDITION MET: both verified HARD shots reproduced from
+  fine-tuned detections — 351-376 near (vs stock's 356-381; same shot,
+  slightly longer observed flight) and 1184-1213 far (vs stock's
+  1188-1211; min_dist improved 54.6 -> 14.5px). Both known deflections
+  (418-438, 1217-1250) correctly rejected by the arriving-vs-leaving
+  gate, with two MORE deflection-shaped arcs (1465-1488, 2376-2388) also
+  rejected for the same measured reason.
+- NEW FINDING, needs DJ eyeball: a THIRD shot attempt claimed at
+  1352-1378 (far hoop, 16.5px observed, 45.1-45.9s). This is the same
+  45.2s at-rim flight noted in DECISIONS §13/§15 as possible shot
+  activity (stock detector saw it at conf 0.81 but never formed a
+  hoop-reaching arc). Not a ground-truth violation — a new candidate
+  from a better detector — but UNVERIFIED until DJ checks the footage
+  at ~45.1-45.9s.
+- Detection density: 97% of frames vs stock's 65.5%; arcs 30 -> 58 on
+  the same clip; zero robust-fitter drops needed anywhere on HARD
+  (n_dropped=0 for all 58 arcs — the fine-tuned HARD chains were clean).
+- NOT ADOPTED: stock yolov8m remains the committed ball detector; the
+  fine-tuned model's logs live in spikes/out/*_roboflow.json only; no
+  default/config changed.
+- Contradiction check (rule 5): no contradictions with DECISIONS ground
+  truth found. The 1352-1378 candidate is consistent with (not contrary
+  to) §15's open note about 45.2s activity.
+
+---
+
+## PROTOCOL COMPLETE — stopped after Test 2 as instructed.
