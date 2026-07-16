@@ -500,3 +500,60 @@ span at conf>=0.1 (= bytetrack.yaml track_low_thresh) so all trackers see
 identical detections. Phase B (.venv-boxmot): OC-SORT (motion-only) +
 StrongSORT (appearance re-ID, default model) fed those dets; fragmentation
 stats vs cached ByteTrack baseline (122 / 28.0 / 105.8).
+
+### [2026-07-16 18:14] TEST 7 RESULT — raw output
+
+Phase A (main venv): raw yolov8m person dets, TEST1 span, conf>=0.1 ->
+spikes/out/TEST1_rawdets_person.json (461 frames).
+
+Phase B (.venv-boxmot, boxmot 19.0.0), raw:
+```
+  RESULT ocsort: distinct_ids=107  mean_tracks/frame=26.6  mean_lifespan=114.6
+  RESULT strongsort: NOT MEASURED — ModuleNotFoundError: No module named 'boxmot.data'
+  (baseline ByteTrack cached: 122 / 28.0 / 105.8 — same span,
+   same detector family; dets here re-generated at conf>=0.1)
+```
+
+Probe-harness issues hit + handled during this test (raw trail):
+1. boxmot's base tracker requires an img ndarray even for motion-only
+   trackers -> harness now always passes frames.
+2. First phase-B run lost OC-SORT's completed result when StrongSORT
+   raised (results held in memory; launcher's own `| tail` also truncated
+   output) -> harness rewritten with per-tracker isolation + immediate
+   stats printing; OC-SORT re-run cleanly.
+3. StrongSORT is UNRUNNABLE in boxmot 19.0.0 as installed: its ReID
+   loader import chain crosses `boxmot.data`, a module MISSING from the
+   wheel (upstream packaging bug). Timeboxed one fix attempt: pip upgrade
+   resolves back to 19.0.0 in this env (20/21/22 requirements
+   incompatible) -> NOT MEASURED, reason logged.
+
+### TEST 7 VERDICT — MEASURED (OC-SORT) / NOT MEASURED (StrongSORT) — pending DJ review
+
+- OC-SORT (motion-only): 107 distinct ids / 114.6 mean lifespan vs
+  baseline 122 / 105.8 — a modest improvement, in the same league as
+  GMC-only BoT-SORT (Test 5: 117 / 116.2) and yolov8x (§23: 106 / 105.8),
+  and WELL BEHIND ByteTrack mt=0.9 (Test 6: 93 / 143.1, caveats there).
+- StrongSORT: not measured (upstream packaging bug, above). Information
+  loss judged small: §11 already measured appearance re-ID as
+  COUNTERPRODUCTIVE on this footage (identical uniforms; 122->131), and
+  StrongSORT's distinguishing feature is exactly appearance re-ID.
+- Nothing adopted. Isolated .venv-boxmot left in place for potential
+  future re-measurement (e.g., when upstream fixes the wheel).
+
+---
+
+## PROTOCOL COMPLETE — Tests 3-7 done, stopped as instructed.
+
+Cross-test tracking summary (TEST1 span, distinct ids / mean lifespan,
+baseline ByteTrack = 122 / 105.8; ALL pending DJ review, NOTHING adopted):
+```
+  ByteTrack mt=0.9        93 / 143.1   (Test 6 — best, but ID-switch safety caveat unresolved)
+  yolov8x detector       106 / 105.8   (§23)
+  OC-SORT                107 / 114.6   (Test 7)
+  BoT-SORT GMC-only      117 / 116.2   (Test 5)
+  ByteTrack buf=60       120 / 107.6   (Test 6)
+  BoT-SORT + re-ID       131 / ~106    (§11 — worse)
+  ByteTrack mt=0.7       256 /  46.5   (Test 6 — much worse)
+  RF-Player dets          43 / 105.3   (Test 4 — different subject set: on-court only,
+                                        = baseline's own on-court 43; not comparable directly)
+```
