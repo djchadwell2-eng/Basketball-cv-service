@@ -424,3 +424,79 @@ mt=0.8/buf=60. The 4th cell (mt=0.8/buf=120) was ALREADY MEASURED in
 DECISIONS §11: 128 distinct ids (worse than baseline 122) — reused, not
 re-run. Runner: spikes/reid_fragment_probe.py per config, sequential,
 TEST1 span, ~20 min each.
+
+### [2026-07-15 ~20:20] TEST 6 RESULT — raw probe outputs (3 runs, sequential)
+
+(Column header "BoT-SORT+reID" is the probe script's hardcoded label; the
+configs actually run are ByteTrack variants as titled. Baseline params:
+match_thresh=0.8, track_buffer=30.)
+
+match_thresh=0.7, track_buffer=30:
+```
+                       ByteTrack(cached)   [mt=0.7]
+  distinct track_ids            122             256
+  mean tracks/frame            28.0            25.8
+  mean lifespan (fr)          105.8            46.5
+```
+
+match_thresh=0.9, track_buffer=30:
+```
+                       ByteTrack(cached)   [mt=0.9]
+  distinct track_ids            122              93
+  mean tracks/frame            28.0            28.9
+  mean lifespan (fr)          105.8           143.1
+```
+
+match_thresh=0.8, track_buffer=60:
+```
+                       ByteTrack(cached)   [buf=60]
+  distinct track_ids            122             120
+  mean tracks/frame            28.0            28.0
+  mean lifespan (fr)          105.8           107.6
+```
+
+4th grid cell reused from DECISIONS §11 (not re-run): match_thresh=0.8,
+track_buffer=120 -> 128 distinct ids (worse than baseline), lifespan flat.
+
+### TEST 6 VERDICT — MEASURED — pending DJ review
+
+- match_thresh is a LIVE lever; track_buffer is DEAD (60 and 120 both ~flat).
+  mt=0.7 (stricter association): catastrophic — 2.1x MORE fragments,
+  lifespan halved. mt=0.9 (looser): the LARGEST tracking gain of any lever
+  measured to date — 122 -> 93 distinct ids (-24%) and lifespan 105.8 ->
+  143.1 (+35%), beating yolov8x (§23: 106/flat) and GMC-only (Test 5:
+  117/116.2).
+- CRITICAL SAFETY CAVEAT (why this is NOT adoptable from these numbers
+  alone): a looser match threshold can also MERGE DIFFERENT PLAYERS into
+  one track (ID switches). Fragmentation metrics CANNOT see that failure —
+  a wrongly-merged track looks "better" on ids/lifespan while being
+  confidently-wrong for identity, exactly the §7a/§8 splice class the
+  purity machinery exists to catch. Any adoption path must first run the
+  purity checks (§8 detector B / disputed frames) + an eyeball pass on
+  mt=0.9 tracks. NOT done here (outside this test's scope), NOT adopted.
+- Rule-5 note: DECISIONS §11's guidance "fragmentation levers now: footage
+  zoom/4K, then span-prioritized queue cutoff" was written after testing
+  only track_buffer; match_thresh had never been measured. This result
+  NUANCES (does not contradict) that entry — no prior match_thresh
+  measurement existed to contradict.
+
+### [2026-07-15 19:43:53] Post-test regression suite
+```
+164 passed in 2.15s
+```
+
+---
+
+## TEST 7 — Third-party trackers (OC-SORT, StrongSORT via boxmot)
+
+### [2026-07-15 19:43:53] Pre-test gate: regression suite
+```
+164 passed in 2.15s
+```
+GATE: GREEN. Isolation: boxmot 19.0.0 installed in a SEPARATE venv
+(.venv-boxmot) to protect the main env — main suite verified green after
+install. Phase A (main venv): dump raw yolov8m person dets for the TEST1
+span at conf>=0.1 (= bytetrack.yaml track_low_thresh) so all trackers see
+identical detections. Phase B (.venv-boxmot): OC-SORT (motion-only) +
+StrongSORT (appearance re-ID, default model) fed those dets; fragmentation
+stats vs cached ByteTrack baseline (122 / 28.0 / 105.8).
