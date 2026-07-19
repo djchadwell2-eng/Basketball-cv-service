@@ -13,7 +13,7 @@ every scene point regardless of depth. That's the same assumption stage4's
 docstring already leans on for the floor; here it's exactly what makes an
 elevated rim carryable at all.
 
-TWO human-confirmed inputs per clip (RIM_ANCHORS below), marked by eyeball
+TWO human-confirmed inputs per clip (ClipConfig.hoop_anchors), marked by eyeball
 and confirmed by the user against a marked still -- same click-seeding
 philosophy as the rest of the project: system proposes, human confirms,
 once per basket per clip.
@@ -48,25 +48,20 @@ sys.path.insert(0, os.path.join(_ROOT, "phase2"))
 CLIP_NAME_ARG = sys.argv[1] if __name__ == "__main__" and len(sys.argv) > 1 else "HARD"
 
 import clips_config as _cc                # noqa: E402
-_cc.ACTIVE = CLIP_NAME_ARG
+if __name__ == "__main__":
+    # Standalone run: select the clip BEFORE the stage imports below bind to
+    # it. NOT on plain import -- run_clip/ball_stages import this module with
+    # clips_config.ACTIVE already synced to the running clip, and resetting it
+    # here would silently clobber that sync with "HARD" (the argv default).
+    _cc.ACTIVE = CLIP_NAME_ARG
 
 import stage1_keyframe_match as s1        # noqa: E402
 import stage2_multikeyframe as s2         # noqa: E402
 import stage4_courtmap as s4              # noqa: E402
 import stage5_courtmap as s5              # noqa: E402  (sift_of, signfix)
 
-# Two human-confirmed rim pixels per clip (click-seeding philosophy: system
-# proposes on a marked still, human confirms, once per basket per clip).
-RIM_ANCHORS = {
-    "HARD": {
-        "far": (1100, (1855.0, 228.0)),    # user-confirmed 2026-07-13 (DECISIONS 15)
-        "near": (600, (633.0, 190.0)),     # user-confirmed 2026-07-14 (DECISIONS 18)
-    },
-    "TEST1": {
-        "far": (120, (582.0, 143.0)),      # user-confirmed 2026-07-14 (DECISIONS 19)
-        "near": (580, (1377.0, 233.0)),    # user-confirmed 2026-07-14 (DECISIONS 19)
-    },
-}
+# The two human-confirmed rim pixels per clip live in ClipConfig.hoop_anchors
+# (clip_config.py) -- one source of truth, shared with the run_clip pipeline.
 
 NFEAT, RATIO, RANSAC_PX, MIN_INLIERS = 1500, 0.75, 3.0, 30
 
@@ -210,7 +205,7 @@ def main():
     import clip_config
     CLIP = getattr(clip_config, f"{CLIP_NAME_ARG}_CLIP")
     clip_config.ACTIVE_CLIP = CLIP
-    anchors = RIM_ANCHORS[CLIP_NAME_ARG]
+    anchors = CLIP.hoop_anchors
 
     # Optional CLI override for a wider harvest (e.g. the full clip):
     # hoop_anchor.py [clip_name] <start> <len>. Default = same span as the

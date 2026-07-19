@@ -39,8 +39,13 @@ import clip_config
 _is_main = __name__ == "__main__"
 CLIP_NAME = sys.argv[1] if _is_main and len(sys.argv) > 1 else "HARD"
 CLIP = getattr(clip_config, f"{CLIP_NAME}_CLIP")
-clip_config.ACTIVE_CLIP = CLIP          # set BEFORE importing run_tracking (binds at import;
-                                        # otherwise the temp subclip gets the wrong clip's name)
+if _is_main:
+    # Standalone run: set BEFORE importing run_tracking (binds at import;
+    # otherwise the temp subclip gets the wrong clip's name). NOT on plain
+    # import -- run_clip/ball_stages import this module with ACTIVE_CLIP
+    # already synced, and resetting it here would clobber that sync with
+    # "HARD" (the argv default).
+    clip_config.ACTIVE_CLIP = CLIP
 
 import run_tracking                      # reuse extract_subclip (same span-extraction as tracking)
 import tracking as trk                    # reuse MODEL_NAME / IMG_SIZE (same model as person detection)
@@ -76,30 +81,38 @@ OUT_JSON = os.path.join(OUT_DIR, f"{CLIP.name}_ball_spike_log{_SUFFIX}.json")
 BOX_COLOR = (0, 165, 255)                 # orange, easy to spot against court colors
 
 
-def main():
-    os.makedirs(OUT_DIR, exist_ok=True)
-    print(f"[ball_spike] extracting {CLIP.name} span {SPAN_START}..{SPAN_START + SPAN_LEN} "
-          f"({SPAN_LEN / 30.0:.1f}s) ...")
-    subclip, fps, n = run_tracking.extract_subclip(CLIP.video_path, SPAN_START, SPAN_LEN)
+def detect(clip, span_start, span_len, imgsz, model_path, out_json, out_video):
+    """The detection loop, callable with explicit inputs/outputs (used by the
+    CLI below with argv-derived values, and by ball_stages.py with ClipConfig
+    values). Identical behavior to the original main() body."""
+    os.makedirs(os.path.dirname(out_json), exist_ok=True)
+    print(f"[ball_spike] extracting {clip.name} span {span_start}..{span_start + span_len} "
+          f"({span_len / 30.0:.1f}s) ...")
+    subclip, fps, n = run_tracking.extract_subclip(clip.video_path, span_start, span_len)
     print(f"[ball_spike] {n} frames -> {subclip}")
 
-    model = YOLO(MODEL)
-    print(f"[ball_spike] running {os.path.basename(MODEL)} (imgsz={IMG_SIZE}, conf={CONF}, "
-          f"class=sports ball) -- CPU ...")
-    results = model.predict(source=subclip, classes=[BALL_CLASS], imgsz=IMG_SIZE,
+    model = YOLO(model_path)
+    # BALL_CLASS=32 is COCO's numbering (stock models). A fine-tuned model
+    # carries its OWN class list (e.g. "Ball" at index 0), so resolve the id
+    # from the loaded model's names; unchanged behavior for stock models.
+    ball_class = next((i for i, n in model.names.items()
+                       if str(n).lower() in ("ball", "sports ball")), BALL_CLASS)
+    print(f"[ball_spike] running {os.path.basename(model_path)} (imgsz={imgsz}, conf={CONF}, "
+          f"class={model.names[ball_class]}[{ball_class}]) -- CPU ...")
+    results = model.predict(source=subclip, classes=[ball_class], imgsz=imgsz,
                              conf=CONF, stream=True, verbose=False)
 
     cap = cv2.VideoCapture(subclip)
     w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     cap.release()
-    writer = cv2.VideoWriter(OUT_VIDEO, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
+    writer = cv2.VideoWriter(out_video, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
 
     frames_out = []
     n_with_det = 0
     for i, result in enumerate(results):
         frame = result.orig_img.copy()
-        frame_idx = SPAN_START + i
+        frame_idx = span_start + i
         dets = []
         boxes = result.boxes
         if boxes is not None and len(boxes) > 0:
@@ -123,24 +136,29 @@ def main():
             print(f"  ...{i}/{n}  ({len(dets)} dets this frame)", flush=True)
     writer.release()
 
-    doc = {"clip": CLIP.name, "span_start": SPAN_START, "span_len": len(frames_out),
-           "fps": fps, "conf_threshold": CONF, "imgsz": IMG_SIZE,
-           "model": os.path.basename(MODEL), "frames": frames_out}
-    with open(OUT_JSON, "w", encoding="utf-8") as f:
+    doc = {"clip": clip.name, "span_start": span_start, "span_len": len(frames_out),
+           "fps": fps, "conf_threshold": CONF, "imgsz": imgsz,
+           "model": os.path.basename(model_path), "frames": frames_out}
+    with open(out_json, "w", encoding="utf-8") as f:
         json.dump(doc, f, indent=2)
 
     total = len(frames_out)
     flicker_pct = 100.0 * (total - n_with_det) / max(total, 1)
     mean_dets = sum(len(fr["detections"]) for fr in frames_out) / max(total, 1)
     print("\n================ BALL SPIKE SUMMARY ================")
-    print(f"  clip: {CLIP.name}  span: {SPAN_START}..{SPAN_START + total} "
-          f"({SPAN_START / fps:.1f}s..{(SPAN_START + total) / fps:.1f}s)")
+    print(f"  clip: {clip.name}  span: {span_start}..{span_start + total} "
+          f"({span_start / fps:.1f}s..{(span_start + total) / fps:.1f}s)")
     print(f"  frames: {total}   frames w/ >=1 detection: {n_with_det} "
           f"({100 - flicker_pct:.1f}%)   zero-detection frames: {flicker_pct:.1f}%")
     print(f"  mean detections/frame: {mean_dets:.2f}")
-    print(f"  overlay: {OUT_VIDEO}")
-    print(f"  log:     {OUT_JSON}")
+    print(f"  overlay: {out_video}")
+    print(f"  log:     {out_json}")
     print("  (raw detections only -- false-positive rate needs an eyeball pass on the overlay)")
+    return doc
+
+
+def main():
+    detect(CLIP, SPAN_START, SPAN_LEN, IMG_SIZE, MODEL, OUT_JSON, OUT_VIDEO)
 
 
 if __name__ == "__main__":

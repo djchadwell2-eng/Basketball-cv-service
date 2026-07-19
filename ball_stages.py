@@ -1,0 +1,361 @@
+"""ball_stages.py -- Phase 5 ball/shot layer as run_clip pipeline stages.
+
+The spike chain (spikes/ball_spike -> hoop_anchor -> ball_trajectory ->
+shot_attempts -> shot_location -> shot_outcome), gate-verified in
+TEST_LOG.md TESTs 8-10, invoked as config-driven stages with EXPLICIT
+paths (no argv, no module-level clip state). The analysis chain is
+exactly spikes/local_weights_check.py's verified protocol: fine-tuned
+detection log (conf=0.05) -> conf>=CONF_FLOOR filter -> physics
+chains/arcs -> classify_shot against both hoops.
+
+All outputs sit beside the existing spike artifacts in spikes/out/.
+Nothing here writes into team_events or any Phase 1/2 artifact
+(ROADMAP Principle 4: new layers sit BESIDE the spine, never inside it).
+
+The two slow stages (detection ~hours on CPU; hoop-anchor SIFT ~minutes
+to hours) REUSE an existing output only on an exact fingerprint match
+(same clip/span/model/imgsz/conf; same anchors + covering span), loudly
+printed -- the same reuse-or-refuse discipline as the tracks cache.
+Reuse is never approximate: any mismatch reruns and overwrites.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import sys
+
+_ROOT = os.path.dirname(os.path.abspath(__file__))
+for _p in (_ROOT, os.path.join(_ROOT, "spikes"), os.path.join(_ROOT, "phase2")):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
+from local_weights_check import CONF_FLOOR          # noqa: E402  TEST 2/8/10 filter
+import ball_trajectory as bt                        # noqa: E402
+from shot_attempts import (                         # noqa: E402
+    HOOP_RADIUS_PX, RELEASE_BACK_MAX_FRAMES, RELEASE_DIST_GATE_PX,
+    classify_shot, find_release,
+)
+
+OUT_DIR = os.path.join(_ROOT, "spikes", "out")
+
+
+def _out(config, name):
+    return os.path.join(OUT_DIR, f"{config.name}_{name}")
+
+
+def _load(path):
+    return json.load(open(path, encoding="utf-8"))
+
+
+def filter_conf(frames, floor=CONF_FLOOR):
+    """The TEST 2/8/10 analysis filter: on the fine-tuned models junk sits
+    below 0.10, flight detections above (DECISIONS 24). Same list shape out."""
+    return [{"frame_index": fr["frame_index"],
+             "detections": [d for d in fr["detections"] if d["conf"] >= floor]}
+            for fr in frames]
+
+
+def detections_current(doc, config, imgsz, conf):
+    """A detections log is reusable iff every fingerprint field matches the
+    config exactly -- otherwise it was made by a different run recipe."""
+    return (doc.get("clip") == config.name
+            and doc.get("span_start") == config.ball_span_start
+            and doc.get("span_len") == config.ball_span_len
+            and doc.get("model") == os.path.basename(config.ball_weights_path)
+            and doc.get("imgsz") == imgsz
+            and doc.get("conf_threshold") == conf)
+
+
+def hoop_track_covers(doc, config):
+    """A hoop track is reusable iff its anchors match the config EXACTLY and
+    its span COVERS the ball span. Covering (not equality) is sound because
+    hoop positions are computed per-frame independently -- a superset-span
+    track contains byte-identical results for the frames inside our span."""
+    a = config.hoop_anchors
+    same_anchors = (doc.get("rim_keyframe_far") == a["far"][0]
+                    and list(doc.get("rim_pixel_far", [])) == list(a["far"][1])
+                    and doc.get("rim_keyframe_near") == a["near"][0]
+                    and list(doc.get("rim_pixel_near", [])) == list(a["near"][1]))
+    start, length = doc.get("span_start"), doc.get("span_len")
+    covers = (start is not None and length is not None
+              and start <= config.ball_span_start
+              and start + length >= config.ball_span_start + config.ball_span_len)
+    return same_anchors and covers
+
+
+def _hoop_lookup(hoop_doc, key):
+    by_frame = {r["frame_index"]: tuple(r[key]) for r in hoop_doc["frames"]
+                if r.get(key) is not None}
+    return lambda f: by_frame.get(f)
+
+
+def evaluate_arcs(chains, hoop_at_far, hoop_at_near):
+    """Classify every claimed arc against BOTH hoops -- the exact candidate
+    pick shared by spikes/shot_attempts.main and local_weights_check: prefer
+    a passing verdict (closer hoop on the both-pass tie), else report the
+    more informative (smaller-min_dist) failure. Returns
+    [(arc, seg_points, shot_result, hoop_label), ...]."""
+    out = []
+    for chain in chains:
+        if chain["verdict"] != "arc":
+            continue
+        pts = [(p[0], p[1], p[2]) for p in chain["points"]]
+        for a in chain["arcs"]:
+            seg = [p for p in pts if a["start_frame"] <= p[0] <= a["end_frame"]]
+            candidates = [
+                (classify_shot(seg, hoop_at_far, fit_x=a["fit_x"], fit_y=a["fit_y"]), "far"),
+                (classify_shot(seg, hoop_at_near, fit_x=a["fit_x"], fit_y=a["fit_y"]), "near"),
+            ]
+            passing = [c for c in candidates if c[0]["verdict"] == "shot_attempt"]
+            if passing:
+                passing.sort(key=lambda c: c[0]["min_dist"])
+                shot, hoop_label = passing[0]
+            else:
+                candidates.sort(key=lambda c: (c[0]["min_dist"] is None, c[0]["min_dist"]))
+                shot, hoop_label = candidates[0]
+            out.append((a, seg, shot, hoop_label))
+    return out
+
+
+# ------------------------------------------------------------------ stages --
+
+def stage_ball_detect(config):
+    """Fine-tuned ball detection over the config's ball span. Writes
+    {clip}_ball_detections.json (+ overlay mp4) via ball_spike.detect --
+    a NEW pipeline artifact name, so neither the stock-model canonical
+    spike log nor the suffixed TEST-8/9/10 measurement logs get clobbered."""
+    import ball_spike
+    import tracking as trk
+    out_json = _out(config, "ball_detections.json")
+    out_video = _out(config, "ball_detections_overlay.mp4")
+    imgsz, conf = trk.IMG_SIZE, ball_spike.CONF
+    if os.path.exists(out_json):
+        doc = _load(out_json)
+        if detections_current(doc, config, imgsz, conf):
+            print(f"[ball_stages] REUSING {os.path.basename(out_json)} -- fingerprint "
+                  f"match (span {doc['span_start']}..+{doc['span_len']}, model "
+                  f"{doc['model']}, imgsz {doc['imgsz']}, conf {doc['conf_threshold']})")
+            return out_json
+        print(f"[ball_stages] {os.path.basename(out_json)} is STALE (fingerprint "
+              f"mismatch vs config) -- re-running detection")
+    ball_spike.detect(config, config.ball_span_start, config.ball_span_len,
+                      imgsz, config.ball_weights_path, out_json, out_video)
+    return out_json
+
+
+def stage_hoop_anchor(config):
+    """Carry the config's two rim anchors through every frame of the ball
+    span (SIFT frame->keyframe + Hs_opt, hoop_anchor.build_hoop_track).
+    Writes {clip}_hoop_track.json in the spike's exact document shape."""
+    out_json = _out(config, "hoop_track.json")
+    anchors = config.hoop_anchors
+    if os.path.exists(out_json):
+        doc = _load(out_json)
+        if hoop_track_covers(doc, config):
+            print(f"[ball_stages] REUSING {os.path.basename(out_json)} -- anchors match, "
+                  f"span {doc['span_start']}..+{doc['span_len']} covers ball span "
+                  f"{config.ball_span_start}..+{config.ball_span_len}")
+            return out_json
+        print(f"[ball_stages] {os.path.basename(out_json)} is STALE (anchors/span "
+              f"mismatch vs config) -- re-carrying the hoop anchors")
+    import hoop_anchor
+    rim_far, rim_near, track, _KF, _Hs = hoop_anchor.build_hoop_track(
+        config.video_path, config.ball_span_start, config.ball_span_len, anchors)
+    json.dump({"clip": config.name, "span_start": config.ball_span_start,
+               "span_len": config.ball_span_len,
+               "rim_keyframe_far": anchors["far"][0], "rim_pixel_far": list(anchors["far"][1]),
+               "rim_ref900_far": list(rim_far),
+               "rim_keyframe_near": anchors["near"][0], "rim_pixel_near": list(anchors["near"][1]),
+               "rim_ref900_near": list(rim_near), "frames": track},
+              open(out_json, "w", encoding="utf-8"), indent=2)
+    print(f"[ball_stages] wrote {out_json}")
+    return out_json
+
+
+def stage_ball_trajectory(config, det_json):
+    """conf>=CONF_FLOOR filter, then the physics chain/arc layer (imported
+    from ball_trajectory, gates untouched). Writes {clip}_ball_arcs.json in
+    the spike's exact document shape (+ conf_floor/source provenance)."""
+    doc = _load(det_json)
+    n_raw = sum(len(fr["detections"]) for fr in doc["frames"])
+    frames = filter_conf(doc["frames"])
+    n_kept = sum(len(fr["detections"]) for fr in frames)
+    n_seen = sum(1 for fr in frames if fr["detections"])
+    tot = len(frames)
+    print(f"[ball_stages] ball seen in {n_seen}/{tot} frames "
+          f"({100 * n_seen / max(tot, 1):.1f}%) at conf>={CONF_FLOOR} "
+          f"({n_kept}/{n_raw} dets kept)")
+
+    chains = bt.build_chains(frames)
+    results = [bt.classify_chain(c) for c in chains]
+    counts = {}
+    for r in results:
+        counts[r["verdict"]] = counts.get(r["verdict"], 0) + 1
+    n_arcs = sum(len(r["arcs"]) for r in results)
+    print(f"[ball_stages] chains: {len(chains)}  verdicts: {counts}  arcs: {n_arcs}")
+
+    out_json = _out(config, "ball_arcs.json")
+    json.dump({"clip": doc["clip"], "span_start": doc["span_start"],
+               "span_len": doc["span_len"], "fps": doc["fps"],
+               "conf_floor": CONF_FLOOR, "source_log": os.path.basename(det_json),
+               "params": {"MAX_STEP_PX": bt.MAX_STEP_PX, "MAX_GAP_FRAMES": bt.MAX_GAP_FRAMES,
+                          "MIN_CHAIN_LEN": bt.MIN_CHAIN_LEN, "MIN_TRAVEL_PX": bt.MIN_TRAVEL_PX,
+                          "ACCEL_Y_MIN": bt.ACCEL_Y_MIN, "ACCEL_Y_MAX": bt.ACCEL_Y_MAX,
+                          "ACCEL_X_MAX": bt.ACCEL_X_MAX, "RESIDUAL_MAX_PX": bt.RESIDUAL_MAX_PX,
+                          "MIN_FIT_LEN": bt.MIN_FIT_LEN},
+               "chains": [{"points": c["points"], **r}
+                          for c, r in zip(chains, results)]},
+              open(out_json, "w", encoding="utf-8"), indent=2)
+    print(f"[ball_stages] wrote {out_json}")
+    return out_json
+
+
+def stage_shot_attempts(config, arcs_json, hoop_json):
+    """Shot-attempt classification (both hoops) + shooter attribution via
+    release back-extrapolation and the identity join -- the spike main's
+    logic with explicit paths. Attempts outside the tracks-cache span stay
+    honest no_identity_data review items, never guessed."""
+    arcs_doc = _load(arcs_json)
+    hoop_doc = _load(hoop_json)
+    tracks_doc = _load(config.tracks_cache_path)
+    events_doc = _load(os.path.join(_ROOT, "phase2", "out",
+                                    f"{config.name}_player_events_merged.json"))
+
+    hoop_at_far = _hoop_lookup(hoop_doc, "hoop_far_px")
+    hoop_at_near = _hoop_lookup(hoop_doc, "hoop_near_px")
+    tracks_by_frame = {fr["frame_index"]: fr["tracks"] for fr in tracks_doc["frames"]}
+    tracks_span = (tracks_doc["span_start"],
+                   tracks_doc["span_start"] + tracks_doc["span_len"])
+
+    # identity_state per (frame, track_id): snapshot for shooter attribution
+    # only -- it stamps no stat (same note as the spike main).
+    identity_by_ft = {}
+    for e in events_doc["player_events"]:
+        identity_by_ft[(e["frame"], e["track_id"])] = (e["identity_id"], e["identity_state"])
+
+    results = []
+    for a, _seg, shot, hoop_label in evaluate_arcs(arcs_doc["chains"],
+                                                   hoop_at_far, hoop_at_near):
+        rec = {"start_frame": a["start_frame"], "end_frame": a["end_frame"],
+               "accel_y": a["accel_y"], "hoop": hoop_label, **shot}
+        if shot["verdict"] == "shot_attempt":
+            rel = find_release(a["fit_x"], a["fit_y"], a["start_frame"], tracks_by_frame)
+            if rel["status"] != "found":
+                rec["shooter"] = {"status": "no_confident_shooter",
+                                  "reason": f"no tracked body within "
+                                            f"{RELEASE_DIST_GATE_PX}px of the "
+                                            f"back-extrapolated release path within "
+                                            f"{RELEASE_BACK_MAX_FRAMES} frames"}
+            elif not (tracks_span[0] <= rel["release_frame"] < tracks_span[1]):
+                rec["shooter"] = {"status": "no_identity_data",
+                                  "reason": f"release frame {rel['release_frame']} "
+                                            f"outside tracks cache span {tracks_span}",
+                                  "release": rel}
+            else:
+                tid = rel["track_id"]
+                ident = identity_by_ft.get((rel["release_frame"], tid))
+                if ident is None:
+                    rec["shooter"] = {"status": "no_identity_data",
+                                      "reason": f"track {tid} has no identity event "
+                                                f"at release frame {rel['release_frame']}",
+                                      "release": rel}
+                else:
+                    identity_id, identity_state = ident
+                    status = ("attributed" if identity_state == "confirmed"
+                              else "review_item")
+                    rec["shooter"] = {"status": status, "track_id": tid,
+                                      "identity_id": identity_id,
+                                      "identity_state": identity_state,
+                                      "release": rel}
+        results.append(rec)
+
+    out_json = _out(config, "shot_attempts.json")
+    json.dump({"clip": config.name, "hoop_radius_px": HOOP_RADIUS_PX,
+               "tracks_span": list(tracks_span), "attempts": results},
+              open(out_json, "w", encoding="utf-8"), indent=2)
+
+    # gate-comparable summary, same tuple shape as local_weights_check
+    shots = [r for r in results if r["verdict"] == "shot_attempt"]
+    print(f"[ball_stages] arcs evaluated: {len(results)}  shot attempts: {len(shots)}")
+    print("SHOT ATTEMPTS (start,end,hoop,type,min_dist,arrival):")
+    for r in shots:
+        print(f"   ({r['start_frame']}, {r['end_frame']}, {r['hoop']!r}, "
+              f"{r['shot_type']!r}, {r['min_dist']}, {r['arrival']!r})  "
+              f"shooter={r.get('shooter', {}).get('status')}")
+    print("near-rim REJECTIONS (deflection/continuation reasons):")
+    for r in results:
+        if r["verdict"] != "shot_attempt" and "deflection" in (r.get("reason") or ""):
+            print(f"   ({r['start_frame']}, {r['end_frame']}, {r['hoop']!r}, "
+                  f"{r['reason']!r})")
+    print(f"[ball_stages] wrote {out_json}")
+    return out_json
+
+
+def stage_shot_location(config, sa_json):
+    """Shooter court-feet at release (oncourt join) + flat shot chart --
+    shot_location's functions with explicit paths."""
+    from shot_location import find_shot_location, render_shot_chart
+    sa_doc = _load(sa_json)
+    oncourt_doc = _load(os.path.join(_ROOT, "phase2", "out",
+                                     f"{config.name}_oncourt.json"))
+    results = []
+    for a in sa_doc["attempts"]:
+        if a["verdict"] != "shot_attempt":
+            continue
+        loc = find_shot_location(a, oncourt_doc)
+        results.append({"start_frame": a["start_frame"], "end_frame": a["end_frame"],
+                        "shooter_status": a.get("shooter", {}).get("status"), **loc})
+
+    out_json = _out(config, "shot_locations.json")
+    json.dump({"clip": config.name, "locations": results},
+              open(out_json, "w", encoding="utf-8"), indent=2)
+    for r in results:
+        print(f"   {r['start_frame']}..{r['end_frame']}  shooter={r['shooter_status']}  "
+              f"{r['status']}  {r.get('court_feet', r.get('reason'))}")
+
+    located = [{"status": r["shooter_status"], "court_feet": r["court_feet"]}
+               for r in results if r["status"] == "located"]
+    chart_path = _out(config, "shot_chart.png")
+    render_shot_chart(config.name, located, chart_path)
+    print(f"[ball_stages] wrote {out_json} and {chart_path}")
+    return out_json
+
+
+def stage_shot_outcome(config, sa_json, arcs_json, hoop_json, det_json):
+    """Candidate make/miss labels (review-first, never a bare stat) --
+    shot_outcome's evidence functions with explicit paths."""
+    from shot_outcome import (below_rim_fall_evidence, classify_outcome,
+                              deflection_evidence)
+    sa_doc = _load(sa_json)
+    arcs_doc = _load(arcs_json)
+    hoop_doc = _load(hoop_json)
+    det_doc = _load(det_json)
+
+    hoop_lookups = {"far": _hoop_lookup(hoop_doc, "hoop_far_px"),
+                    "near": _hoop_lookup(hoop_doc, "hoop_near_px")}
+    raw_by_frame = {fr["frame_index"]: fr["detections"] for fr in det_doc["frames"]}
+    chains = arcs_doc["chains"]
+
+    results = []
+    for a in sa_doc["attempts"]:
+        if a["verdict"] != "shot_attempt":
+            continue
+        hoop_at = hoop_lookups[a.get("hoop", "far")]
+        after = a["at_frame"]      # closest hoop approach -- outcome plays out AFTER
+        make_ev = below_rim_fall_evidence(raw_by_frame, hoop_at, after)
+        miss_ev = deflection_evidence(chains, hoop_at, after)
+        outcome = classify_outcome(make_ev, miss_ev)
+        results.append({"start_frame": a["start_frame"], "end_frame": a["end_frame"],
+                        "hoop": a.get("hoop", "far"),
+                        "checked_after_frame": after, **outcome})
+
+    out_json = _out(config, "shot_outcomes.json")
+    json.dump({"clip": config.name, "outcomes": results},
+              open(out_json, "w", encoding="utf-8"), indent=2)
+    for r in results:
+        print(f"   {r['start_frame']}..{r['end_frame']}  outcome={r['outcome']}  "
+              f"{r.get('reason', '')}")
+    print(f"[ball_stages] wrote {out_json}  (all outcomes are candidate labels "
+          f"feeding review -- never a bare made/missed stat)")
+    return out_json

@@ -132,6 +132,28 @@ def run(config):
     import stage8_box_score as box
     box.main()
 
+    # --- P5: ball/shot layer (sits BESIDE the spine -- never touches
+    #     team_events or any Phase 1/2 artifact, ROADMAP Principle 4) ---
+    sa_json = None
+    if config.ball_span_len:
+        import ball_stages as bs
+        _section("PHASE 5 -- ball detection (own fine-tuned weights)")
+        det_json = bs.stage_ball_detect(config)
+        _section("PHASE 5 -- hoop anchor carry")
+        hoop_json = bs.stage_hoop_anchor(config)
+        _section("PHASE 5 -- ball trajectory (physics-gated arcs)")
+        arcs_json = bs.stage_ball_trajectory(config, det_json)
+        _section("PHASE 5 -- shot attempts")
+        sa_json = bs.stage_shot_attempts(config, arcs_json, hoop_json)
+        _section("PHASE 5 -- shot locations + chart")
+        loc_json = bs.stage_shot_location(config, sa_json)
+        _section("PHASE 5 -- shot outcomes (candidate labels, review-first)")
+        outc_json = bs.stage_shot_outcome(config, sa_json, arcs_json, hoop_json, det_json)
+    else:
+        _section("PHASE 5 -- ball/shot layer")
+        print(f"[run_clip] ball layer not configured for {config.name} "
+              f"(ball_span_len=0) -- skipped, not silently faked.")
+
     # --- INTEGRITY REPORT ---
     _section("INTEGRITY")
     pe_doc = json.load(open(pe.OUT_JSON, encoding="utf-8"))
@@ -155,6 +177,17 @@ def run(config):
               f"retro={sc.get('confirmed_retroactive', 0)} "
               f"candidate={sc.get('candidate', 0)} unknown={sc.get('unknown', 0)}  "
               f"(canonical artifact: {os.path.basename(merge.OUT_JSON)})")
+    if sa_json is not None:
+        sa = json.load(open(sa_json, encoding="utf-8"))
+        loc = json.load(open(loc_json, encoding="utf-8"))
+        outc = json.load(open(outc_json, encoding="utf-8"))
+        n_att = sum(1 for r in sa["attempts"] if r["verdict"] == "shot_attempt")
+        n_loc = sum(1 for r in loc["locations"] if r["status"] == "located")
+        oc = {}
+        for r in outc["outcomes"]:
+            oc[r["outcome"]] = oc.get(r["outcome"], 0) + 1
+        print(f"shot layer: {n_att} attempt(s), {n_loc} located, outcomes {oc} "
+              f"(candidate labels feeding review, never bare stats)")
     print(f"\n[run_clip] DONE -- {config.name} ran end-to-end.")
 
 

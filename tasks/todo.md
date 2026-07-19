@@ -1,3 +1,121 @@
+# SHOT-LAYER INTEGRATION INTO run_clip (current task, 2026-07-19)
+
+Ship-handoff item 1: the proven spike chain (ball detect -> trajectory ->
+hoop anchor -> shot attempts -> shot location -> shot outcome) becomes
+real pipeline stages run by run_clip.py, config-driven from ClipConfig.
+Plumbing only: REUSE the spike functions (import, don't rewrite), no
+threshold tuning, no Phase 6/7 work, nothing writes into team_events
+(ROADMAP Principle 4). The verified configuration being integrated is
+TEST 10's exact chain: v2 weights detection (conf=0.05, imgsz=1280) ->
+conf>=0.10 analysis filter (local_weights_check.CONF_FLOOR, the
+TEST 2/8/10 protocol) -> build_chains/classify_chain -> classify_shot
+both hoops.
+
+## Plan
+- [x] 0. Check in with DJ on this plan before writing code. APPROVED
+      ("yes build"), incl. the two flagged judgment calls (new
+      {clip}_ball_detections.json artifact name; fingerprint-gated
+      reuse for the two slow stages).
+- [x] 1. ClipConfig gains ball-layer fields (clip_config.py):
+      ball_weights_path (default models/ball_finetuned_v2.pt -- swap to
+      v3 later = one line), ball_span_start/ball_span_len (the spans the
+      TEST-10 gate ran: HARD 0/2746, TEST1 0/605), hoop_anchors
+      {"far": (keyframe, (x,y)), "near": ...} moved from
+      spikes/hoop_anchor.RIM_ANCHORS constants -- TEST1 far kf-120
+      (582,143) / near kf-580 (1377,233); HARD far kf-1100 (1855,228) /
+      near kf-600 (633,190). validate() checks: weights file exists,
+      spans sane, both anchor keys present. Tests for the new
+      validations first.
+- [x] 2. Minimal spike edits so the modules are cleanly importable:
+      DONE -- both import-time clobber traps guarded (hoop_anchor
+      clips_config.ACTIVE, ball_spike clip_config.ACTIVE_CLIP; verified
+      by an import test under ACTIVE='TEST1'); ball_spike.detect()
+      extracted, main() calls it with the exact argv values.
+      (a) hoop_anchor.py: `_cc.ACTIVE = CLIP_NAME_ARG` (line 51) runs
+      unconditionally at IMPORT time and would clobber run_clip's
+      clip sync with "HARD" on a TEST1 run -- guard it under __main__
+      (standalone CLI behavior unchanged; tests import only pure
+      functions, verified). main() reads anchors from ClipConfig
+      (RIM_ANCHORS constants retired -- one source of truth).
+      (b) ball_spike.py: extract the detection loop into a callable
+      detect(...) taking explicit clip/span/model/output paths; the
+      CLI main() calls it with today's exact argv behavior (byte-same
+      spike usage, now also importable by the pipeline).
+      (c) ball_trajectory / shot_attempts / shot_location /
+      shot_outcome: NO edits -- their pure functions are already
+      importable; the literal-data regression tests in
+      tests/test_ball_trajectory.py stay untouched.
+- [x] 3. New glue module ball_stages.py (one file, top level beside
+      run_clip.py): six stage functions taking a ClipConfig, passing
+      EXPLICIT paths between stages (no argv, no module-level state):
+        s1 ball detection  -> spikes/out/{clip}_ball_detections.json
+                              (+ overlay mp4), via ball_spike.detect()
+                              with config.ball_weights_path
+        s2 hoop anchor     -> {clip}_hoop_track.json via
+                              hoop_anchor.build_hoop_track(config anchors)
+        s3 trajectory      -> {clip}_ball_arcs.json: conf>=0.10 filter
+                              (CONF_FLOOR imported from
+                              local_weights_check) then
+                              build_chains/classify_chain -- the exact
+                              TEST-10 chain
+        s4 shot attempts   -> {clip}_shot_attempts.json: classify_shot
+                              both hoops + find_release/identity join
+                              (same candidate-pick logic as the spike
+                              main; attempts outside the tracks span
+                              stay honest no_identity_data)
+        s5 shot location   -> {clip}_shot_locations.json + shot chart
+                              png via find_shot_location/render_shot_chart
+        s6 shot outcome    -> {clip}_shot_outcomes.json via
+                              below_rim_fall_evidence/deflection_evidence
+      NOTE detection log filename: s1 writes {clip}_ball_detections.json
+      (new pipeline artifact) rather than overwriting the spike-era
+      {clip}_ball_spike_log.json (stock-model canonical) or the
+      suffixed TEST-10 measurement logs -- everything sits beside the
+      existing artifacts, nothing verified gets clobbered.
+      SLOW-STAGE REUSE (mirrors the tracks-cache pattern): s1 and s2
+      (the two multi-hour/SIFT stages) reuse an existing output ONLY on
+      an exact fingerprint match (clip, span, model basename, imgsz,
+      conf / anchors), loudly printed; any mismatch = rerun and
+      overwrite. Fingerprint fields already live in both docs. This is
+      reuse-or-rerun, never reuse-approximate.
+- [x] 4. run_clip.py: append the six numbered PHASE 5 sections after
+      the box score, calling ball_stages in order; integrity report
+      gains one line (attempts / located / outcomes counts).
+- [x] 5. Tests DONE (19 new in tests/test_ball_stages.py; suite
+      164 -> 183 green, 2.4s). The literal-data regression PASSES:
+      the integrated chain reproduces TEST 10's exact TEST1 result
+      (4 attempts incl. both target layups + shot B missed + both
+      rejections) from the saved v2 log. Original item text: new
+      ClipConfig validations; conf-floor filtering (literal check that
+      a 0.09-conf det is excluded, 0.10 kept); anchors-from-config;
+      fingerprint reuse-vs-rerun. Plus one literal-data regression:
+      feed the SAVED TEST1 v2 log (spikes/out/
+      TEST1_ball_spike_log_ball_finetuned_v2.json) through the s3+s4
+      functions and assert TEST 10's exact 4 attempts incl. the 3
+      layups -- fast, no video, locks the integrated chain to the
+      measured result. Full suite (164) green throughout; the
+      test_ball_trajectory literal-data tests are never weakened.
+- [ ] 6. VERIFICATION GATE (background runs, hours -- CPU detection):
+      full run_clip.py on HARD and TEST1 must reproduce TEST 10's
+      EXACT results from the integrated pipeline:
+        HARD: attempts (351-375 near) + (1188-1213 far) present;
+        deflections 416-438 and 1216-1250 REJECTED. The known v2
+        artifacts must also reproduce exactly -- the DJ-refuted FP
+        (401-415 near "layup") and the unverified 1352-1381 candidate
+        WILL appear; that is correct reproduction, not something to
+        tune away (they are on the Milestone-2/v3 list).
+        TEST1: 4/5 verified attempts -- (58-70 extrapolated),
+        layups (164-184), (236-250), (581-589); shot B 315-327
+        missed (v2's known blind spot, expected).
+      ANY deviation = STOP and report; thresholds are never adapted to
+      pass. Known risk on the record: TEST 10's HARD log was GPU-made;
+      this rerun is CPU. TEST 8 measured GPU-vs-CPU identical for v1;
+      if v2 differs on CPU, that is a finding to report, not to patch.
+- [ ] 7. Review section here + commit per CLAUDE.md.
+
+NOT in scope: Phase 6 scaling, web worker, tracker changes, threshold
+tuning, v3 training, make/miss improvements.
+
 # FINE-TUNED MODEL + PLAYER-TRACKER PROBE (current task, 2026-07-14)
 
 HARD CONSTRAINT (user, 2026-07-14): the system is built around EXISTING
@@ -1586,3 +1704,140 @@ IMPOSSIBLE until a second signal (OCR, later step) exists.
 - ~16 sampled frames => the heatmap/zone mapping is PROVEN to render correctly;
   the numbers are not real basketball stats (dense pipeline produces those later).
 - Coach demo gate: `phase1/out/TEST1_phase1_demo.png`.
+
+# LOCAL BALL MODEL — GPU-trained weights adoption diligence (2026-07-17)
+
+Continuation of the open "ADOPTION diligence" item above: TEST_LOG.md's
+TEST 2 already proved the HOSTED fine-tuned model (basketball-players-fy4c2
+v25) reproduces both HARD ground-truth shots via the Roboflow API. Cost
+problem: hosted = ~72k API calls/game, free tier won't scale. This task
+trains OWN weights on a rented GPU (RunPod) so the same detector can run
+locally at game scale with no API dependency.
+
+## Plan
+- [x] RunPod pod + persistent Network Volume set up, dataset (basketball-
+      players-fy4c2 v25, same as hosted) downloaded to /workspace, YOLOv8m
+      trained @ imgsz=1280, 100 epochs. Result: best.pt, overall mAP50
+      0.877, but Ball class specifically weaker (recall 0.567, mAP50 0.642)
+      than other classes -- flagged to user, not glossed over.
+- [ ] Download best.pt from the pod to the local repo (models/).
+- [ ] Small fix to spikes/ball_spike.py: it hardcodes COCO class 32
+      ("sports ball") for the ball filter, which only matches STOCK
+      models. Our fine-tuned model's own class list has "Ball" at a
+      different index (0), so class filtering needs to key off the loaded
+      model's own name->id mapping instead of the hardcoded COCO id, with
+      the COCO id kept as fallback for stock model runs (no behavior
+      change for existing stock usage).
+- [ ] Run ball_spike.py on HARD with the local weights (same clip/spans
+      TEST_LOG.md's TEST 2 already used), then the SAME existing chain
+      already in the repo (ball_trajectory.py -> shot_attempts.py) to
+      check: does it reproduce the 2 verified shots (356-381 near,
+      1188-1211 far) and correctly reject the known deflections
+      (418-438, 1217-1250)? Mirrors TEST 2's protocol exactly, just with
+      local weights instead of the hosted API.
+- [ ] Report comparison honestly (local vs hosted vs stock) — nothing
+      adopted as the pipeline default until this is measured and the user
+      reviews it, same discipline as every other TEST_LOG entry.
+
+Scope guard: this only touches spikes/ (probe territory) + a local models/
+folder; no edits to committed pipeline defaults (run_clip.py, tracking.py,
+clip_config.py) regardless of outcome.
+
+# SHIP HANDOFF — state + critical path to a working demo (written 2026-07-19)
+
+DJ directive: SHIP / working demo is the priority. Footage labeling
+continues in parallel as a background improvement loop (labels are
+cumulative; model files never expire) — it must NOT block demo work.
+
+## Exact current state (ball/shot layer)
+- Weights OWNED, zero API dependency: models/ball_finetuned_v1.pt (yolov8m
+  recipe) and v2.pt (yolov8l recipe). TEST 8/9/10 in TEST_LOG.md are the
+  record. v2 = best single model: HARD 2/2 shots + 2/2 deflections BUT one
+  DJ-refuted FALSE POSITIVE (401-415 "layup" = actually rebound->dish);
+  TEST1 4/5 (missing shot B 315-327). v1 and v2 have COMPLEMENTARY blind
+  spots (union = 5/5 TEST1). Hosted API no longer needed for anything.
+- Milestone 2 labeling IN PROGRESS: Roboflow project "my-footage-ball"
+  (DJ's workspace, class "ball"), 231 targeted frames uploaded, ~3/4
+  labeled as of 2026-07-19. When DJ finishes: Generate dataset version in
+  Roboflow -> download via RF_KEY -> merge with public dataset v25 ->
+  train v3 FROM v2 weights on pod -> same TEST 8/9-style gates (HARD must
+  stay 2/2+0FP, TEST1 target 5/5, rebound/dish must NOT re-claim).
+- RunPod workflow (see memory infra_runpod_gpu.md): volume persists,
+  pods are disposable; direct-TCP SSH does exec+scp, proxy SSH does not;
+  pick LOWER-cuda pytorch template (host-driver trap, hit once).
+
+## Critical path to demo (maps to ROADMAP Phases 5->6->7)
+1. INTEGRATE the spike chain into run_clip as real stages (ball detect
+   with own weights -> ball_trajectory -> shot_attempts -> shot_location
+   -> shot_outcome). Everything exists in spikes/, proven by gates; the
+   work is porting to per-clip stages + ClipConfig fields (weights path,
+   hoop anchors) + tests. Ball layer sits BESIDE team_events (Principle
+   4). Needs DJ adoption call: v2-alone (simplest, one FP class to
+   watch), or v1+v2 union (5/5 but 2x compute) — recommend deciding
+   AFTER v3's numbers land.
+2. Phase 6 full-game scale: G5 is now ANSWERED by practice (rented GPU
+   per game, RunPod); needs streaming frame access + batch runner +
+   resumable stages. Demo can be a single clip, so 6 can start minimal.
+3. Phase 7 worker loop: jobs table + subprocess run_clip + artifacts to
+   storage -> the coach-facing demo (dad uploads, box score + shot chart
+   come back). Phase 8 narrative comes only after real outputs.
+
+## Open DJ items (non-blocking, keep visible)
+- Eyeball: TEST1 84-98 candidate (from TEST 1); HARD 1352-13xx candidate
+  (~45.1-45.9s, claimed by hosted AND v2); TEST1 shotA marginal pass.
+- Player-tracker plan (below) — item 2 (ID-switch ground truth session)
+  is the highest-value unblock; can ride along with any labeling session.
+- HARD 7 queue items unsure; TEST1 2 refused resolutions; t49 splice.
+
+# PLAYER-TRACKER PLAN OF RECORD (DJ-approved 2026-07-17)
+
+Synthesis of TEST_LOG Tests 3-7 + DECISIONS §11/§22/§23. The tracker's
+enemy is FRAGMENTATION (122 fragments/15s; clicks scale with fragments;
+paint fragmentation is the layup-attribution blocker). Measured lever
+scoreboard lives in TEST_LOG's cross-test summary. Standing constraint:
+fragmentation metrics CANNOT see wrong-merges (ID switches) — a
+confidently-wrong track is worse than a fragmented one; nothing adopts
+on proxy metrics alone.
+
+- [ ] 1. COMBO PROBE (cheap, read-only, next session): BoT-SORT + GMC
+      sparseOptFlow + match_thresh 0.9 (and 0.85 as cautious middle) —
+      Tests 5/6 measured these levers separately, never together. Same
+      probe harness (spikes/reid_fragment_probe.py pattern), same TEST1
+      span, vs 122/105.8 baseline. Output: ceiling of the current-
+      detector stack.
+- [ ] 2. ID-SWITCH GROUND TRUTH (the missing measurement, unblocks the
+      biggest lever): DJ labels true identities over a short span
+      (15-30s, "this track is #23...") ONCE -> permanent measuring stick
+      (the tracker-side analog of the verified-shots list). Then any
+      variant gets a REAL ID-switch count, resolving Test 6's mt=0.9
+      safety caveat with data instead of fear. HIGHEST VALUE ITEM.
+- [ ] 3. FINE-TUNED PLAYER DETECTOR (rides along with ball Milestone 2):
+      in the same labeling session as ball-miss frames, label PLAYERS in
+      crowded-paint frames (where ByteTrack shatters, §22: 10 fragments
+      in one layup). Retrain -> re-run combo probe with fine-tuned
+      Player class as tracking input + Test 4's ref exclusion (refs out
+      of review queue, per-clip ROI mask retired).
+- [ ] 4. COLOR-CONSTRAINED FRAGMENT STITCHING (queued idea, never run):
+      appearance re-ID failed because TEAMMATES look identical, but the
+      shipped color-tiebreak centroids reliably separate the two TEAMS
+      -> team color as a stitch-candidate constraint (green never
+      stitches to white) halves the search space, provably-safe
+      direction. Measured probe, same protocol.
+- [ ] 5. SAFETY DEBTS -> PREREQUISITES before adopting longer tracks
+      (more damage per splice when tracks lengthen):
+      (a) spread review-page crops across early/mid/late track life
+          (t49-class splices hide in one-stretch crops);
+      (b) Part-1/Part-2 cross-check gap (two labeling channels never
+          validate each other — DECISIONS §4 known debt);
+      (c) disputed-frame color extension (HARD id7's real 2.7s currently
+          zeroed — DECISIONS §12 finding 1).
+- [ ] 6. END-TO-END ADOPTION GATE (product numbers, not tracker
+      numbers): clicks-per-game, % roster named, retro-recovery seconds,
+      wrong-confirms = EXACTLY ZERO, on BOTH clips, winning stack vs
+      committed baseline. Only then does bytetrack.yaml change.
+
+Ordering rationale: 1 is nearly free and bounds the ceiling; 2 converts
+"looks better" into "is safe" and unblocks mt=0.9; 3-4 stack on the new
+GPU + labeling assets; 5 must land before any adoption that lengthens
+tracks; 6 is the only gate that counts.
+

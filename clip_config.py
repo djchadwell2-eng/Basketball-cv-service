@@ -38,6 +38,18 @@ class ClipConfig:
     seed_labels: dict               # track_id -> jersey number (hand-verified first signal)
     accumulation_window_seconds: float  # OCR temporal-accumulation window (demo stand-in = 2.0s)
     tracks_cache_path: str          # where ByteTrack tracks are written/read
+    # --- Phase 5 ball/shot layer (verified chain: TEST_LOG TESTs 8-10) -------
+    # Own fine-tuned detector weights; v2 = best single model (TEST 10:
+    # HARD 2/2 verified shots + 2/2 deflections rejected, TEST1 4/5).
+    # Swapping in a future v3 is a one-line change here.
+    ball_weights_path: str = os.path.join(_ROOT, "models", "ball_finetuned_v2.pt")
+    ball_span_start: int = 0        # ball-layer detection span (frames)
+    ball_span_len: int = 0          # 0 = ball layer not configured for this clip
+    # Per-clip human-confirmed rim pixels (click-seeding philosophy: system
+    # proposes on a marked still, user confirms, once per basket per clip),
+    # carried per-frame by spikes/hoop_anchor.build_hoop_track:
+    #   {"far": (keyframe, (x, y)), "near": (keyframe, (x, y))}
+    hoop_anchors: dict = None
     # Escape hatch for DELIBERATE rigs only (e.g. a stand-in roster whose seed
     # labels are off-roster). A real per-game config must never need this.
     allow_off_roster_seeds: bool = False
@@ -71,6 +83,16 @@ class ClipConfig:
                 f"or set allow_off_roster_seeds=True for a deliberate rig")
         if self.accumulation_window_seconds <= 0:
             problems.append("accumulation_window_seconds must be > 0")
+        if self.ball_span_len:              # ball layer configured -> must be runnable
+            if not os.path.exists(self.ball_weights_path):
+                problems.append(f"ball weights not found: {self.ball_weights_path}")
+            if self.ball_span_start < 0:
+                problems.append(f"bad ball span {self.ball_span_start}..+{self.ball_span_len}")
+            if (not isinstance(self.hoop_anchors, dict)
+                    or set(self.hoop_anchors) != {"far", "near"}):
+                problems.append(
+                    "hoop_anchors must map exactly {'far', 'near'} to "
+                    "(keyframe, (x, y)) when the ball layer is configured")
         if problems:
             raise SystemExit(f"INVALID ClipConfig {self.name!r} -- refusing to run:\n  - "
                              + "\n  - ".join(problems))
@@ -116,6 +138,13 @@ TEST1_CLIP = ClipConfig(
     seed_labels={17: 13, 6: 5},         # hand-verified by eye (still on-roster)
     accumulation_window_seconds=2.0,
     tracks_cache_path=_cache("TEST1"),
+    # Ball layer: TEST 9/10's measured span (all 5 user-verified attempts).
+    ball_span_start=0,
+    ball_span_len=605,
+    hoop_anchors={
+        "far": (120, (582.0, 143.0)),      # user-confirmed 2026-07-14 (DECISIONS 19)
+        "near": (580, (1377.0, 233.0)),    # user-confirmed 2026-07-14 (DECISIONS 19)
+    },
 )
 
 # --- HARD: REAL ROSTER (user-entered from film, 2026-07-06). Full-pan tracking
@@ -146,6 +175,13 @@ HARD_CLIP = ClipConfig(
     seed_labels={},
     accumulation_window_seconds=2.0,
     tracks_cache_path=_cache("HARD"),
+    # Ball layer: full clip, TEST 8/10's measured span.
+    ball_span_start=0,
+    ball_span_len=2746,
+    hoop_anchors={
+        "far": (1100, (1855.0, 228.0)),    # user-confirmed 2026-07-13 (DECISIONS 15)
+        "near": (600, (633.0, 190.0)),     # user-confirmed 2026-07-14 (DECISIONS 18)
+    },
 )
 
 # The clip the stage scripts operate on when run standalone. The combined entry
