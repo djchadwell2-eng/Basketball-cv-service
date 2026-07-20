@@ -2,25 +2,70 @@
   "clip": "HARD",
   "outcomes": [
     {
-      "start_frame": 356,
-      "end_frame": 381,
+      "start_frame": 351,
+      "end_frame": 375,
       "hoop": "near",
-      "checked_after_frame": 381,
+      "checked_after_frame": 375,
+      "outcome": "candidate_miss",
+      "evidence": {
+        "chain_start_frame": 376,
+        "start_dist_px": 77.6,
+        "end_frame": 488,
+        "end_dist_px": 526.1
+      }
+    },
+    {
+      "start_frame": 401,
+      "end_frame": 415,
+      "hoop": "near",
+      "checked_after_frame": 406,
       "outcome": "unknown",
-      "reason": "no evidence either way"
+      "reason": "conflicting evidence (both fall-through and deflection signals present)",
+      "make_evidence": {
+        "frames": [
+          407,
+          408,
+          409,
+          410,
+          411,
+          412,
+          413,
+          415,
+          416,
+          417,
+          418,
+          419,
+          420
+        ],
+        "n_points": 13
+      },
+      "miss_evidence": {
+        "chain_start_frame": 409,
+        "start_dist_px": 14.7,
+        "end_frame": 488,
+        "end_dist_px": 526.1
+      }
     },
     {
       "start_frame": 1188,
-      "end_frame": 1211,
+      "end_frame": 1213,
       "hoop": "far",
-      "checked_after_frame": 1211,
+      "checked_after_frame": 1213,
       "outcome": "candidate_miss",
       "evidence": {
-        "chain_start_frame": 1217,
-        "start_dist_px": 26.2,
+        "chain_start_frame": 1216,
+        "start_dist_px": 25.3,
         "end_frame": 1257,
-        "end_dist_px": 344.2
+        "end_dist_px": 344.7
       }
+    },
+    {
+      "start_frame": 1352,
+      "end_frame": 1381,
+      "hoop": "far",
+      "checked_after_frame": 1362,
+      "outcome": "unknown",
+      "reason": "no evidence either way"
     }
   ]
 }

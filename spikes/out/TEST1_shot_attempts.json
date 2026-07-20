@@ -7,132 +7,185 @@
   ],
   "attempts": [
     {
-      "start_frame": 59,
-      "end_frame": 71,
-      "accel_y": 1.98,
+      "start_frame": 58,
+      "end_frame": 70,
+      "accel_y": 1.863,
       "hoop": "far",
       "verdict": "shot_attempt",
-      "min_dist": 87.2,
-      "at_frame": 86,
+      "min_dist": 118.1,
+      "at_frame": 85,
       "arrival": "extrapolated",
+      "shot_type": "jumpshot",
+      "origin_dist": 353.4,
       "shooter": {
         "status": "no_confident_shooter",
         "reason": "no tracked body within 120.0px of the back-extrapolated release path within 10 frames"
       }
     },
     {
-      "start_frame": 315,
-      "end_frame": 327,
-      "accel_y": 1.197,
+      "start_frame": 103,
+      "end_frame": 110,
+      "accel_y": 0.933,
+      "hoop": "far",
+      "verdict": "not_shot",
+      "min_dist": 112.6,
+      "reason": "originates 112.6px from the hoop and leaves it (ends 171.9px away) -- a deflection/continuation, not a fresh release"
+    },
+    {
+      "start_frame": 164,
+      "end_frame": 184,
+      "accel_y": 1.206,
       "hoop": "far",
       "verdict": "shot_attempt",
-      "min_dist": 101.5,
-      "at_frame": 324,
+      "min_dist": 15.3,
+      "at_frame": 184,
       "arrival": "observed",
+      "shot_type": "layup",
+      "origin_dist": 91.5,
       "shooter": {
         "status": "review_item",
-        "track_id": 87,
-        "identity_id": 40,
-        "identity_state": "confirmed_retroactive",
+        "track_id": 14,
+        "identity_id": 13,
+        "identity_state": "unknown",
         "release": {
           "status": "found",
-          "release_frame": 313,
-          "track_id": 87,
+          "release_frame": 163,
+          "track_id": 14,
           "dist_px": 0.0,
           "ball_xy": [
-            327.2,
-            345.2
+            657.2,
+            209.6
           ]
         }
       }
     },
     {
-      "start_frame": 354,
-      "end_frame": 371,
-      "accel_y": 1.342,
+      "start_frame": 188,
+      "end_frame": 202,
+      "accel_y": 1.264,
       "hoop": "far",
       "verdict": "not_shot",
-      "min_dist": 195.0
+      "min_dist": 32.8,
+      "reason": "originates 32.8px from the hoop and leaves it (ends 132.2px away) -- a deflection/continuation, not a fresh release"
+    },
+    {
+      "start_frame": 236,
+      "end_frame": 250,
+      "accel_y": 1.265,
+      "hoop": "far",
+      "verdict": "shot_attempt",
+      "min_dist": 27.2,
+      "at_frame": 250,
+      "arrival": "observed",
+      "shot_type": "layup",
+      "origin_dist": 27.6,
+      "shooter": {
+        "status": "review_item",
+        "track_id": 14,
+        "identity_id": 13,
+        "identity_state": "unknown",
+        "release": {
+          "status": "found",
+          "release_frame": 232,
+          "track_id": 14,
+          "dist_px": 0.0,
+          "ball_xy": [
+            597.6,
+            155.1
+          ]
+        }
+      }
+    },
+    {
+      "start_frame": 346,
+      "end_frame": 353,
+      "accel_y": 2.99,
+      "hoop": "far",
+      "verdict": "not_shot",
+      "min_dist": 204.4,
+      "reason": "never reaches the hoop region"
+    },
+    {
+      "start_frame": 354,
+      "end_frame": 371,
+      "accel_y": 1.275,
+      "hoop": "far",
+      "verdict": "not_shot",
+      "min_dist": 193.9,
+      "reason": "never reaches the hoop region"
     },
     {
       "start_frame": 375,
-      "end_frame": 386,
-      "accel_y": 1.563,
+      "end_frame": 383,
+      "accel_y": 2.049,
       "hoop": "far",
       "verdict": "not_shot",
-      "min_dist": 226.7
+      "min_dist": 228.4,
+      "reason": "never reaches the hoop region"
     },
     {
-      "start_frame": 387,
+      "start_frame": 388,
       "end_frame": 400,
-      "accel_y": 1.412,
+      "accel_y": 1.391,
       "hoop": "far",
       "verdict": "not_shot",
-      "min_dist": 225.9
+      "min_dist": 223.1,
+      "reason": "never reaches the hoop region"
     },
     {
-      "start_frame": 439,
+      "start_frame": 410,
+      "end_frame": 417,
+      "accel_y": 1.455,
+      "hoop": "far",
+      "verdict": "not_shot",
+      "min_dist": 450.3,
+      "reason": "never reaches the hoop region"
+    },
+    {
+      "start_frame": 419,
+      "end_frame": 430,
+      "accel_y": 0.946,
+      "hoop": "far",
+      "verdict": "not_shot",
+      "min_dist": 409.5,
+      "reason": "never reaches the hoop region"
+    },
+    {
+      "start_frame": 437,
       "end_frame": 457,
-      "accel_y": 1.107,
+      "accel_y": 1.153,
       "hoop": "far",
       "verdict": "not_shot",
-      "min_dist": 361.8
+      "min_dist": 352.3,
+      "reason": "never reaches the hoop region"
     },
     {
-      "start_frame": 718,
-      "end_frame": 741,
-      "accel_y": 1.14,
+      "start_frame": 581,
+      "end_frame": 589,
+      "accel_y": 0.998,
       "hoop": "near",
-      "verdict": "not_shot",
-      "min_dist": 521.9
-    },
-    {
-      "start_frame": 745,
-      "end_frame": 762,
-      "accel_y": 1.106,
-      "hoop": "near",
-      "verdict": "not_shot",
-      "min_dist": 867.4
-    },
-    {
-      "start_frame": 769,
-      "end_frame": 783,
-      "accel_y": 1.235,
-      "hoop": "far",
-      "verdict": "not_shot",
-      "min_dist": 1044.1
-    },
-    {
-      "start_frame": 793,
-      "end_frame": 800,
-      "accel_y": 0.982,
-      "hoop": "far",
-      "verdict": "not_shot",
-      "min_dist": 917.2
-    },
-    {
-      "start_frame": 809,
-      "end_frame": 828,
-      "accel_y": 1.574,
-      "hoop": "far",
-      "verdict": "not_shot",
-      "min_dist": 916.1
-    },
-    {
-      "start_frame": 944,
-      "end_frame": 957,
-      "accel_y": 0.935,
-      "hoop": "far",
-      "verdict": "not_shot",
-      "min_dist": 268.9
-    },
-    {
-      "start_frame": 959,
-      "end_frame": 974,
-      "accel_y": 1.192,
-      "hoop": "far",
-      "verdict": "not_shot",
-      "min_dist": 473.4
+      "verdict": "shot_attempt",
+      "min_dist": 18.4,
+      "at_frame": 589,
+      "arrival": "observed",
+      "shot_type": "layup",
+      "origin_dist": 55.1,
+      "shooter": {
+        "status": "attributed",
+        "track_id": 7,
+        "identity_id": 1,
+        "identity_state": "confirmed",
+        "release": {
+          "status": "found",
+          "release_frame": 571,
+          "track_id": 7,
+          "dist_px": 15.0,
+          "ball_xy": [
+            1453.7,
+            222.4
+          ]
+        }
+      }
     }
   ]
 }

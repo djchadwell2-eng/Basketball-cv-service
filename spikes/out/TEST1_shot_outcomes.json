@@ -2,18 +2,49 @@
   "clip": "TEST1",
   "outcomes": [
     {
-      "start_frame": 59,
-      "end_frame": 71,
+      "start_frame": 58,
+      "end_frame": 70,
       "hoop": "far",
-      "checked_after_frame": 86,
-      "outcome": "unknown",
-      "reason": "no evidence either way"
+      "checked_after_frame": 85,
+      "outcome": "candidate_miss",
+      "evidence": {
+        "chain_start_frame": 92,
+        "start_dist_px": 68.7,
+        "end_frame": 98,
+        "end_dist_px": 93.9
+      }
     },
     {
-      "start_frame": 315,
-      "end_frame": 327,
+      "start_frame": 164,
+      "end_frame": 184,
       "hoop": "far",
-      "checked_after_frame": 324,
+      "checked_after_frame": 184,
+      "outcome": "candidate_miss",
+      "evidence": {
+        "chain_start_frame": 185,
+        "start_dist_px": 19.6,
+        "end_frame": 210,
+        "end_dist_px": 180.9
+      }
+    },
+    {
+      "start_frame": 236,
+      "end_frame": 250,
+      "hoop": "far",
+      "checked_after_frame": 250,
+      "outcome": "candidate_miss",
+      "evidence": {
+        "chain_start_frame": 258,
+        "start_dist_px": 74.7,
+        "end_frame": 262,
+        "end_dist_px": 129.7
+      }
+    },
+    {
+      "start_frame": 581,
+      "end_frame": 589,
+      "hoop": "near",
+      "checked_after_frame": 589,
       "outcome": "unknown",
       "reason": "no evidence either way"
     }

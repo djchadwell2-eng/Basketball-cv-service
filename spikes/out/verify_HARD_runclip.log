@@ -1,0 +1,634 @@
+  WARNING: number(s) [3, 23] appear on BOTH teams -- OCR alone cannot tell them apart (resolved by the jersey-color tiebreak in stage8_box_score.py where color evidence allows; the rest stay AMBIGUOUS, never guessed)
+[run_clip] clip selectors in sync: 'HARD'
+
+========================================================================
+== CALIBRATION -- HARD
+========================================================================
+
+-- adjacent pair 600 -> 700 (sep 100) --
+  keypoints (excluded regions masked): A=12307, B=9642
+  matches passing ratio test (0.75): 2344
+  RANSAC inliers: 1985 / 2344  (inlier ratio = 0.847)
+
+-- adjacent pair 700 -> 800 (sep 100) --
+  keypoints (excluded regions masked): A=14985, B=12307
+  matches passing ratio test (0.75): 2152
+  RANSAC inliers: 1885 / 2152  (inlier ratio = 0.876)
+
+-- adjacent pair 800 -> 900 (sep 100) --
+  keypoints (excluded regions masked): A=13701, B=14985
+  matches passing ratio test (0.75): 3065
+  RANSAC inliers: 2472 / 3065  (inlier ratio = 0.807)
+
+-- adjacent pair 900 -> 1000 (sep 100) --
+  keypoints (excluded regions masked): A=13390, B=13701
+  matches passing ratio test (0.75): 3294
+  RANSAC inliers: 2975 / 3294  (inlier ratio = 0.903)
+
+-- adjacent pair 1000 -> 1100 (sep 100) --
+  keypoints (excluded regions masked): A=12995, B=13390
+  matches passing ratio test (0.75): 1437
+  RANSAC inliers: 1191 / 1437  (inlier ratio = 0.829)
+
+-- adjacent pair 1100 -> 1200 (sep 100) --
+  keypoints (excluded regions masked): A=10638, B=12995
+  matches passing ratio test (0.75): 1544
+  RANSAC inliers: 1165 / 1544  (inlier ratio = 0.755)
+  keypoints (excluded regions masked): A=9642, B=12307
+  matches passing ratio test (0.75): 2242
+  RANSAC inliers: 1723 / 2242  (inlier ratio = 0.769)
+  kf 600<->700: 1723 inliers, using 80 correspondences
+  keypoints (excluded regions masked): A=12307, B=14985
+  matches passing ratio test (0.75): 2078
+  RANSAC inliers: 1824 / 2078  (inlier ratio = 0.878)
+  kf 700<->800: 1824 inliers, using 80 correspondences
+  keypoints (excluded regions masked): A=14985, B=13701
+  matches passing ratio test (0.75): 3153
+  RANSAC inliers: 2530 / 3153  (inlier ratio = 0.802)
+  kf 800<->900: 2530 inliers, using 80 correspondences
+  keypoints (excluded regions masked): A=13701, B=13390
+  matches passing ratio test (0.75): 3331
+  RANSAC inliers: 3038 / 3331  (inlier ratio = 0.912)
+  kf 900<->1000: 3038 inliers, using 80 correspondences
+  keypoints (excluded regions masked): A=13390, B=12995
+  matches passing ratio test (0.75): 1473
+  RANSAC inliers: 1268 / 1473  (inlier ratio = 0.861)
+  kf 1000<->1100: 1268 inliers, using 80 correspondences
+  keypoints (excluded regions masked): A=12995, B=10638
+  matches passing ratio test (0.75): 1568
+  RANSAC inliers: 1294 / 1568  (inlier ratio = 0.825)
+  kf 1100<->1200: 1294 inliers, using 80 correspondences
+keyframe mutual-consistency: mean 20.8 -> 0.7 px
+landmark court-fit: mean 0.76 ft / max 1.75 ft
+
+========================================================================
+== TRACKING (read from cache)
+========================================================================
+cache: 601 frames 600..1200, 260 track_ids  (span 600..+601)
+
+========================================================================
+== PHASE 1 -- team events
+========================================================================
+Recovering consistency-refit keyframes + H_court...
+  H_court reprojection: mean=0.75 ft  max=1.75 ft (ref keyframe 900)
+
+Generating team_events for 31 frames...
+  keypoints (excluded regions masked): A=9642, B=9642
+  matches passing ratio test (0.75): 9642
+  RANSAC inliers: 9642 / 9642  (inlier ratio = 1.000)
+  f= 600  on_court=15  inl= 9642  reproj=0.00px  kf=600  ok
+  keypoints (excluded regions masked): A=9642, B=10443
+  matches passing ratio test (0.75): 3869
+  RANSAC inliers: 3567 / 3869  (inlier ratio = 0.922)
+  f= 620  on_court=12  inl= 3567  reproj=0.50px  kf=600  ok
+  keypoints (excluded regions masked): A=9642, B=11068
+  matches passing ratio test (0.75): 2765
+  RANSAC inliers: 2525 / 2765  (inlier ratio = 0.913)
+  f= 640  on_court=15  inl= 2525  reproj=0.61px  kf=600  ok
+  keypoints (excluded regions masked): A=12307, B=12366
+  matches passing ratio test (0.75): 2731
+  RANSAC inliers: 2451 / 2731  (inlier ratio = 0.897)
+  f= 660  on_court=15  inl= 2451  reproj=0.61px  kf=700  ok
+  keypoints (excluded regions masked): A=12307, B=12337
+  matches passing ratio test (0.75): 3944
+  RANSAC inliers: 3344 / 3944  (inlier ratio = 0.848)
+  f= 680  on_court=15  inl= 3344  reproj=0.57px  kf=700  ok
+  keypoints (excluded regions masked): A=12307, B=12307
+  matches passing ratio test (0.75): 12307
+  RANSAC inliers: 12307 / 12307  (inlier ratio = 1.000)
+  f= 700  on_court=13  inl=12307  reproj=0.00px  kf=700  ok
+  keypoints (excluded regions masked): A=12307, B=11909
+  matches passing ratio test (0.75): 3111
+  RANSAC inliers: 2065 / 3111  (inlier ratio = 0.664)
+  f= 720  on_court=15  inl= 2065  reproj=0.58px  kf=700  ok
+  keypoints (excluded regions masked): A=12307, B=13316
+  matches passing ratio test (0.75): 2653
+  RANSAC inliers: 2378 / 2653  (inlier ratio = 0.896)
+  f= 740  on_court=14  inl= 2378  reproj=0.63px  kf=700  ok
+  keypoints (excluded regions masked): A=14985, B=14119
+  matches passing ratio test (0.75): 3450
+  RANSAC inliers: 2962 / 3450  (inlier ratio = 0.859)
+  f= 760  on_court=14  inl= 2962  reproj=0.55px  kf=800  ok
+  keypoints (excluded regions masked): A=14985, B=13620
+  matches passing ratio test (0.75): 4045
+  RANSAC inliers: 3354 / 4045  (inlier ratio = 0.829)
+  f= 780  on_court=14  inl= 3354  reproj=0.54px  kf=800  ok
+  keypoints (excluded regions masked): A=14985, B=14985
+  matches passing ratio test (0.75): 14985
+  RANSAC inliers: 14985 / 14985  (inlier ratio = 1.000)
+  f= 800  on_court=14  inl=14985  reproj=0.00px  kf=800  ok
+  keypoints (excluded regions masked): A=14985, B=14745
+  matches passing ratio test (0.75): 4395
+  RANSAC inliers: 3398 / 4395  (inlier ratio = 0.773)
+  f= 820  on_court=16  inl= 3398  reproj=0.49px  kf=800  ok
+  keypoints (excluded regions masked): A=14985, B=13732
+  matches passing ratio test (0.75): 3158
+  RANSAC inliers: 2639 / 3158  (inlier ratio = 0.836)
+  f= 840  on_court=14  inl= 2639  reproj=0.58px  kf=800  ok
+  keypoints (excluded regions masked): A=13701, B=15332
+  matches passing ratio test (0.75): 3458
+  RANSAC inliers: 3166 / 3458  (inlier ratio = 0.916)
+  f= 860  on_court=14  inl= 3166  reproj=0.54px  kf=900  ok
+  keypoints (excluded regions masked): A=13701, B=15215
+  matches passing ratio test (0.75): 3835
+  RANSAC inliers: 3558 / 3835  (inlier ratio = 0.928)
+  f= 880  on_court=12  inl= 3558  reproj=0.54px  kf=900  ok
+  keypoints (excluded regions masked): A=13701, B=13701
+  matches passing ratio test (0.75): 13701
+  RANSAC inliers: 13701 / 13701  (inlier ratio = 1.000)
+  f= 900  on_court=10  inl=13701  reproj=0.00px  kf=900  ok
+  keypoints (excluded regions masked): A=13701, B=14651
+  matches passing ratio test (0.75): 3686
+  RANSAC inliers: 3373 / 3686  (inlier ratio = 0.915)
+  f= 920  on_court= 9  inl= 3373  reproj=0.54px  kf=900  ok
+  keypoints (excluded regions masked): A=13701, B=14898
+  matches passing ratio test (0.75): 2786
+  RANSAC inliers: 2419 / 2786  (inlier ratio = 0.868)
+  f= 940  on_court=10  inl= 2419  reproj=0.58px  kf=900  ok
+  keypoints (excluded regions masked): A=13390, B=13119
+  matches passing ratio test (0.75): 3163
+  RANSAC inliers: 2876 / 3163  (inlier ratio = 0.909)
+  f= 960  on_court=10  inl= 2876  reproj=0.56px  kf=1000  ok
+  keypoints (excluded regions masked): A=13390, B=13602
+  matches passing ratio test (0.75): 4462
+  RANSAC inliers: 3567 / 4462  (inlier ratio = 0.799)
+  f= 980  on_court=11  inl= 3567  reproj=0.49px  kf=1000  ok
+  keypoints (excluded regions masked): A=13390, B=13390
+  matches passing ratio test (0.75): 13390
+  RANSAC inliers: 13390 / 13390  (inlier ratio = 1.000)
+  f=1000  on_court=11  inl=13390  reproj=0.00px  kf=1000  ok
+  keypoints (excluded regions masked): A=13390, B=11735
+  matches passing ratio test (0.75): 3444
+  RANSAC inliers: 2994 / 3444  (inlier ratio = 0.869)
+  f=1020  on_court=11  inl= 2994  reproj=0.55px  kf=1000  ok
+  keypoints (excluded regions masked): A=13390, B=12407
+  matches passing ratio test (0.75): 3220
+  RANSAC inliers: 2760 / 3220  (inlier ratio = 0.857)
+  f=1040  on_court=10  inl= 2760  reproj=0.52px  kf=1000  ok
+  keypoints (excluded regions masked): A=12995, B=12107
+  matches passing ratio test (0.75): 1678
+  RANSAC inliers: 1203 / 1678  (inlier ratio = 0.717)
+  f=1060  on_court=14  inl= 1203  reproj=0.61px  kf=1100  ok
+  keypoints (excluded regions masked): A=12995, B=11775
+  matches passing ratio test (0.75): 3049
+  RANSAC inliers: 2806 / 3049  (inlier ratio = 0.920)
+  f=1080  on_court=12  inl= 2806  reproj=0.57px  kf=1100  ok
+  keypoints (excluded regions masked): A=12995, B=12995
+  matches passing ratio test (0.75): 12995
+  RANSAC inliers: 12995 / 12995  (inlier ratio = 1.000)
+  f=1100  on_court=16  inl=12995  reproj=0.00px  kf=1100  ok
+  keypoints (excluded regions masked): A=12995, B=12509
+  matches passing ratio test (0.75): 3324
+  RANSAC inliers: 2892 / 3324  (inlier ratio = 0.870)
+  f=1120  on_court=18  inl= 2892  reproj=0.53px  kf=1100  ok
+  keypoints (excluded regions masked): A=12995, B=11378
+  matches passing ratio test (0.75): 2410
+  RANSAC inliers: 2098 / 2410  (inlier ratio = 0.871)
+  f=1140  on_court=17  inl= 2098  reproj=0.59px  kf=1100  ok
+  keypoints (excluded regions masked): A=10638, B=12006
+  matches passing ratio test (0.75): 2725
+  RANSAC inliers: 2403 / 2725  (inlier ratio = 0.882)
+  f=1160  on_court=16  inl= 2403  reproj=0.60px  kf=1200  ok
+  keypoints (excluded regions masked): A=10638, B=11708
+  matches passing ratio test (0.75): 3302
+  RANSAC inliers: 2975 / 3302  (inlier ratio = 0.901)
+  f=1180  on_court=17  inl= 2975  reproj=0.57px  kf=1200  ok
+  keypoints (excluded regions masked): A=10638, B=10638
+  matches passing ratio test (0.75): 10638
+  RANSAC inliers: 10638 / 10638  (inlier ratio = 1.000)
+  f=1200  on_court=17  inl=10638  reproj=0.00px  kf=1200  ok
+
+inlier distribution over 31 frames: min=1203 median=2994 max=14985
+low_confidence threshold: inliers < 150 OR reproj > 2.0px  ->  0 frame(s) flagged
+
+wrote 31 team_events -> C:\Users\djcha\New folder\basketball-cv-service\phase1\out\HARD_team_events.json
+
+========================================================================
+== PHASE 1 -- coach output (zones + heatmap)
+========================================================================
+clip=HARD  fps=30.0
+
+frames skipped (0):
+frames used (trusted): 31  [600, 620, 640, 660, 680, 700, 720, 740, 760, 780, 800, 820, 840, 860, 880, 900, 920, 940, 960, 980, 1000, 1020, 1040, 1060, 1080, 1100, 1120, 1140, 1160, 1180, 1200]
+
+per-zone occupancy over 31 trusted frames (421 body-positions):
+  zone            count   share
+  PERIMETER         148  35.2%
+  PAINT              83  19.7%
+  LEFT_CORNER        54  12.8%
+  LEFT_WING          50  11.9%
+  RIGHT_CORNER       31   7.4%
+  RIGHT_WING         28   6.7%
+  TOP_OF_KEY         27   6.4%
+
+mean on-court count per trusted frame: 13.6
+(NOTE: 16 sampled frames -> render/zone proof, not real basketball stats.)
+
+========================================================================
+== PHASE 2 -- containment (per-window)
+========================================================================
+clip=HARD span=600..+601 fps=30
+STAND-IN possession window = 15s (450 frames) -- NOT final possession logic.
+DEMO window (this 20s span) = 2s (60 frames) to show >=2 boundaries.
+
+[no boundaries] candidate relinks that CROSS a window boundary: 45
+  t80 lost f=654 (win 0) -> reappeared f=660 (win 1) as t80 -- would leak identity across the boundary
+  t35 lost f=656 (win 0) -> reappeared f=660 (win 1) as t35 -- would leak identity across the boundary
+  t30 lost f=654 (win 0) -> reappeared f=672 (win 1) as t106 -- would leak identity across the boundary
+  t36 lost f=655 (win 0) -> reappeared f=674 (win 1) as t112 -- would leak identity across the boundary
+  t73 lost f=718 (win 1) -> reappeared f=721 (win 2) as t73 -- would leak identity across the boundary
+  t488 lost f=776 (win 2) -> reappeared f=780 (win 3) as t488 -- would leak identity across the boundary
+  t9 lost f=779 (win 2) -> reappeared f=781 (win 3) as t9 -- would leak identity across the boundary
+  t446 lost f=779 (win 2) -> reappeared f=781 (win 3) as t446 -- would leak identity across the boundary
+  t427 lost f=838 (win 3) -> reappeared f=840 (win 4) as t427 -- would leak identity across the boundary
+  t633 lost f=839 (win 3) -> reappeared f=841 (win 4) as t633 -- would leak identity across the boundary
+  t488 lost f=837 (win 3) -> reappeared f=842 (win 4) as t758 -- would leak identity across the boundary
+  t41 lost f=830 (win 3) -> reappeared f=855 (win 4) as t830 -- would leak identity across the boundary
+  t830 lost f=895 (win 4) -> reappeared f=900 (win 5) as t986 -- would leak identity across the boundary
+  t933 lost f=898 (win 4) -> reappeared f=900 (win 5) as t933 -- would leak identity across the boundary
+  t872 lost f=896 (win 4) -> reappeared f=901 (win 5) as t991 -- would leak identity across the boundary
+  t973 lost f=899 (win 4) -> reappeared f=901 (win 5) as t840 -- would leak identity across the boundary
+  t954 lost f=899 (win 4) -> reappeared f=902 (win 5) as t999 -- would leak identity across the boundary
+  t209 lost f=897 (win 4) -> reappeared f=904 (win 5) as t1011 -- would leak identity across the boundary
+  t633 lost f=899 (win 4) -> reappeared f=923 (win 5) as t1210 -- would leak identity across the boundary
+  t841 lost f=958 (win 5) -> reappeared f=960 (win 6) as t869 -- would leak identity across the boundary
+  t954 lost f=958 (win 5) -> reappeared f=960 (win 6) as t1485 -- would leak identity across the boundary
+  t1492 lost f=954 (win 5) -> reappeared f=960 (win 6) as t1492 -- would leak identity across the boundary
+  t1542 lost f=959 (win 5) -> reappeared f=960 (win 6) as t1525 -- would leak identity across the boundary
+  t1477 lost f=953 (win 5) -> reappeared f=960 (win 6) as t999 -- would leak identity across the boundary
+  t1456 lost f=959 (win 5) -> reappeared f=960 (win 6) as t1458 -- would leak identity across the boundary
+  t1482 lost f=955 (win 5) -> reappeared f=960 (win 6) as t427 -- would leak identity across the boundary
+  t1279 lost f=959 (win 5) -> reappeared f=961 (win 6) as t1390 -- would leak identity across the boundary
+  t1493 lost f=958 (win 5) -> reappeared f=961 (win 6) as t1493 -- would leak identity across the boundary
+  t1482 lost f=959 (win 5) -> reappeared f=965 (win 6) as t427 -- would leak identity across the boundary
+  t523 lost f=949 (win 5) -> reappeared f=973 (win 6) as t1742 -- would leak identity across the boundary
+  t2038 lost f=1019 (win 6) -> reappeared f=1021 (win 7) as t2038 -- would leak identity across the boundary
+  t2074 lost f=1019 (win 6) -> reappeared f=1021 (win 7) as t2074 -- would leak identity across the boundary
+  t1742 lost f=1019 (win 6) -> reappeared f=1022 (win 7) as t2116 -- would leak identity across the boundary
+  t1849 lost f=1003 (win 6) -> reappeared f=1022 (win 7) as t2118 -- would leak identity across the boundary
+  t1832 lost f=1000 (win 6) -> reappeared f=1023 (win 7) as t2134 -- would leak identity across the boundary
+  t1493 lost f=1014 (win 6) -> reappeared f=1023 (win 7) as t1832 -- would leak identity across the boundary
+  t1493 lost f=1007 (win 6) -> reappeared f=1025 (win 7) as t1742 -- would leak identity across the boundary
+  t1492 lost f=1007 (win 6) -> reappeared f=1026 (win 7) as t1492 -- would leak identity across the boundary
+  t2508 lost f=1079 (win 7) -> reappeared f=1081 (win 8) as t2508 -- would leak identity across the boundary
+  t954 lost f=1078 (win 7) -> reappeared f=1087 (win 8) as t954 -- would leak identity across the boundary
+  t9 lost f=1137 (win 8) -> reappeared f=1140 (win 9) as t9 -- would leak identity across the boundary
+  t3081 lost f=1138 (win 8) -> reappeared f=1140 (win 9) as t3081 -- would leak identity across the boundary
+  t2916 lost f=1139 (win 8) -> reappeared f=1141 (win 9) as t2916 -- would leak identity across the boundary
+  t3004 lost f=1134 (win 8) -> reappeared f=1142 (win 9) as t3206 -- would leak identity across the boundary
+  t3120 lost f=1123 (win 8) -> reappeared f=1144 (win 9) as t3213 -- would leak identity across the boundary
+
+[with boundaries] per-window contained state:
+  window 0  frames 600..659:  identities=45 states={'unknown': 27, 'candidate': 10, 'lost': 8}  relinks=37 ambiguous=1 confirmed=0  cross-boundary_relinks=0
+  window 1  frames 660..719:  identities=47 states={'unknown': 23, 'candidate': 14, 'lost': 10}  relinks=58 ambiguous=2 confirmed=0  cross-boundary_relinks=0
+  window 2  frames 720..779:  identities=50 states={'unknown': 19, 'lost': 16, 'candidate': 15}  relinks=37 ambiguous=6 confirmed=0  cross-boundary_relinks=0
+  window 3  frames 780..839:  identities=41 states={'unknown': 18, 'lost': 18, 'candidate': 5}  relinks=43 ambiguous=2 confirmed=0  cross-boundary_relinks=0
+  window 4  frames 840..899:  identities=39 states={'lost': 12, 'unknown': 21, 'candidate': 6}  relinks=39 ambiguous=2 confirmed=0  cross-boundary_relinks=0
+  window 5  frames 900..959:  identities=63 states={'unknown': 14, 'lost': 39, 'candidate': 10}  relinks=66 ambiguous=16 confirmed=0  cross-boundary_relinks=0
+  window 6  frames 960..1019:  identities=51 states={'unknown': 22, 'lost': 18, 'candidate': 11}  relinks=47 ambiguous=8 confirmed=0  cross-boundary_relinks=0
+  window 7  frames 1020..1079:  identities=56 states={'lost': 35, 'unknown': 12, 'candidate': 9}  relinks=57 ambiguous=9 confirmed=0  cross-boundary_relinks=0
+  window 8  frames 1080..1139:  identities=46 states={'lost': 15, 'candidate': 19, 'unknown': 12}  relinks=72 ambiguous=3 confirmed=0  cross-boundary_relinks=0
+  window 9  frames 1140..1199:  identities=38 states={'candidate': 13, 'unknown': 12, 'lost': 13}  relinks=41 ambiguous=0 confirmed=0  cross-boundary_relinks=0
+  window 10  frames 1200..1259:  identities=25 states={'unknown': 25}  relinks=0 ambiguous=0 confirmed=0  cross-boundary_relinks=0
+
+CONTAINMENT: cross-window relinks  without boundaries = 45  -> with boundaries = 0
+Each window's identities are FRESH (own machine, empty lost pool); a lost/candidate/unknown in window N has no successor in window N+1.
+CONFIRMED across all windows: 0 (lock intact -- no seed/second signal yet)
+
+========================================================================
+== PHASE 2 -- seeding + review queue
+========================================================================
+  WINDOWS: 2 detected possessions (hold 1.5s, min 4.0s, dead zone +/-6ft):
+    poss 0: L  frames 600..1096  t=20.0s..36.5s  (16.6s, side agreement 100%)
+    poss 1: R  frames 1097..1200  t=36.6s..40.0s  (3.5s, side agreement 100%)
+  click-seeding: loaded 22 human track labels from HARD_decisions.json
+clip=HARD span=600..+601  windows: 2 detected possessions
+
+window 0: seeded 15 ON-COURT tracks at f=600 -> CONFIRMED (provenance='seed'); skipped 23 off-court (ROI mask); +3 LABELED newcomers seeded on arrival
+  final states: {'lost': 157, 'candidate': 13, 'unknown': 5}
+
+window 1: seeded 12 ON-COURT tracks at f=1097 -> CONFIRMED (provenance='seed'); skipped 6 off-court (ROI mask); +0 LABELED newcomers seeded on arrival
+  final states: {'candidate': 18, 'confirmed': 4, 'lost': 23, 'unknown': 3}
+
+CONFIRMED total = 4 (all via provenance='seed'; seeds issued = 27). No continuity confirmation. second_signal still unbuilt.C:\Users\djcha\New folder\basketball-cv-service\.venv\Lib\site-packages\torch\utils\data\dataloader.py:752: UserWarning: 'pin_memory' argument is set as true but no accelerator is found, then device pinned memory won't be used.
+  super().__init__(loader)
+
+
+================ COACH REVIEW QUEUE ================
+items needing one click: 23
+(window, frame, track, state, why)
+  w0 f=851 t812 [candidate]  candidate: reappeared after 6f occlusion, 40.9px from motion prediction -- NOT second-signal-verified
+  w0 f=981 t1496 [candidate]  candidate: reappeared after 2f occlusion, 7.4px from motion prediction -- NOT second-signal-verified
+  w0 f=992 t1844 [candidate]  candidate: reappeared after 2f occlusion, 14.0px from motion prediction -- NOT second-signal-verified
+  w0 f=1035 t2191 [candidate]  candidate: reappeared after 10f occlusion, 26.8px from motion prediction -- NOT second-signal-verified
+  w0 f=1079 t2475 [candidate]  candidate: reappeared after 2f occlusion, 13.3px from motion prediction -- NOT second-signal-verified
+  w0 f=1081 t2508 [candidate]  candidate: reappeared after 2f occlusion, 14.7px from motion prediction -- NOT second-signal-verified
+  w0 f=1083 t1856 [candidate]  candidate: reappeared after 2f occlusion, 1.8px from motion prediction -- NOT second-signal-verified
+  w0 f=1092 t1404 [unknown]  unknown: new track, not yet identified
+  w0 f=1092 t1443 [unknown]  unknown: new track, not yet identified
+  w0 f=1092 t1502 [candidate]  candidate: reappeared after 2f occlusion, 4.0px from motion prediction -- NOT second-signal-verified
+  w0 f=1092 t2647 [unknown]  unknown: new track, not yet identified
+  w0 f=1095 t2827 [unknown]  unknown: new track, not yet identified
+  w1 f=1119 t3123 [candidate]  candidate: reappeared after 2f occlusion, 17.2px from motion prediction -- NOT second-signal-verified
+  w1 f=1144 t3213 [candidate]  candidate: reappeared after 21f occlusion, 61.9px from motion prediction -- NOT second-signal-verified
+  w1 f=1152 t3231 [candidate]  candidate: reappeared after 2f occlusion, 35.3px from motion prediction -- NOT second-signal-verified
+  w1 f=1175 t3317 [candidate]  candidate: reappeared after 6f occlusion, 16.1px from motion prediction -- NOT second-signal-verified
+  w1 f=1188 t1404 [candidate]  candidate: reappeared after 6f occlusion, 27.0px from motion prediction -- NOT second-signal-verified
+  w1 f=1188 t2475 [candidate]  candidate: reappeared after 4f occlusion, 6.8px from motion prediction -- NOT second-signal-verified
+  w1 f=1191 t3321 [candidate]  candidate: reappeared after 5f occlusion, 7.0px from motion prediction -- NOT second-signal-verified
+  w1 f=1192 t3307 [candidate]  candidate: reappeared after 2f occlusion, 8.7px from motion prediction -- NOT second-signal-verified
+  ... and 3 more
+
+queue = 18 candidates + 5 unknowns (ON-COURT bodies only).
+off-court candidates/unknowns EXCLUDED from the coach queue: 16  (crowd/bench -- counted, recorded, never seeded)
+The on-court queue shrinks via OCR auto-promotes only -- never by
+loosening the candidate bar.
+
+saved review queue -> C:\Users\djcha\New folder\basketball-cv-service\phase2\out\HARD_review_queue.json
+saved seed stills (green=seeded on-court, red=skipped off-court) in C:\Users\djcha\New folder\basketball-cv-service\phase2\out
+
+========================================================================
+== PHASE 2 -- player_events + box score
+========================================================================
+  WINDOWS: 2 detected possessions (hold 1.5s, min 4.0s, dead zone +/-6ft):
+    poss 0: L  frames 600..1096  t=20.0s..36.5s  (16.6s, side agreement 100%)
+    poss 1: R  frames 1097..1200  t=36.6s..40.0s  (3.5s, side agreement 100%)
+  window 0: seeded 15 on-court at f=600, skipped 23 off-court (ROI mask)
+  window 1: seeded 12 on-court at f=1097, skipped 6 off-court (ROI mask)
+clip=HARD span=600..+601  player_events=17350
+
+attributions by state (each event stamped with identity_state):
+  {'confirmed': 3228, 'unknown': 6376, 'candidate': 7746}
+
+sample propagation (identity confirmed BEFORE a break, candidate AFTER):
+  identity (window 0, id 3):
+    confirmed f=600..913 (314f)   COUNTED in box score
+    candidate f=914..915 ( 2f)   -> REVIEW (not counted)
+  => the SAME identity's post-break presence is CANDIDATE; it cannot be
+     counted as a confirmed stat. Uncertainty propagated onto the events.
+
+BOX SCORE (trusts CONFIRMED only) -- confirmed presence-frames per identity:
+  window 0 identity 0: 275 confirmed frames
+  window 0 identity 1: 472 confirmed frames
+  window 0 identity 2: 214 confirmed frames
+  window 0 identity 3: 314 confirmed frames
+  window 0 identity 4: 110 confirmed frames
+  window 0 identity 5: 384 confirmed frames
+  window 0 identity 6: 132 confirmed frames
+  window 0 identity 7: 81 confirmed frames
+  window 0 identity 8: 180 confirmed frames
+  window 0 identity 9: 112 confirmed frames
+  window 0 identity 13: 107 confirmed frames
+  window 0 identity 17: 16 confirmed frames
+  ... and 18 more confirmed identities
+
+counted (confirmed) attributions:      3228
+surfaced for REVIEW (candidate+unknown): 14122  (211 identities)
+candidate/unknown events are NEVER silently counted -- a shaky identity cannot launder into a confident stat.
+
+CONFIRMED identities all originate from seeds (provenance='seed'); second_signal unbuilt -> 0 continuity confirmations.
+
+saved player_events + box score + review -> C:\Users\djcha\New folder\basketball-cv-service\phase2\out\HARD_player_events.json
+
+========================================================================
+== PHASE 2 -- OCR second signal (auto-confirm)
+========================================================================
+  WINDOWS: 2 detected possessions (hold 1.5s, min 4.0s, dead zone +/-6ft):
+    poss 0: L  frames 600..1096  t=20.0s..36.5s  (16.6s, side agreement 100%)
+    poss 1: R  frames 1097..1200  t=36.6s..40.0s  (3.5s, side agreement 100%)
+clip=HARD span=600..+601  candidates=18 (ON-COURT; ROI mask excluded 13 off-court candidates from the OCR pool)
+
+READABILITY (why we accumulate across the window):
+  per-FRAME:      180 crops attempted -> any on-roster read 7 (4%), confident 5 (3%)
+  per-POSSESSION: 18 candidates attempted -> >=1 confident read 1 (6%)
+  -> per-possession (6%) >> per-frame (3%): one lucky frame per window is enough.
+
+AUTO-CONFIRMS via OCR (AGREE): 1
+  window 0 identity 111: position said #24, OCR read #24 conf 1.00 at f=1037  -> CONFIRMED (second_signal)
+
+DISAGREEMENTS (swap flags, NEVER silently resolved): 0
+
+STAYED CANDIDATE (no confident on-roster read all window): 17  (expected -- number never faced the camera; NOT a failure)
+
+REVIEW QUEUE (on-court):  before OCR = 23  ->  after OCR = 22
+  auto-confirmed (removed from queue): 1
+  disagreement flags (added, highest value): 0
+
+CONFIRMED identities total = 5 (via seed + 1 via second_signal). Continuity confirmations = 0.
+
+saved OCR-confirm stills in C:\Users\djcha\New folder\basketball-cv-service\phase2\out
+saved OCR outcomes -> C:\Users\djcha\New folder\basketball-cv-service\phase2\out\HARD_ocr_confirms.json
+
+========================================================================
+== PHASE 2 -- retroactive stat merge (agree-triggered only)
+========================================================================
+  queue resolutions: 15 human decision(s) loaded from HARD_decisions.json
+clip=HARD  events=17350
+
+MERGES applied (OCR-agree + human-resolution ONLY): 8
+  window 0 identity 129: #20 -> 111 frames re-credited as confirmed_retroactive  [human]
+  window 0 identity 136: #0 -> 93 frames re-credited as confirmed_retroactive  [human]
+  window 0 identity 137: #3 -> 90 frames re-credited as confirmed_retroactive  [human]
+  window 0 identity 103: #44 -> 158 frames re-credited as confirmed_retroactive  [human]
+  window 1 identity 41: #1 -> 68 frames re-credited as confirmed_retroactive  [human]
+  window 1 identity 1: #23 -> 80 frames re-credited as confirmed_retroactive  [human]
+  window 1 identity 10: #3 -> 13 frames re-credited as confirmed_retroactive  [human]
+  window 1 identity 5: #20 -> 29 frames re-credited as confirmed_retroactive  [human]
+
+CONTRADICTIONS (refused merges, flagged for review): 1
+  window 0 identity 111 #24 [ocr]: 3 overlapping frames -- same number already has confirmed presence on these frames -- one player cannot be in two places; upstream seed/relink/label/OCR error suspected. NOT merged; review.
+
+rejected by reviewer (not players, never credited): 7
+
+event states after merge: {'confirmed': 3228, 'unknown': 6169, 'candidate': 7311, 'confirmed_retroactive': 642}
+
+saved merged player_events -> C:\Users\djcha\New folder\basketball-cv-service\phase2\out\HARD_player_events_merged.json
+
+========================================================================
+== PHASE 2 -- jersey-keyed box score
+========================================================================
+[color tiebreak] reference crops: Winton Woods (black/green)=36, Milford (white/red)=60 -> 2 team centroid(s)
+[color tiebreak] 6/6 ambiguous claim-group(s) resolved by jersey color (0 stay AMBIGUOUS -- color evidence too close to call)
+BOX SCORE -- HARD  (20s tracked span; presence-seconds over this clip's tracked span -- not full-game stats)
+
+    # team                          total_s  live_s  retro_s  windows  top zone
+   24 Milford (white/red)              15.1    15.1      0.0        2  PERIMETER (7.4s)  [!] 1.1s DISPUTED (same number in 2 places -- not counted)
+   10 Winton Woods (black/green)       11.2    11.2      0.0        2  LEFT_CORNER (6.2s)
+    3 Milford (white/red)               7.3     3.9      3.4        2  PAINT (2.7s)
+   44 Milford (white/red)               5.8     0.5      5.3        1  LEFT_WING (3.7s)
+   20 Winton Woods (black/green)        4.9     0.3      4.7        2  PERIMETER (3.7s)
+   23 Milford (white/red)               4.4     4.4      0.0        1  LEFT_WING (3.7s)
+    1 Milford (white/red)               4.3     2.0      2.3        2  PERIMETER (1.7s)
+    0 Winton Woods (black/green)        3.1     0.0      3.1        1  LEFT_WING (1.1s)
+   23 Winton Woods (black/green)        2.7     0.0      2.7        1  PERIMETER (1.4s)
+   13 Milford (white/red)               0.8     0.8      0.0        1  RIGHT_CORNER (0.8s)
+    3 AMBIGUOUS (Milford (white/red) / Winton Woods (black/green))      0.0     0.0      0.0        0  -  [!] 2.7s DISPUTED (same number in 2 places -- not counted)
+
+  UNNAMED confirmed floor time: 15 identities, 61.7s  <- real players awaiting a coach click (click-seeding, next unit)
+  review (never counted): 7311 candidate + 6169 unknown event-frames
+
+saved box score -> C:\Users\djcha\New folder\basketball-cv-service\phase2\out\HARD_box_score.json  (+ CSV: HARD_box_score.csv)
+
+========================================================================
+== PHASE 5 -- ball detection (own fine-tuned weights)
+========================================================================
+[ball_spike] extracting HARD span 0..2746 (91.5s) ...
+[ball_spike] 2746 frames -> C:\Users\djcha\AppData\Local\Temp\HARD_span_0_2746.mp4
+[ball_spike] running ball_finetuned_v2.pt (imgsz=1280, conf=0.05, class=Ball[0]) -- CPU ...
+  ...0/2746  (0 dets this frame)
+  ...30/2746  (1 dets this frame)
+  ...60/2746  (1 dets this frame)
+  ...90/2746  (2 dets this frame)
+  ...120/2746  (1 dets this frame)
+  ...150/2746  (0 dets this frame)
+  ...180/2746  (0 dets this frame)
+  ...210/2746  (1 dets this frame)
+  ...240/2746  (1 dets this frame)
+  ...270/2746  (1 dets this frame)
+  ...300/2746  (1 dets this frame)
+  ...330/2746  (1 dets this frame)
+  ...360/2746  (1 dets this frame)
+  ...390/2746  (1 dets this frame)
+  ...420/2746  (1 dets this frame)
+  ...450/2746  (1 dets this frame)
+  ...480/2746  (1 dets this frame)
+  ...510/2746  (0 dets this frame)
+  ...540/2746  (1 dets this frame)
+  ...570/2746  (0 dets this frame)
+  ...600/2746  (1 dets this frame)
+  ...630/2746  (1 dets this frame)
+  ...660/2746  (1 dets this frame)
+  ...690/2746  (1 dets this frame)
+  ...720/2746  (2 dets this frame)
+  ...750/2746  (0 dets this frame)
+  ...780/2746  (0 dets this frame)
+  ...810/2746  (2 dets this frame)
+  ...840/2746  (0 dets this frame)
+  ...870/2746  (0 dets this frame)
+  ...900/2746  (2 dets this frame)
+  ...930/2746  (0 dets this frame)
+  ...960/2746  (0 dets this frame)
+  ...990/2746  (0 dets this frame)
+  ...1020/2746  (1 dets this frame)
+  ...1050/2746  (1 dets this frame)
+  ...1080/2746  (1 dets this frame)
+  ...1110/2746  (0 dets this frame)
+  ...1140/2746  (1 dets this frame)
+  ...1170/2746  (0 dets this frame)
+  ...1200/2746  (2 dets this frame)
+  ...1230/2746  (1 dets this frame)
+  ...1260/2746  (1 dets this frame)
+  ...1290/2746  (1 dets this frame)
+  ...1320/2746  (1 dets this frame)
+  ...1350/2746  (0 dets this frame)
+  ...1380/2746  (1 dets this frame)
+  ...1410/2746  (1 dets this frame)
+  ...1440/2746  (1 dets this frame)
+  ...1470/2746  (0 dets this frame)
+  ...1500/2746  (1 dets this frame)
+  ...1530/2746  (0 dets this frame)
+  ...1560/2746  (2 dets this frame)
+  ...1590/2746  (1 dets this frame)
+  ...1620/2746  (0 dets this frame)
+  ...1650/2746  (0 dets this frame)
+  ...1680/2746  (0 dets this frame)
+  ...1710/2746  (0 dets this frame)
+  ...1740/2746  (0 dets this frame)
+  ...1770/2746  (0 dets this frame)
+  ...1800/2746  (0 dets this frame)
+  ...1830/2746  (0 dets this frame)
+  ...1860/2746  (0 dets this frame)
+  ...1890/2746  (0 dets this frame)
+  ...1920/2746  (0 dets this frame)
+  ...1950/2746  (0 dets this frame)
+  ...1980/2746  (0 dets this frame)
+  ...2010/2746  (0 dets this frame)
+  ...2040/2746  (0 dets this frame)
+  ...2070/2746  (0 dets this frame)
+  ...2100/2746  (1 dets this frame)
+  ...2130/2746  (0 dets this frame)
+  ...2160/2746  (1 dets this frame)
+  ...2190/2746  (1 dets this frame)
+  ...2220/2746  (0 dets this frame)
+  ...2250/2746  (0 dets this frame)
+  ...2280/2746  (1 dets this frame)
+  ...2310/2746  (1 dets this frame)
+  ...2340/2746  (0 dets this frame)
+  ...2370/2746  (0 dets this frame)
+  ...2400/2746  (0 dets this frame)
+  ...2430/2746  (0 dets this frame)
+  ...2460/2746  (1 dets this frame)
+  ...2490/2746  (1 dets this frame)
+  ...2520/2746  (1 dets this frame)
+  ...2550/2746  (0 dets this frame)
+  ...2580/2746  (1 dets this frame)
+  ...2610/2746  (1 dets this frame)
+  ...2640/2746  (1 dets this frame)
+  ...2670/2746  (0 dets this frame)
+  ...2700/2746  (0 dets this frame)
+  ...2730/2746  (1 dets this frame)
+
+================ BALL SPIKE SUMMARY ================
+  clip: HARD  span: 0..2746 (0.0s..91.5s)
+  frames: 2746   frames w/ >=1 detection: 1413 (51.5%)   zero-detection frames: 48.5%
+  mean detections/frame: 0.60
+  overlay: C:\Users\djcha\New folder\basketball-cv-service\spikes\out\HARD_ball_detections_overlay.mp4
+  log:     C:\Users\djcha\New folder\basketball-cv-service\spikes\out\HARD_ball_detections.json
+  (raw detections only -- false-positive rate needs an eyeball pass on the overlay)
+
+========================================================================
+== PHASE 5 -- hoop anchor carry
+========================================================================
+[ball_stages] REUSING HARD_hoop_track.json -- anchors match, span 0..+2746 covers ball span 0..+2746
+
+========================================================================
+== PHASE 5 -- ball trajectory (physics-gated arcs)
+========================================================================
+[ball_stages] ball seen in 1315/2746 frames (47.9%) at conf>=0.1 (1453/1639 dets kept)
+[ball_stages] chains: 144  verdicts: {'too_short': 97, 'arc': 22, 'static_junk': 12, 'no_claim': 13}  arcs: 48
+[ball_stages] wrote C:\Users\djcha\New folder\basketball-cv-service\spikes\out\HARD_ball_arcs.json
+
+========================================================================
+== PHASE 5 -- shot attempts
+========================================================================
+[ball_stages] arcs evaluated: 48  shot attempts: 4
+SHOT ATTEMPTS (start,end,hoop,type,min_dist,arrival):
+   (351, 375, 'near', 'jumpshot', 88.5, 'observed')  shooter=no_confident_shooter
+   (401, 415, 'near', 'layup', 1.6, 'observed')  shooter=no_confident_shooter
+   (1188, 1213, 'far', 'jumpshot', 17.7, 'observed')  shooter=review_item
+   (1352, 1381, 'far', 'jumpshot', 31.3, 'observed')  shooter=no_confident_shooter
+near-rim REJECTIONS (deflection/continuation reasons):
+   (416, 438, 'near', 'originates 59.6px from the hoop and leaves it (ends 373.1px away) -- a deflection/continuation, not a fresh release')
+   (1216, 1250, 'far', 'originates 25.3px from the hoop and leaves it (ends 381.1px away) -- a deflection/continuation, not a fresh release')
+[ball_stages] wrote C:\Users\djcha\New folder\basketball-cv-service\spikes\out\HARD_shot_attempts.json
+
+========================================================================
+== PHASE 5 -- shot locations + chart
+========================================================================
+   351..375  shooter=no_confident_shooter  location_unknown  no release estimate (shooter status: no_confident_shooter)
+   401..415  shooter=no_confident_shooter  location_unknown  no release estimate (shooter status: no_confident_shooter)
+   1188..1213  shooter=review_item  located  [68.7, 42.3]
+   1352..1381  shooter=no_confident_shooter  location_unknown  no release estimate (shooter status: no_confident_shooter)
+[ball_stages] wrote C:\Users\djcha\New folder\basketball-cv-service\spikes\out\HARD_shot_locations.json and C:\Users\djcha\New folder\basketball-cv-service\spikes\out\HARD_shot_chart.png
+
+========================================================================
+== PHASE 5 -- shot outcomes (candidate labels, review-first)
+========================================================================
+   351..375  outcome=candidate_miss  
+   401..415  outcome=unknown  conflicting evidence (both fall-through and deflection signals present)
+   1188..1213  outcome=candidate_miss  
+   1352..1381  outcome=unknown  no evidence either way
+[ball_stages] wrote C:\Users\djcha\New folder\basketball-cv-service\spikes\out\HARD_shot_outcomes.json  (all outcomes are candidate labels feeding review -- never a bare made/missed stat)
+
+========================================================================
+== INTEGRITY
+========================================================================
+player_events: 17350  every event stamped with identity_state: True
+box score trusts CONFIRMED only: 30 identities with confirmed frames
+candidate/unknown surfaced for review (not counted): 211 identities
+OCR second signal: 1 auto-confirmed, 0 disagreement flag(s)
+retroactive merge: 8 span(s) re-credited, 1 contradiction flag(s)
+final event states: confirmed=3228 retro=642 candidate=7311 unknown=6169  (canonical artifact: HARD_player_events_merged.json)
+shot layer: 4 attempt(s), 1 located, outcomes {'candidate_miss': 2, 'unknown': 2} (candidate labels feeding review, never bare stats)
+
+[run_clip] DONE -- HARD ran end-to-end.

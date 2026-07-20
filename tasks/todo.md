@@ -95,7 +95,17 @@ both hoops.
       layups -- fast, no video, locks the integrated chain to the
       measured result. Full suite (164) green throughout; the
       test_ball_trajectory literal-data tests are never weakened.
-- [ ] 6. VERIFICATION GATE (background runs, hours -- CPU detection):
+- [x] 6. VERIFICATION GATE PASSED 2026-07-19 -- both clips reproduce
+      TEST 10 EXACTLY through the integrated run_clip (evidence:
+      spikes/out/verify_TEST1_runclip.log, verify_HARD_runclip.log).
+      TEST1: coverage 309/605 (51.1%), 13 arcs, all 4 attempts w/
+      identical min_dists, shot B missed, rejections (103,110)/(188,202).
+      HARD: coverage 1315/2746 (47.9%), 48 arcs, all 4 attempts w/
+      identical min_dists (incl. the known FP 401-415 and the
+      unverified 1352-1381 -- correct reproduction), both deflections
+      rejected w/ identical distances. CPU-vs-GPU risk RETIRED for v2:
+      fresh CPU detection matched the GPU-made TEST-10 log on every
+      gate number. Original gate text follows:
       full run_clip.py on HARD and TEST1 must reproduce TEST 10's
       EXACT results from the integrated pipeline:
         HARD: attempts (351-375 near) + (1188-1213 far) present;
@@ -111,10 +121,43 @@ both hoops.
       pass. Known risk on the record: TEST 10's HARD log was GPU-made;
       this rerun is CPU. TEST 8 measured GPU-vs-CPU identical for v1;
       if v2 differs on CPU, that is a finding to report, not to patch.
-- [ ] 7. Review section here + commit per CLAUDE.md.
+- [x] 7. Review section below + commits per CLAUDE.md.
 
 NOT in scope: Phase 6 scaling, web worker, tracker changes, threshold
 tuning, v3 training, make/miss improvements.
+
+## Review (shot-layer integration, 2026-07-19)
+- `python run_clip.py` now produces box score + shot attempts + shot
+  chart + candidate outcomes for a clip in ONE command -- ship-handoff
+  item 1 done. New code is one glue module (ball_stages.py, explicit
+  paths, no argv/module state) + config fields + ~20 lines in run_clip;
+  every algorithm line is IMPORTED from the already-verified spikes.
+- The verified TEST-10 protocol is locked in three ways: CONF_FLOOR
+  imported (not copied) from local_weights_check; a literal-data
+  regression test reproducing TEST 10's TEST1 numbers from the saved
+  v2 log; and the full-pipeline gate runs on both clips (exact match,
+  see item 6). Suite 164 -> 183, ~2.5s.
+- Two import-time clip-clobber traps found and fixed (ball_spike and
+  hoop_anchor each reset the active clip to "HARD" when merely
+  imported) -- the same §9b/§13 trap class, now guarded under __main__
+  with an import test.
+- Slow stages reuse on exact fingerprint only (detections: clip/span/
+  model/imgsz/conf; hoop track: anchors + covering span), mirroring
+  the tracks-cache refuse-loud pattern. HARD's full-clip hoop track
+  was legitimately reused; detection ran fresh on both clips.
+- FINDINGS surfaced, deliberately not chased (out of scope):
+  (a) TEST1 shot chart is EMPTY -- all 3 release-bearing attempts hit
+      the oncourt classifier's off-court abstention at the release
+      frame (layup drives near the baseline). Honest, but demo-visible;
+      DJ's call on whether to revisit the abstention join later.
+  (b) TEST1 236-250 (the MADE putback) got candidate_miss -- a wrong
+      candidate label that review would catch; Gate-4 review-first
+      stance unchanged.
+  (c) HARD 1188-1213 located at the exact DECISIONS-§16 verified spot
+      (68.7, 42.3) and outcome candidate_miss matches the verified
+      rim-out -- full-chain continuity through the integrated path.
+- Next per SHIP HANDOFF: item 2 (minimal Phase 6 scale) or item 3
+  (Phase 7 worker); v3 swap-in stays a one-line config change.
 
 # FINE-TUNED MODEL + PLAYER-TRACKER PROBE (current task, 2026-07-14)
 
