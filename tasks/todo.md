@@ -271,9 +271,21 @@ set up), add browser setup for NEW clips after.
       ran end-to-end 277s exit 0 (11 players, 1 shot). Button renders.
       Suite 204 green. Web files uncommitted on app's main. CONSTRAINT
       holds: only set-up clips (HARD/TEST1) run; NEW clips need L4 setup.
-- [ ] L2. CV-PRIMARY ASSEMBLY + PRESENTATION: fold the Measured view in
-      as the app's PRIMARY analysis surface (CV facts lead), not a side
-      page. AI-guessed Stat/Player tabs marked "AI estimate".
+- [x] L2. DONE 2026-07-22 (Option A, DJ-chosen -- app analyses & CV clips
+      aren't linked until CV runs on an uploaded game = L4, so full merge
+      into per-game AnalysisTabs waits; instead make the CV view a
+      first-class navigable PRIMARY surface now). Built:
+      (a) AnalysisTabs Stat/Player tabs get an "AI estimate" banner
+          (AiEstimateBanner) -- AI numbers demoted app-wide. Typechecked
+          (can't screenshot -- needs a logged-in saved analysis).
+      (b) /measured index page ("Precise Analysis / Measured games")
+          listing clips w/ measured_stats.json via new GET /api/measured;
+          tagline states the hierarchy ("AI read sits on top of these
+          numbers, never the other way around"). Screenshot-verified.
+      (c) "Measured (CV)" nav link added to analyze + history headers.
+      Detail page (/measured/[clip]) is the CV-led analysis: CV facts
+      lead, AI scouting read secondary, Run-CV button. Typecheck clean.
+      Web files uncommitted on app main (DJ's call -- now ~11 files).
 - [ ] L3. GROUND THE AI: feed the CV facts into the Gemini synthesis so
       the tactical story is consistent with + subordinate to the numbers
       (the AI never restates a stat CV measured; cites CV facts). Reuses
