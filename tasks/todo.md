@@ -99,18 +99,40 @@ measured distributions -- that is the concrete path to "actionable."
             This IS the Phase-7 "freeze the contract" step. Tests first
             for zone classification (3pt-arc geometry, reuse
             shot_location.py's R3/HOOP_DX) + distribution math.
-      - [ ] A2. Web side (ADDITIVE, does NOT touch the Gemini path):
-            new "Measured" tab in AnalysisTabs + a component rendering a
-            half-court with shot dots + a box-score table + the
-            zone-distribution line ("X% of attempts from three, Y% in the
-            paint"). Data via a small READ-ONLY API route that loads
-            {clip}_measured_stats.json (local file for the demo;
-            swappable for Supabase later). Labeled MEASURED. NO make%
-            shown (honest). Match the app's existing Tailwind/motion style.
-      - [ ] A3. Verify: run the app locally (npm run dev), open a game,
-            see the Measured tab with HARD/TEST1's real box score + shot
-            chart + a real zone-distribution stat; confirm the existing
-            Gemini flow is byte-unchanged (nothing removed/edited in it).
+      - [x] A2. Web side DONE (ADDITIVE, 3 NEW files, touched NOTHING
+            existing -- the Gemini path is byte-unchanged). In the web app
+            (sibling "basketball analysis app"):
+              app/api/measured/[clip]/route.ts -- read-only bridge that
+                serves {clip}_measured_stats.json from the CV project
+                (CV_OUTPUT_DIR, default the sibling spikes/out). Rejects
+                non-identifier clip names (path-traversal -> 400), 404 on
+                missing. Later this is the Supabase-read swap point.
+              components/MeasuredStats.tsx -- box score table ("Where They
+                Operated" = per-player zone %), SVG half/full-court shot
+                chart (mirrors shot_location.py geometry), and the
+                behind-vs-inside-the-arc distribution headline. Honesty
+                banner; NO make% shown.
+              app/measured/[clip]/page.tsx -- standalone /measured/HARD
+                view (client fetch of the bridge). NOT gated by middleware
+                (fine for local demo). Later: fold into AnalysisTabs.
+            Decision: standalone page (not an AnalysisTabs tab yet) --
+            lower risk, zero edits to existing pages; tab integration
+            waits until measured data is associated with a game record.
+      - [x] A3. VERIFIED by screenshot (verify skill discipline):
+            typecheck clean (npx tsc --noEmit, 0 errors); dev server up;
+            /api/measured/HARD returns real data; path-traversal ->400,
+            unknown ->404. FIRST render caught a REAL bug -- page was on a
+            white bg (I'd assumed a global dark theme; the app applies
+            bg-[#05080f] per-page) so light text was invisible. Fixed
+            (wrapped the page in the app's min-h-screen bg-[#05080f]
+            text-white). Re-screenshot: HARD renders box score (11
+            players w/ zone %), the court + 1 located shot at the 3pt arc
+            (right side), "100% threes" distribution. TEST1 renders the
+            HONEST empty state ("No shots placed yet, 4 detected, shooter
+            position not yet confident") + its box score. Screenshots:
+            /tmp/measured_HARD_full.png, measured_TEST1_dark.png.
+            Web app git: 3 new files on main, NOT committed (awaiting DJ
+            -- don't push to their app's main without asking).
 - [ ] B. (BIGGER, AFTER the demo) Calibration INSIDE the web app: a
       browser workflow to set up a NEW game -- upload -> pick keyframes ->
       click court landmarks -> mark hoops -> enter roster -> stored + fed
@@ -129,6 +151,34 @@ measured distributions -- that is the concrete path to "actionable."
 NOT in scope for the DEMO (slice A): calibration UI (B), make/miss (C),
 Supabase plumbing (D), auto-calibration (Phase 4). Slice A = already-
 computed HARD/TEST1 outputs + a local read-only route + one new tab.
+
+## Review (Phase 7 slice A -- the measured-stats demo, 2026-07-22)
+- DONE + verified by eye: the CV pipeline's trustworthy numbers now
+  render IN DJ's real web app at /measured/{clip}, in the app's own
+  style, WITHOUT touching the existing Gemini analysis (3 new files,
+  zero edits to existing app code). This is the hybrid's first half made
+  visible: measured hard numbers beside the AI's watched story.
+- The north-star goal shows up already: the box score's "Where They
+  Operated" column is real per-player spatial data (e.g. HARD #23 Milford
+  84% Left Wing; #20 Winton Woods 74% Perimeter) -- exactly the
+  actionable "where" the vague old advice lacked. The shot-distribution
+  headline (behind vs inside the arc) is the shot half; today it's 1
+  located HARD shot (a 20ft three), honestly labeled, with the other 3
+  shown as "detected but not yet placed".
+- Honesty held throughout: NO shooting % (make/miss unverified),
+  presence-seconds caveat on floor time, TEST1's all-unlocated shots
+  render as an explicit empty state (no fake dots).
+- CV side is one new file + tests (measured_stats.py, 8 tests, suite
+  196->204). Contract doubles as the Phase-7 "freeze the contract" step.
+- Bug caught by the eyeball gate (not tests): white-bg render made light
+  text invisible -- the app themes per-page, not globally. Fixed. Same
+  lesson as the shot-chart mirror bug (DECISIONS 16): typecheck/tests
+  green != looks right; a human/screenshot look is mandatory.
+- NEXT (DJ's stated order): (C) make/miss so shooting % becomes real ->
+  (B) calibration inside the web app for NEW games -> (D) Supabase
+  plumbing + feed measured distributions into the Gemini narrative so
+  the scouting report cites real numbers. Also open: commit the 3 web
+  files (DJ's call), and later fold /measured into AnalysisTabs as a tab.
 
 # PHASE 6 MINIMAL -- full-game scale, demo-first slice (DONE 2026-07-22 -- both clips verified, see review below)
 
