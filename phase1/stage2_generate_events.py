@@ -32,14 +32,15 @@ def main():
     os.makedirs(os.path.dirname(OUT_JSON), exist_ok=True)
 
     H_court, anchor, fps, total = st.build_court_anchor()
-    frames = st.s2.extract_frames(st.s2.VIDEO_PATH, GEN_FRAMES)
+    # Phase 6: STREAM the sampled frames one at a time (never materialize the
+    # whole sample into one dict -- GEN_FRAMES is a sorted range, so iterating
+    # in lockstep with iter_frames's increasing yield order needs no lookup).
     model = st.YOLO(st.MODEL_NAME)
 
     events = []
     inlier_dist = []
     print(f"\nGenerating team_events for {len(GEN_FRAMES)} frames...")
-    for f in GEN_FRAMES:
-        frame = frames[f]
+    for f, frame in st.s2.iter_frames(st.s2.VIDEO_PATH, GEN_FRAMES):
         frame_h = frame.shape[0]
 
         # Per-frame homography from the DIRECT nearest-keyframe anchor.

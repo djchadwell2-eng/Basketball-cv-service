@@ -1,4 +1,154 @@
-# SHOT-LAYER INTEGRATION INTO run_clip (current task, 2026-07-19)
+# PHASE 6 MINIMAL -- full-game scale, demo-first slice (current task, 2026-07-19)
+
+Ship-handoff item 2. G5 (compute) is ANSWERED by practice: rented GPU per
+game (RunPod, memory infra_runpod_gpu.md). The demo can be ONE clip, so
+this is the MINIMAL slice per ROADMAP Phase 6: kill the load-span-into-RAM
+patterns (the ~6MB/frame bombs that make a full half arithmetic-impossible
+in memory) + the batch runner/manifest seam that Phase 7's worker will
+call. Nothing else.
+
+MEASURED RAM BOMBS (recon 2026-07-19; everything else already streams):
+- phase2/oncourt.py build(): extract_frames() of EVERY span frame into a
+  dict -- HARD 601 frames ~3.6GB already; a 57k-frame half = impossible.
+- phase2/stage6_ocr_confirm.py read_span_frames(): whole tracking span
+  into a dict -- same math.
+- phase1/stage2_generate_events.py main(): all sampled event frames at
+  once -- fine at today's 31-47 samples, ~17GB at full-game sampling.
+Known full-game COST (not RAM, flagged not fixed): hoop_anchor per-frame
+SIFT ~0.5-1s/frame -> hours/half on CPU; revisit when a real full game
+exists (GPU/keyframe-cache options), not now.
+
+## Plan
+- [x] 0. Check in with DJ before building. APPROVED ("yes 100% yes").
+- [x] 1. Streaming frame access (one shared helper, three call sites):
+      iter_frames(video_path, indices) generator in
+      spikes/stage2_multikeyframe.py beside extract_frames() -- yields
+      (idx, frame) in index order, single pass, never materializes the
+      span. Port oncourt.build(), stage6's read_span_frames() consumers,
+      and stage2_generate_events.main() to iterate instead of dict-load.
+      PRE-CHECK each consumer's access pattern is monotonic-in-frame
+      before porting (stage6 windows are time-ordered; verify in code,
+      adapt the loop shape if any consumer needs lookback, never cache
+      whole frames). DONE: iter_frames() added beside extract_frames()
+      in spikes/stage2_multikeyframe.py. oncourt.build() and
+      stage2_generate_events.py port directly (true monotonic streams).
+      stage6_ocr_confirm.py needed a real restructure, not a drop-in --
+      its imgs[f] access follows a LARGEST-BOX-FIRST pick, not frame
+      order, so it now runs two-pass: pick frames from track bboxes
+      ONLY (no images), union the picks, THEN targeted-iter_frames just
+      those. Net win beyond "streaming": this dict now scales with
+      (candidates x MAX_ATTEMPTS), not clip length -- exactly REVIEW.md's
+      own suggestion ("fetch on demand per OCR attempt"). NOT ported
+      (found, flagged, out of scope): phase2/stage2_recovery.py's
+      read_span_frames -- a standalone eyeball/diagnostic overlay tool,
+      NOT in run_clip's live path, doesn't block the demo.
+- [ ] 2. Regression = BYTE-IDENTICAL outputs: snapshot current artifacts
+      (team_events, oncourt cache, ocr_confirms, player_events_merged,
+      box_score) for BOTH clips; rerun the ported stages; diff must be
+      empty. Any diff = stop and report. Suite (183) green throughout;
+      new unit test for iter_frames ordering/completeness vs
+      extract_frames on a tiny synthetic video. DONE: baseline snapshot
+      taken (md5s recorded) before any edit; 5 new iter_frames tests +
+      8 new run_batch tests; suite 183 -> 196 green (2.4s).
+      TEST1 VERIFIED 2026-07-22: oncourt.json rebuild showed a REAL
+      diff (447/461 frames' diagnostic `inliers` count shifted, e.g.
+      6307->6303) -- investigated, not hand-waved. ROOT CAUSE FOUND:
+      isolated single-frame re-check (same frame, same code, fresh
+      process) reproduced a DIFFERENT inlier count than the full-loop
+      run got for that same frame -- proves the wobble is OpenCV
+      SIFT's own cross-process nondeterminism (no cv2.setNumThreads(1)
+      anywhere in the repo; setRNGSeed(0) fixes RANSAC's sampling but
+      not multi-threaded keypoint detection), NOT something iter_frames
+      introduced. Confirmed harmless: EVERY frame's actual decision
+      (on/off-court bool + court_feet position) was byte-identical
+      across all 461 frames; the confidence-state classification
+      (ok/low_confidence, gated at 150 inliers/2.0px) never flipped
+      either -- worst-case inliers stayed >=965, nowhere near the
+      threshold. Full run_clip TEST1 rerun: team_events.json,
+      ocr_confirms.json, player_events_merged.json, box_score.json+csv
+      ALL byte-for-byte identical to baseline (these stages' diagnostic
+      SIFT calls happened not to wobble this run -- consistent with the
+      nondeterminism being probabilistic/thread-timing-dependent, not
+      code-path-dependent).
+      HARD VERIFIED 2026-07-22: SAME story -- oncourt.json rebuild
+      (601 tracking-span frames, not the 2746 ball-layer span) showed
+      the identical diagnostic-only inliers wobble (0/601 real
+      on/court_feet differences, confidence-state never flipped, worst
+      inliers 1130 new vs 1163 baseline, both far above the 150
+      threshold). Full run_clip HARD rerun: team_events.json,
+      ocr_confirms.json, player_events_merged.json, box_score.json+csv
+      ALL byte-for-byte identical to baseline. Both clips fully
+      verified, zero behavior change from the streaming port.
+- [x] 3. run_batch.py (new, top level): takes clip names, runs each as
+      .venv/Scripts/python -c "run_clip.run(...)" SUBPROCESS (the
+      one-clip-per-process invariant), captures per-clip log + exit
+      code, writes batch_manifest.json (clip, git commit, config
+      fingerprint summary, stage reuse notes from the log, duration,
+      artifact paths, pass/fail). No queue framework -- a loop. This is
+      the exact seam Phase 7's worker calls later.
+- [x] 4. Verify: run_batch over TEST1+HARD end-to-end DONE 2026-07-22 --
+      2/2 PASS, TEST1 331.2s / HARD 318.1s (Phase 5 caches reused via
+      fingerprint, so this is the true whole-pipeline cost). manifest
+      (batch_manifest.json) recorded git commit + fingerprints +
+      artifact paths for both.
+- [x] 5. Review section below + commits per CLAUDE.md.
+
+NOT in scope: resumable-stages tier 2 (fingerprinted caches already
+give the cheap 80%), distributed anything, hoop-anchor SIFT scaling,
+GPU ops automation, Phase 7 worker itself, findings (a)/(b) from the
+shot-layer review (empty TEST1 chart backlog item stays visible there).
+
+## Review (Phase 6 minimal, 2026-07-22)
+- The 3 measured RAM bombs are fixed: iter_frames() (spikes/
+  stage2_multikeyframe.py) streams frames one at a time instead of
+  materializing a whole span/sample into one dict. oncourt.build() and
+  stage2_generate_events.py port directly (true monotonic streams).
+  stage6_ocr_confirm.py needed an actual two-pass restructure (pick
+  frames from track bboxes first, THEN targeted-read only those) since
+  its access pattern is largest-box-first, not frame order -- this is
+  a bigger win than plain streaming: that dict now scales with
+  (candidates x MAX_ATTEMPTS), never with clip length, matching
+  REVIEW.md's own recommendation. One RAM bomb found or NOT ported
+  (out of scope, flagged): phase2/stage2_recovery.py -- a standalone
+  eyeball/diagnostic overlay tool, not in run_clip's live path.
+- run_batch.py is the new seam: one clip per subprocess (the existing
+  invariant), a manifest recording git commit, config fingerprint,
+  duration, and artifact paths per clip. Exit code alone doesn't mark
+  a pass -- it also requires finding run_clip's own completion line in
+  the log (abstention-first: a caught exception that still exits 0
+  must not read as success). This is the exact shape Phase 7's worker
+  will call per job.
+- REAL finding during verification, investigated to root cause (not
+  hand-waved): rebuilding the on-court cache with the new streaming
+  code produced a DIFFERENT file (different checksum) than the
+  pre-change baseline on BOTH clips. Traced by isolating a single frame
+  and re-running its SIFT+RANSAC match in a fresh process: the exact
+  same frame, same code, gave a different keypoint-match inlier count
+  than it got inside the full sequential rebuild. Root cause: OpenCV's
+  SIFT keypoint detection has cross-process nondeterminism (no
+  cv2.setNumThreads(1) anywhere in the repo; cv2.setRNGSeed(0) fixes
+  RANSAC's own sampling but not multi-threaded feature detection
+  upstream of it) -- a pre-existing property of the library, unrelated
+  to iter_frames. CONFIRMED harmless on both clips: every single
+  frame's actual decision (on/off-court bool + court_feet position)
+  was byte-identical, and the confidence-state classification
+  (ok/low_confidence, gated at 150 inliers) never flipped -- worst-case
+  inliers stayed 6-8x above the threshold. The original "byte-identical"
+  regression bar was the wrong bar for any stage touching SIFT/RANSAC;
+  the real bar (decisions unchanged) was met everywhere it could be
+  checked. Downstream of oncourt, every artifact that doesn't carry
+  raw SIFT diagnostics (team_events, ocr_confirms,
+  player_events_merged, box_score json+csv) came back byte-for-byte
+  identical on BOTH clips, both times.
+- Suite 164 -> 196 (13 iter_frames/run_batch tests + earlier ball_stages
+  tests). run_batch verified end-to-end: 2/2 pass, ~5.3-5.5 min/clip
+  with Phase 5 caches reused via fingerprint -- the real per-clip cost
+  once a clip's slow stages are already cached.
+- NEXT per SHIP HANDOFF: item 3, the Phase 7 worker (jobs table +
+  subprocess run_clip + artifacts to storage) -- run_batch.py is
+  already most of that seam's shape.
+
+# SHOT-LAYER INTEGRATION INTO run_clip (DONE 2026-07-19 -- gate passed, see review below)
 
 Ship-handoff item 1: the proven spike chain (ball detect -> trajectory ->
 hoop anchor -> shot attempts -> shot location -> shot outcome) becomes

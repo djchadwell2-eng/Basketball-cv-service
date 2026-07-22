@@ -31,6 +31,7 @@ import ocr_reader
 import oncourt
 import possessions
 import roster
+import stage2_multikeyframe as s2mk    # Phase 6: iter_frames (targeted streaming)
 import windows as winmod
 from identity import IdentityState
 from tracking import Track
@@ -51,25 +52,15 @@ def load(path):
             for fr in doc["frames"]], doc
 
 
-def read_span_frames(video, start, length):
-    cap = cv2.VideoCapture(video)
-    for _ in range(start):
-        cap.grab()
-    imgs = {}
-    for i in range(length):
-        ok, fr = cap.read()
-        if not ok:
-            break
-        imgs[start + i] = fr
-    cap.release()
-    return imgs
-
-
 def main():
     os.makedirs(OUT_DIR, exist_ok=True)
     frames, doc = load(TRACKS_JSON)
     span_start, fps, clip = doc["span_start"], doc["fps"], doc["clip"]
-    imgs = read_span_frames(CLIP.video_path, span_start, doc["span_len"])
+    # Phase 6: NO whole-span image load here. Which frames are actually
+    # needed depends only on track bboxes (computed below from active_log),
+    # not on the images themselves -- so frame selection happens FIRST, and
+    # only the frames actually picked for an OCR attempt get read. This
+    # dict scales with (candidates x MAX_ATTEMPTS), never with clip length.
 
     # WINDOWS = detected possessions (fixed-window fallback is loud inside).
     boundaries, wlabel = possessions.load_windows(CLIP)
@@ -117,9 +108,8 @@ def main():
                      if i.state in (IdentityState.CANDIDATE, IdentityState.UNKNOWN)
                      and _on_court(k)]
 
-    # --- temporal OCR accumulation per candidate ---
-    attempts = crops_any = crops_conf = 0
-    best = {}                               # (win,id) -> (number, conf, frame, bbox)
+    # --- PICK frames per candidate first (bbox data only, no images yet) ---
+    picked_by_key = {}
     attempted_cands = set()
     for key in candidates:
         frs = [(f, bb) for (f, bb) in active_log[key]
@@ -135,10 +125,21 @@ def main():
                 picked.append((f, bb))
             if len(picked) >= MAX_ATTEMPTS:
                 break
-        frs = picked
-        if frs:
+        picked_by_key[key] = picked
+        if picked:
             attempted_cands.add(key)
-        for (f, bb) in frs:
+
+    # --- NOW load only the frames actually picked (targeted, single pass) ---
+    needed_frames = sorted({f for picked in picked_by_key.values() for (f, _bb) in picked})
+    imgs = dict(s2mk.iter_frames(CLIP.video_path, needed_frames))
+    print(f"[stage6] loaded {len(imgs)} frame(s) for OCR attempts "
+          f"(span holds {doc['span_len']} -- targeted read, not the whole span)")
+
+    # --- temporal OCR accumulation per candidate ---
+    attempts = crops_any = crops_conf = 0
+    best = {}                               # (win,id) -> (number, conf, frame, bbox)
+    for key in candidates:
+        for (f, bb) in picked_by_key[key]:
             crop = ocr_reader.jersey_crop(imgs[f], bb)
             reads = ocr_reader.read_jersey(crop, roster.ROSTER_NUMBERS)   # closed-set
             attempts += 1

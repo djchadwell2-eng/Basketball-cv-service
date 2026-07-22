@@ -141,12 +141,17 @@ def build():
           f"(SIFT anchor per frame, CPU -- a few minutes, once per clip)")
     H_court, anchor, fps, total = st.build_court_anchor()
     fidxs = [fr["frame_index"] for fr in tdoc["frames"]]
-    imgs = st.s2.extract_frames(CLIP.video_path, fidxs)
+    # Phase 6: STREAM frames one at a time (never materialize the whole span --
+    # tdoc["frames"] is contiguous/ordered by construction, same order fidxs was
+    # built in, so zipping the two iterators keeps every frame paired with its
+    # own tracks record; the assert catches any future desync loudly).
+    frames_iter = st.s2.iter_frames(CLIP.video_path, fidxs)
 
     out_frames, unclassified, on_counts = [], 0, []
-    for i, fr in enumerate(tdoc["frames"]):
-        f = fr["frame_index"]
-        frame = imgs[f]
+    for i, (fr, (f, frame)) in enumerate(zip(tdoc["frames"], frames_iter)):
+        assert f == fr["frame_index"], (
+            f"frame stream desynced from tracks doc at position {i}: "
+            f"stream={f} tracks={fr['frame_index']}")
         T, inl, reproj, kf = anchor(f, frame)
         if T is None:
             unclassified += 1

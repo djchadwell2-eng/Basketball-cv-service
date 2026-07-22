@@ -117,6 +117,36 @@ def extract_frames(video_path, indices):
     return frames
 
 
+def iter_frames(video_path, indices):
+    """Same single-pass frame-accurate read as extract_frames, but YIELDS
+    (idx, frame) in increasing order instead of materializing every
+    requested frame into one dict first -- O(1) frames held at a time
+    instead of O(len(indices)). Phase 6: the full-game memory fix for
+    every caller that only needs frames in order (never needs to hold
+    more than the current one)."""
+    need = sorted(set(indices))
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        raise RuntimeError(f"Could not open video: {video_path}")
+    it = iter(need)
+    nxt, idx = next(it, None), 0
+    yielded = set()
+    while nxt is not None:
+        if not cap.grab():
+            break
+        if idx == nxt:
+            ok, fr = cap.retrieve()
+            if ok:
+                yield idx, fr
+                yielded.add(idx)
+            nxt = next(it, None)
+        idx += 1
+    cap.release()
+    missing = [i for i in need if i not in yielded]
+    if missing:
+        raise RuntimeError(f"Could not read frames {missing} from {video_path}")
+
+
 def adjacent_homographies(frames, keyframes, regions):
     """For each consecutive pair, the FORWARD homography fwd[i]: K_i px -> K_{i+1} px.
 
