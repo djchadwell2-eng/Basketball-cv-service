@@ -1,4 +1,136 @@
-# PHASE 6 MINIMAL -- full-game scale, demo-first slice (current task, 2026-07-19)
+# PHASE 7 -- connect the pipeline to DJ's real web app (current task, 2026-07-22)
+
+Ship-handoff item 3. Goal (ROADMAP Phase 7): a coach works entirely in
+the web app -> a job runs -> box score + shot chart appear there.
+
+## DJ STEER 2026-07-22 (reshaped the plan -- DO NOT revert to local-first)
+- Manual per-game setup STAYS (calibration clicks, hoop anchors, roster).
+  DJ does NOT want auto-calibration yet ("we dont need full autonomy
+  yet"). The ask is to make that manual setup "slightly easier and
+  faster" by moving it INTO the web app, not to eliminate it. So Phase 4
+  auto-cal stays deferred; the setup-clicking becomes a web-app workflow
+  over time, not a code/terminal chore.
+- Wire into the REAL web app NOW (rejected local-first stand-in),
+  because DJ sees the sequence as: web-app connection THEN the AI
+  analyzer (Phase 8) as the final step.
+
+## WEB APP DISCOVERED 2026-07-22 (major strategic finding)
+Location: c:\Users\djcha\New folder\basketball analysis app (SIBLING
+folder). It is a COMPLETE, working, deploy-ready product -- NOT a shell:
+- Stack: Next.js 15 / React 19 / TypeScript, Supabase (auth + Postgres +
+  storage), Tailwind. Hosted-ready, invite-only auth, per-account quota.
+- What it DOES today ("Basketball Film Analyzer"): upload video ->
+  a 3-pass GEMINI VIDEO CASCADE (motion scan -> wide pass -> deep pass
+  -> synthesis) -> a qualitative SCOUTING REPORT: possessions, play
+  types, tendencies, game patterns, per-player reports (jersey #/color
+  as GEMINI READS them), game plan, coaching narrative. Streams live,
+  saves to Supabase, has a History page.
+- Supabase tables: videos, sequences, possessions, analyses,
+  game_patterns, player_reports, folders. NO jobs table, NO measured-
+  stats tables yet. Processing runs server-side in a Next.js API route
+  (app/api/analyze/route.ts), Node/TS -- NOT Python.
+
+THE CORE TENSION (this is why "connect them" is a strategic decision,
+not plumbing): the web app ALREADY does "AI analysis" -- but in exactly
+the way THIS project's core philosophy (ROADMAP Principle 3) warns
+against: an LLM WATCHING VIDEO and computing the stats/possessions
+itself. The CV pipeline exists precisely because Gemini-on-video is
+confident-wrong on the hard numbers (jersey-level box score, per-player
+tracking through occlusion, precise shot locations). So:
+  - web app = fast, automatic, qualitative "story" (LLM's read of video)
+  - CV pipeline = slow + manual-setup, but MEASURED hard numbers
+    (deterministic box score, real shot chart, tracked identities)
+They are complementary (story vs measured numbers), and how they fit is
+DJ's call. Also a practical mismatch: the app produces results in minutes
+on upload with NO setup; the CV pipeline needs manual calibration + slow
+processing, so its stats can't appear "instantly on upload" the same way.
+DJ DIRECTION 2026-07-22: the HYBRID. CV pipeline owns the hard numbers
+(replacing the AI's shaky guessed numbers); the AI KEEPS watching the
+video for the story (plays/tendencies/coaching read) but narrates
+GROUNDED in the real measured numbers instead of inventing them.
+
+## THE NORTH-STAR GOAL (DJ: "this is the whole goal") -- build toward it
+The AI's advice must be ACTIONABLE + SPECIFIC, not vague fluff. DJ's
+target examples: "drove left 70%, made 30% of those"; "60% of shots from
+behind the arc but struggled inside it." NOT "player is fast-paced /
+tends to pass." Full honest capability map lives in memory
+project_actionable_stats_goal.md. Short version for planning:
+  - STRONG now (CV measures): shot DISTRIBUTION by court zone (3pt vs
+    mid vs paint, left/right/corner/wing), shot volume per player,
+    floor-time + operating zones. -> real actionable spatial lines.
+  - NOT reliable yet: make/miss % ("made 30%") -- Gate 4 unpassed;
+    points/reb/ast/stl unmeasured. Don't promise shooting percentages.
+  - AI-watching only (not CV numbers): drives + direction, P&R, post-ups
+    -- AI describes from video; numbers can't quantify "drove left 70%".
+  - Sample size: per-player % tendencies need FULL + MULTIPLE games
+    (Phase 6 scale + multi-game aggregation), not one short clip.
+The wiring plan (below, still provisional) must feed the CV spatial
+stats into the AI narrative step so the scouting report cites real
+measured distributions -- that is the concrete path to "actionable."
+
+## WEB APP UI ARCHITECTURE (read 2026-07-22, grounds the demo plan)
+- components/AnalysisTabs.tsx = the tab container (Film Room, Scouting
+  Report, Game Plan, Game Flow, Events, Analytics, Stats, Player). Adding
+  a MEASURED tab = one ALL_TABS entry + one new component + wire its data
+  as a prop. Clean, ADDITIVE insertion point -- touches none of the
+  existing Gemini tabs.
+- Existing "Stats" tab (TeamStatSheet, tab 6) is derived from GEMINI
+  possessions -> the measured stats are a SEPARATE new tab, clearly
+  labeled MEASURED, so the two signals never blur.
+- Data reaches AnalysisTabs as props from the page (home after analysis +
+  history/[id] detail). app/api/analyze/route.ts already shells out to
+  ffmpeg via execFile -- precedent for the app calling external tools.
+
+## Plan (concrete, DEMO-FIRST; slice A uses ALREADY-set-up HARD/TEST1)
+- [x] 0. Discover web app + confirm HYBRID direction + north-star goal. DONE.
+- [ ] A. DEMO SLICE -- measured stats visible IN the web app for an
+      already-calibrated game (HARD/TEST1). No calibration UI needed here
+      (those clips are already set up), so this is the fast path to
+      something DJ can show.
+      - [ ] A1. CV side (my home turf): measured_stats.py ->
+            one clean {clip}_measured_stats.json combining box_score +
+            shot_locations/attempts into a WEB-READY CONTRACT:
+              box_score rows (jersey #, team, floor-time seconds --
+                ATTEMPTS only, NO make% since Gate 4 unpassed);
+              shots [{court_x, court_y, zone: three|midrange|paint,
+                shot_type, shooter_status, hoop}];
+              shot_distribution summary (% of attempts by zone) -- the
+                first ACTIONABLE spatial stat, directly proving the goal.
+            This IS the Phase-7 "freeze the contract" step. Tests first
+            for zone classification (3pt-arc geometry, reuse
+            shot_location.py's R3/HOOP_DX) + distribution math.
+      - [ ] A2. Web side (ADDITIVE, does NOT touch the Gemini path):
+            new "Measured" tab in AnalysisTabs + a component rendering a
+            half-court with shot dots + a box-score table + the
+            zone-distribution line ("X% of attempts from three, Y% in the
+            paint"). Data via a small READ-ONLY API route that loads
+            {clip}_measured_stats.json (local file for the demo;
+            swappable for Supabase later). Labeled MEASURED. NO make%
+            shown (honest). Match the app's existing Tailwind/motion style.
+      - [ ] A3. Verify: run the app locally (npm run dev), open a game,
+            see the Measured tab with HARD/TEST1's real box score + shot
+            chart + a real zone-distribution stat; confirm the existing
+            Gemini flow is byte-unchanged (nothing removed/edited in it).
+- [ ] B. (BIGGER, AFTER the demo) Calibration INSIDE the web app: a
+      browser workflow to set up a NEW game -- upload -> pick keyframes ->
+      click court landmarks -> mark hoops -> enter roster -> stored + fed
+      to the CV pipeline. Replaces the code/terminal setup ("easier +
+      faster", DJ's ask). LARGE front-end build (canvas clicking on
+      frames); its own plan + check-in when we reach it.
+- [ ] C. (CV priority right AFTER connect, per DJ) Strengthen MAKE/MISS
+      so shooting PERCENTAGES become trustworthy -> unlocks "made 30%"
+      style stats. Gate-4 work / scoreboard OCR. Its own plan.
+- [ ] D. (real plumbing, when off the local-file demo) CV worker pushes
+      measured_stats into Supabase per game; the Measured tab reads from
+      Supabase like the rest of the app; feed measured distributions into
+      the Gemini synthesis prompt so the scouting narrative CITES real
+      numbers (the grounded-narrative half of the hybrid).
+
+NOT in scope for the DEMO (slice A): calibration UI (B), make/miss (C),
+Supabase plumbing (D), auto-calibration (Phase 4). Slice A = already-
+computed HARD/TEST1 outputs + a local read-only route + one new tab.
+
+# PHASE 6 MINIMAL -- full-game scale, demo-first slice (DONE 2026-07-22 -- both clips verified, see review below)
 
 Ship-handoff item 2. G5 (compute) is ANSWERED by practice: rented GPU per
 game (RunPod, memory infra_runpod_gpu.md). The demo can be ONE clip, so

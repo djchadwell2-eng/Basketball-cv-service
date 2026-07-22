@@ -1,0 +1,209 @@
+{
+  "clip": "HARD",
+  "meta": {
+    "make_miss_available": false,
+    "box_score_note": "presence-seconds over this clip's tracked span -- not full-game stats",
+    "court": {
+      "length_ft": 84.0,
+      "width_ft": 50.0,
+      "hoop_dx_ft": 5.25,
+      "three_radius_ft": 19.75
+    }
+  },
+  "box_score": [
+    {
+      "number": 24,
+      "team": "Milford (white/red)",
+      "seconds_total": 15.133333333333333,
+      "seconds_live": 15.133333333333333,
+      "seconds_retro": 0.0,
+      "windows_present": 2,
+      "zone_seconds": {
+        "LEFT_CORNER": 4.366666666666666,
+        "LEFT_WING": 2.7,
+        "PAINT": 0.6333333333333333,
+        "PERIMETER": 7.433333333333334
+      },
+      "top_zone": "PERIMETER",
+      "disputed_seconds": 1.1333333333333333
+    },
+    {
+      "number": 10,
+      "team": "Winton Woods (black/green)",
+      "seconds_total": 11.166666666666666,
+      "seconds_live": 11.166666666666666,
+      "seconds_retro": 0.0,
+      "windows_present": 2,
+      "zone_seconds": {
+        "LEFT_CORNER": 6.233333333333333,
+        "PAINT": 4.233333333333333,
+        "PERIMETER": 0.7
+      },
+      "top_zone": "LEFT_CORNER",
+      "disputed_seconds": 0.0
+    },
+    {
+      "number": 3,
+      "team": "Milford (white/red)",
+      "seconds_total": 7.333333333333333,
+      "seconds_live": 3.9,
+      "seconds_retro": 3.433333333333333,
+      "windows_present": 2,
+      "zone_seconds": {
+        "LEFT_CORNER": 1.0333333333333334,
+        "LEFT_WING": 1.2333333333333334,
+        "PAINT": 2.7333333333333334,
+        "PERIMETER": 2.066666666666667,
+        "RIGHT_CORNER": 0.26666666666666666
+      },
+      "top_zone": "PAINT",
+      "disputed_seconds": 0.0
+    },
+    {
+      "number": 44,
+      "team": "Milford (white/red)",
+      "seconds_total": 5.8,
+      "seconds_live": 0.5333333333333333,
+      "seconds_retro": 5.266666666666667,
+      "windows_present": 1,
+      "zone_seconds": {
+        "LEFT_WING": 3.7,
+        "PAINT": 1.8,
+        "PERIMETER": 0.3
+      },
+      "top_zone": "LEFT_WING",
+      "disputed_seconds": 0.0
+    },
+    {
+      "number": 20,
+      "team": "Winton Woods (black/green)",
+      "seconds_total": 4.933333333333334,
+      "seconds_live": 0.26666666666666666,
+      "seconds_retro": 4.666666666666667,
+      "windows_present": 2,
+      "zone_seconds": {
+        "LEFT_WING": 0.03333333333333333,
+        "PAINT": 0.9666666666666667,
+        "PERIMETER": 3.6666666666666665,
+        "RIGHT_CORNER": 0.26666666666666666
+      },
+      "top_zone": "PERIMETER",
+      "disputed_seconds": 0.0
+    },
+    {
+      "number": 23,
+      "team": "Milford (white/red)",
+      "seconds_total": 4.4,
+      "seconds_live": 4.4,
+      "seconds_retro": 0.0,
+      "windows_present": 1,
+      "zone_seconds": {
+        "LEFT_CORNER": 0.7,
+        "LEFT_WING": 3.7
+      },
+      "top_zone": "LEFT_WING",
+      "disputed_seconds": 0.0
+    },
+    {
+      "number": 1,
+      "team": "Milford (white/red)",
+      "seconds_total": 4.3,
+      "seconds_live": 2.033333333333333,
+      "seconds_retro": 2.2666666666666666,
+      "windows_present": 2,
+      "zone_seconds": {
+        "LEFT_CORNER": 1.6,
+        "PERIMETER": 1.6666666666666667,
+        "RIGHT_WING": 0.4,
+        "TOP_OF_KEY": 0.6333333333333333
+      },
+      "top_zone": "PERIMETER",
+      "disputed_seconds": 0.0
+    },
+    {
+      "number": 0,
+      "team": "Winton Woods (black/green)",
+      "seconds_total": 3.1,
+      "seconds_live": 0.0,
+      "seconds_retro": 3.1,
+      "windows_present": 1,
+      "zone_seconds": {
+        "LEFT_CORNER": 0.23333333333333334,
+        "LEFT_WING": 1.0666666666666667,
+        "PAINT": 0.8666666666666667,
+        "PERIMETER": 0.8333333333333334,
+        "RIGHT_CORNER": 0.1
+      },
+      "top_zone": "LEFT_WING",
+      "disputed_seconds": 0.0
+    },
+    {
+      "number": 23,
+      "team": "Winton Woods (black/green)",
+      "seconds_total": 2.6666666666666665,
+      "seconds_live": 0.0,
+      "seconds_retro": 2.6666666666666665,
+      "windows_present": 1,
+      "zone_seconds": {
+        "PAINT": 0.5666666666666667,
+        "PERIMETER": 1.4333333333333333,
+        "TOP_OF_KEY": 0.6666666666666666
+      },
+      "top_zone": "PERIMETER",
+      "disputed_seconds": 0.0
+    },
+    {
+      "number": 13,
+      "team": "Milford (white/red)",
+      "seconds_total": 0.8333333333333334,
+      "seconds_live": 0.8333333333333334,
+      "seconds_retro": 0.0,
+      "windows_present": 1,
+      "zone_seconds": {
+        "RIGHT_CORNER": 0.8333333333333334
+      },
+      "top_zone": "RIGHT_CORNER",
+      "disputed_seconds": 0.0
+    },
+    {
+      "number": 3,
+      "team": "AMBIGUOUS (Milford (white/red) / Winton Woods (black/green))",
+      "seconds_total": 0.0,
+      "seconds_live": 0.0,
+      "seconds_retro": 0.0,
+      "windows_present": 0,
+      "zone_seconds": {},
+      "top_zone": "-",
+      "disputed_seconds": 2.7
+    }
+  ],
+  "shots": [
+    {
+      "start_frame": 1188,
+      "end_frame": 1213,
+      "court_x": 68.7,
+      "court_y": 42.3,
+      "zone": "three",
+      "dist_ft": 20.0,
+      "shot_type": "jumpshot",
+      "hoop": "far",
+      "shooter_status": "review_item"
+    }
+  ],
+  "shots_unlocated": 3,
+  "shot_distribution": {
+    "n": 1,
+    "counts": {
+      "three": 1,
+      "midrange": 0,
+      "paint": 0
+    },
+    "pct": {
+      "three": 100.0,
+      "midrange": 0.0,
+      "paint": 0.0
+    },
+    "pct_three": 100.0,
+    "pct_two": 0.0
+  }
+}
