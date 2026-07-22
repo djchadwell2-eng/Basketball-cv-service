@@ -235,6 +235,60 @@ NEW WANT (DJ, record it -- "I still want it"): PER-PLAYER HEATMAPS.
     Good candidate to add to the measured view relatively soon.
   See memory project_actionable_stats_goal.md.
 
+# PHASE 7 CV-PRIMARY BUILD PLAN (DJ-approved architecture 2026-07-22)
+
+DJ confirmed ("yes"): CV owns ALL the numbers; the AI is demoted to the
+grounded STORY on top (runs AFTER CV, never overrides facts). Honest
+limit DJ holds: CV = facts (who/where/shots/positions); the tactical
+story (plays/tendencies/game plan) still needs the AI WATCHING, grounded
+in CV. App's current AI-guessed Stat/Player tabs -> DEFAULT keep-but-mark
+"AI estimate" beside CV truth (reversible; remove later). Full direction:
+memory project_phase7_webapp_direction.md.
+
+THE CRUX: "CV connected to everything" + "brand-new-clip path" are the
+SAME build -- the PROCESSING LOOP: app runs CV on a clip -> authoritative
+facts -> AI runs second grounded in them -> app leads with CV. Everything
+DJ wants flows from "after the CV analyzes the clip."
+
+Key architectural find: app/api/analyze/route.ts already shells out to
+ffmpeg via execFile -- so the Next app can invoke the PYTHON CV pipeline
+the same way (execFile `.venv/Scripts/python run_clip.py CLIP` /
+run_batch), no separate worker service needed for a LOCAL host. Slow
+(minutes) + needs the clip SET UP -- so first prove it on HARD (already
+set up), add browser setup for NEW clips after.
+
+## Build order (each its own check-in before touching the working app)
+- [x] L1. CV-RUN BRIDGE DONE + VERIFIED 2026-07-22. CV side: analyze_clip.py
+      (one entry point = run_clip + measured_stats.generate; prints STAGE
+      markers; exits nonzero if the clip isn't a set-up ClipConfig) +
+      measured_stats.generate() extracted. App side: lib/cvRunner.ts spawns
+      the CV venv python on analyze_clip.py, captures stdout, tracks a
+      status file (running->done/failed, surfaces STAGE as progress);
+      app/api/cv-run/[clip] POST=start(bg)/GET=poll; /measured page gained
+      a "Run CV analysis" button -> progress state -> auto-reload of the
+      numbers. VERIFIED: app->python plumbing smoke-tested via cvRunner
+      (fast script, done/exit0/facts produced); full analyze_clip.py HARD
+      ran end-to-end 277s exit 0 (11 players, 1 shot). Button renders.
+      Suite 204 green. Web files uncommitted on app's main. CONSTRAINT
+      holds: only set-up clips (HARD/TEST1) run; NEW clips need L4 setup.
+- [ ] L2. CV-PRIMARY ASSEMBLY + PRESENTATION: fold the Measured view in
+      as the app's PRIMARY analysis surface (CV facts lead), not a side
+      page. AI-guessed Stat/Player tabs marked "AI estimate".
+- [ ] L3. GROUND THE AI: feed the CV facts into the Gemini synthesis so
+      the tactical story is consistent with + subordinate to the numbers
+      (the AI never restates a stat CV measured; cites CV facts). Reuses
+      the honesty-guardrail prompt approach already built + verified.
+- [ ] L4. BRAND-NEW-CLIP PATH: browser SETUP (mark court/hoops/roster) so
+      a new clip can be set up in-app, then enter L1's loop. Big
+      front-end build; its own plan.
+- [ ] L5. (parallel CV priority, DJ) MAKE/MISS -> shooting %; and the
+      per-player POSITION heatmap (data exists) as a nearer-term add.
+
+NOT yet: Supabase persistence of CV facts (local-file bridge is fine for
+local host); auto-calibration (Phase 4). DJ is improving detectors
+(ball done, players now, rim next) in a separate chat -- rim helps
+auto-hoop (setup friction); a court-line detector later = auto-cal.
+
 # PHASE 6 MINIMAL -- full-game scale, demo-first slice (DONE 2026-07-22 -- both clips verified, see review below)
 
 Ship-handoff item 2. G5 (compute) is ANSWERED by practice: rented GPU per

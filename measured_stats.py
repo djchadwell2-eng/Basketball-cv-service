@@ -124,8 +124,10 @@ def _load(path):
         return json.load(f)
 
 
-def main():
-    clip = sys.argv[1] if len(sys.argv) > 1 else "HARD"
+def generate(clip):
+    """Load the three artifacts for `clip`, build the web contract, write
+    {clip}_measured_stats.json, and return it. Callable by analyze_clip.py
+    (the app's CV entry point) as well as the CLI."""
     box = _load(os.path.join(_ROOT, "phase2", "out", f"{clip}_box_score.json"))
     loc = _load(os.path.join(_ROOT, "spikes", "out", f"{clip}_shot_locations.json"))
     att = _load(os.path.join(_ROOT, "spikes", "out", f"{clip}_shot_attempts.json"))
@@ -142,6 +144,11 @@ def main():
         print(f"  shot distribution: {d['pct_three']}% three / {d['pct_two']}% inside "
               f"(counts {d['counts']})")
     print(f"  wrote {out_path}")
+    return out
+
+
+def main():
+    generate(sys.argv[1] if len(sys.argv) > 1 else "HARD")
 
 
 if __name__ == "__main__":
