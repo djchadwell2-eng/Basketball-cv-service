@@ -180,6 +180,61 @@ computed HARD/TEST1 outputs + a local read-only route + one new tab.
   the scouting report cites real numbers. Also open: commit the 3 web
   files (DJ's call), and later fold /measured into AnalysisTabs as a tab.
 
+## DEMO RESCOPE + NEW WANTS (DJ 2026-07-22, after seeing slice A)
+DJ: "this isnt the demo I wanted -- I want to LOCALLY HOST the web app,
+input a game clip, and get one out." Slice A was a static VIEWER of
+pre-computed HARD/TEST1 stats; DJ wants the real IN->OUT LOOP running
+locally. The results-display half (slice A's component + bridge) is
+REUSABLE -- what's missing is the TRIGGER (press Analyze -> run_clip
+actually runs) and, for NEW clips, the browser SETUP (calibration).
+
+HARD TRUTH restated: a NEW arbitrary clip cannot run without setup
+(court landmarks + hoop anchors + roster) -- that's manual today and
+must exist in the browser before "upload any clip -> stats" works. So
+the loop comes in two honest steps:
+  E1. WORKING LOOP on an ALREADY-SET-UP game (HARD/TEST1): web app
+      "Analyze" button -> triggers the CV pipeline locally (worker /
+      run_batch subprocess, the seam already ~built) -> processing state
+      in the UI -> measured stats render (slice A component). Proves the
+      real in->out loop without the huge calibration UI. This is the
+      demo DJ actually wants, scoped to what's runnable now.
+  E2. Then B (calibration IN the browser) so DJ can feed NEW clips.
+Ordering vs DJ's earlier (C make/miss first): DJ's NEW demo ask (E1)
+likely takes priority over C now -- CONFIRM with DJ. E1 is the loop; C
+strengthens a number inside it.
+
+AI GROUNDED NARRATIVE DONE 2026-07-22 (the dad demo DJ asked for --
+"get gemini to analyze the box scores/stats we have"): the web app's
+Measured view now has an "AI Scouting Read" button that sends the
+measured numbers to Gemini (text-only, gemini-3.5-flash, reuses the
+app's GEMINI_API_KEY) and shows a scouting write-up GROUNDED in those
+numbers. New web files (all additive, Gemini video flow untouched):
+lib/measuredStats.ts (shared reader; bridge route refactored onto it),
+lib/measuredNarrative.ts (honest prompt + 3x 503-retry), app/api/measured/
+[clip]/narrative/route.ts (POST), + MeasuredStats.tsx button/section.
+GUARDRAILS held (verified live via curl x2): only uses given numbers,
+cites a specific number per claim, flags thin-sample players as
+low-confidence, says make/miss "not measured" (no invented %), uses
+they/them (dad's team is girls -- caught + fixed a he/his default).
+IDENTITY/FLOOR-TIME honesty: DJ noticed 3s floor times look wrong. They
+are REAL, not a bug: (a) HARD span is only ~20s; (b) tracker fragments +
+NO reliable auto re-ID (teammates identical -> appearance re-ID failed,
+DECISIONS 11), so only confidently-identified stretches are credited
+(under-credit by design). The prompt tells Gemini to treat small
+floor-times as "limited confident tracking, not barely played." DJ's
+parallel player-detector work directly attacks this (fewer fragments).
+Web files still UNCOMMITTED on the app's main (DJ's call).
+
+NEW WANT (DJ, record it -- "I still want it"): PER-PLAYER HEATMAPS.
+  - shot-location heatmap per player = LATER (needs dense per-player
+    shots -> rides on make/miss + full/multiple games; HARD has 1
+    located shot today). DJ acknowledged "probably a later thing."
+  - position/roam heatmap per player = ACHIEVABLE SOONER: court_feet is
+    already stored per track per frame (oncourt cache) + zone_seconds
+    already derived + Phase-1/2 heatmap infra exists (stage3_heatmap).
+    Good candidate to add to the measured view relatively soon.
+  See memory project_actionable_stats_goal.md.
+
 # PHASE 6 MINIMAL -- full-game scale, demo-first slice (DONE 2026-07-22 -- both clips verified, see review below)
 
 Ship-handoff item 2. G5 (compute) is ANSWERED by practice: rented GPU per
