@@ -325,6 +325,24 @@ set up), add browser setup for NEW clips after.
       the grounded Gemini VISION pass (deferred L3b) -> show in the app.
       (DJ may do calibration in his separate CV chat.)
       Sample frames dumped to scratchpad (test2_f*.jpg) for reference.
+      UPDATE 2026-07-22: DJ said "idk how to set it up can you do it for
+      me?" -> I'm now doing the Test2 calibration myself (by reading
+      frames -- the hard, deferred new-gym problem; expect rough +
+      iterative). PROGRESS: pan mapped via a 12-frame montage -- camera
+      pans left<->right following the ball; clean LEFT->RIGHT sweep early
+      (frames ~30-400). Court = HS (84x50). Scorebug bottom-left (mask
+      ~x0-440,y880-1080). Chosen calibration keyframes = [40,140,240,340,
+      400] (left->right), extracted full-res to scratchpad (test2_kf*.jpg).
+      NEXT (multi-turn): mark court landmarks on each keyframe -> create
+      clips_config TEST2 entry + ClipConfig (HS court, span ~40-400,
+      hoop anchors, roster) -> run refit + render court overlay -> eyeball
+      w/ DJ -> iterate. Then cache_tracks + cache_oncourt -> analyze_clip
+      TEST2 -> vision pass -> app. HONEST RISK: JPEG-read landmark
+      precision may be poor; if calibration won't converge, that's the
+      finding that justifies the browser-setup tool.
+      ALSO DONE 2026-07-22: AI reads now AUTOMATIC after a CV run +
+      cached ({clip}_ai_read.json), so no button + no re-cost on reload
+      (branch cv-integration). DJ asked for auto; done.
 - [ ] L5. (parallel CV priority, DJ) MAKE/MISS -> shooting %; and the
       per-player POSITION heatmap (data exists) as a nearer-term add.
 
