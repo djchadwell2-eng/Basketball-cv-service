@@ -223,48 +223,64 @@ CLIPS = {
     # =========================================================================
     "TEST2": {
         "video_path": r"C:\Users\djcha\New folder\Throw away repos\Basketball Analyer CV System Test\clips\Test2.mp4",
-        "keyframes": [40, 140, 240, 340, 400],
+        # v2 keyframes (2026-07-23): dropped redundant 40/140, added 3 bridge
+        # frames (275/300/325) across the fast left->center pan to strengthen
+        # the SIFT chain (the 240->340 direct pair was weak, arcs ~2ft off).
+        "keyframes": [240, 275, 300, 325, 340, 400],
         "reference_pos": None,
         "exclude_regions": [
             (0.0, 810.0, 580.0, 1080.0),   # scorebug, bottom-left
         ],
         "court": dict(HS_COURT),
-        "stills": [40, 240, 340, 400],
+        "stills": [240, 300, 340, 400],
+        # Rims (NOT court landmarks -> not here; carried by hoop_anchor):
+        #   left  rim = frame 240 px (509, 129);  right rim = frame 400 px (1473, 205)
+        # NOTE: the 3pt-arc-APEX marks (L_arc_top/R_arc_top) are intentionally
+        # NOT used as calibration landmarks. Measured 2026-07-23: the apex of a
+        # smooth curve can't be clicked precisely (a small pixel error -> ~2 ft),
+        # so those marks land ~17 ft (vs 19.75) and DRAG the fit -- excluding
+        # them drops mean error 1.02 -> 0.80 ft and the standard 19.75 arc then
+        # sits on the painted line. Good overall calibration fixes the arc; a
+        # noisy arc landmark does not.
         "landmarks": {
-            40: [
-                ('LB_side_far', 749, 210), ('L_lane_base_near', 267, 508),
-                ('L_lane_base_far', 484, 373), ('L_FT_near', 892, 618),
-                ('L_FT_far', 1052, 461), ('L_arc_top', 1185, 569),
-                ('circle_left', 1802, 663),
-            ],
-            140: [
-                ('LB_side_far', 769, 235), ('L_lane_base_near', 326, 513),
-                ('L_lane_base_far', 524, 388), ('L_FT_near', 899, 609),
-                ('L_FT_far', 1044, 469), ('L_arc_top', 1160, 569),
-                ('circle_left', 1731, 648),
-            ],
             240: [
                 ('LB_side_far', 750, 206), ('L_lane_base_near', 265, 508),
                 ('L_lane_base_far', 477, 363), ('L_FT_near', 889, 616),
-                ('L_FT_far', 1050, 461), ('L_arc_top', 1187, 570),
-                ('circle_left', 1807, 660),
+                ('L_FT_far', 1050, 461), ('circle_left', 1807, 660),
+            ],
+            275: [
+                ('LB_side_far', 752, 216), ('L_lane_base_near', 283, 510),
+                ('L_lane_base_far', 496, 371), ('L_FT_near', 890, 616),
+                ('L_FT_far', 1050, 462), ('circle_left', 1785, 658),
+            ],
+            300: [
+                ('LB_side_far', 484, 203), ('L_lane_base_near', 31, 503),
+                ('L_lane_base_far', 240, 370), ('L_FT_near', 637, 582),
+                ('L_FT_far', 781, 434), ('circle_left', 1477, 587),
+                ('circle_top', 1709, 535), ('circle_bottom', 1684, 715),
+                ('center_logo', 1699, 606), ('center_far', 1741, 318),
+            ],
+            325: [
+                ('LB_side_far', 122, 220), ('L_FT_near', 295, 580),
+                ('L_FT_far', 428, 422), ('circle_left', 1094, 535),
+                ('circle_right', 1510, 562), ('circle_top', 1307, 473),
+                ('circle_bottom', 1293, 641), ('center_logo', 1300, 548),
+                ('center_far', 1323, 272), ('center_near', 1254, 1056),
             ],
             340: [
                 ('L_FT_near', 86, 599), ('L_FT_far', 214, 441),
-                ('L_arc_top', 348, 520),
                 ('circle_left', 877, 532), ('circle_bottom', 1069, 623),
                 ('circle_top', 1077, 447), ('center_logo', 1072, 532),
-                ('circle_right', 1273, 543),
-                ('center_near', 1049, 1027), ('center_far', 1086, 265),
-                ('R_arc_top', 1816, 545),
+                ('circle_right', 1273, 543), ('center_near', 1049, 1027),
+                ('center_far', 1086, 265),
             ],
             400: [
                 ('circle_left', 7, 658), ('circle_bottom', 224, 714),
                 ('circle_top', 208, 552), ('center_logo', 218, 624),
                 ('center_far', 187, 363), ('circle_right', 417, 599),
-                ('R_arc_top', 917, 538), ('R_FT_far', 1030, 459),
-                ('R_FT_near', 1155, 589), ('R_lane_base_far', 1502, 403),
-                ('R_lane_base_near', 1676, 520), ('RB_side_far', 1286, 259),
+                ('R_FT_far', 1030, 459), ('R_FT_near', 1155, 589),
+                ('R_lane_base_far', 1502, 403), ('R_lane_base_near', 1676, 520),
+                ('RB_side_far', 1286, 259),
             ],
         },
     },
