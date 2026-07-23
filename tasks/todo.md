@@ -343,6 +343,23 @@ set up), add browser setup for NEW clips after.
       ALSO DONE 2026-07-22: AI reads now AUTOMATIC after a CV run +
       cached ({clip}_ai_read.json), so no button + no re-cost on reload
       (branch cv-integration). DJ asked for auto; done.
+      COURT-MARKING TOOL BUILT + PUBLISHED 2026-07-22 (DJ loved it): a
+      guided point-and-click Artifact (scratchpad/make_marker.py ->
+      court_marker.html) -- 5 Test2 keyframes embedded, magnifier loupe,
+      mini court-diagram guide, grouped landmark list incl. TOP-OF-3PT-
+      ARC (DJ asked -- HARD's arc was off), outputs pixel coords per
+      (frame, tag). URL https://claude.ai/code/artifact/4bc9fb91-6264-
+      4b85-83c4-5d54c8064988. DJ GREENLIT this as the REAL clip-config /
+      court-homography interface (= the L4 browser-setup, now happening):
+      real version = in the web app, frames auto-extracted from any
+      uploaded video, a SAVE/Enter button that writes the config (no
+      copy-paste), + hoops + roster. SEQUENCING (agreed): FIRST DJ marks
+      Test2 in the current tool + pastes back -> I build the clips_config
+      TEST2 entry from the tag->pixel coords + add L_arc_top/R_arc_top
+      to the engine's landmark palette (court-feet: arc apex =
+      (HOOP_DX+R3, 25) each end) -> run refit + overlay -> prove the flow
+      end-to-end. THEN build the real integrated Save tool. Prove-then-
+      productize (don't build the polished tool around an unproven fit).
 - [ ] L5. (parallel CV priority, DJ) MAKE/MISS -> shooting %; and the
       per-player POSITION heatmap (data exists) as a nearer-term add.
 
