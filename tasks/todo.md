@@ -353,6 +353,18 @@ set up), add browser setup for NEW clips after.
       marked hoops; add to the tool OR skip shots first via
       ball_span_len=0); (2) cache_tracks + cache_oncourt TEST2;
       (3) analyze_clip TEST2; (4) vision pass; (5) app. Suite 204;committed.
+      REFINEMENT ROUND 2026-07-23: DJ (rightly) wants the calibration
+      RIGHT before proceeding -- overlay showed the 3pt arcs ~1-2ft
+      inside (2 issues: (a) MY overlay arc was a stub half-circle, FIXED
+      to sweep to baseline in stage4.court_polylines; (b) real residual
+      from the fast 240->340 pan / weak SIFT pair). FIX: marking tool v2
+      -- dropped redundant left frames 40/140, added 3 BRIDGE frames
+      275/300/325 across the pan, PRE-FILLED DJ's existing 240/340/400
+      marks, added a Hoops/rims group (L_rim/R_rim). DJ also caught a
+      COSMETIC bug: the mini-map 3pt arc was drawn as a stub (apex dot
+      floated off it) -- FIXED (basket-centered polyline to baseline).
+      DJ re-marking F2-F4 + rims now; then re-run calib + eyeball; only
+      THEN roster. Tool: same URL 4bc9fb91-....
       ALSO DONE 2026-07-22: AI reads now AUTOMATIC after a CV run +
       cached ({clip}_ai_read.json), so no button + no re-cost on reload
       (branch cv-integration). DJ asked for auto; done.
