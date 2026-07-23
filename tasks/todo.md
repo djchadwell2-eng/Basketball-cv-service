@@ -340,6 +340,19 @@ set up), add browser setup for NEW clips after.
       TEST2 -> vision pass -> app. HONEST RISK: JPEG-read landmark
       precision may be poor; if calibration won't converge, that's the
       finding that justifies the browser-setup tool.
+      *** CALIBRATION SUCCEEDED 2026-07-23 (DJ marked via the tool). ***
+      TEST2 clips_config entry built from DJ's marks (5 kf, left->center
+      ->right; 40/140/240 = left basket held, 340 center, 400 right;
+      weak-pair 240->340 fast pan but fit held). Added L_arc_top/
+      R_arc_top to stage4 COURT_MODEL (apex=HOOP_DX+R3=25ft) + arcs in
+      overlay. FIT mean 1.04 ft / max 2.32 (on par w/ HARD ~0.95),
+      eyeball-confirmed all 3 views (center circle dead-on the F logo).
+      Overlay viewer: https://claude.ai/code/artifact/f7635aa2-2166-4c66-
+      a9b6-cae4fb9a21fb . REMAINING for the demo: (1) ClipConfig TEST2 =
+      needs ROSTER from DJ + tracking span + HOOP anchors (DJ hasn't
+      marked hoops; add to the tool OR skip shots first via
+      ball_span_len=0); (2) cache_tracks + cache_oncourt TEST2;
+      (3) analyze_clip TEST2; (4) vision pass; (5) app. Suite 204;committed.
       ALSO DONE 2026-07-22: AI reads now AUTOMATIC after a CV run +
       cached ({clip}_ai_read.json), so no button + no re-cost on reload
       (branch cv-integration). DJ asked for auto; done.
