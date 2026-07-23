@@ -296,6 +296,20 @@ set up), add browser setup for NEW clips after.
           demo, not a HARD preview. Build plan is ready (reuse the app's
           uploadAndPoll + fileManager video path; CV exports the analyzed
           span mp4 so Gemini watches the SAME window the box score covers).
+          VISION CODE BUILT 2026-07-22 (ready to fire on Test2, DJ said
+          "continue to the last part"): CV side export_span.py writes
+          {clip}_span.mp4 (the tracking-span window), wired into
+          analyze_clip; verified (HARD_span.mp4, 601f/20s). App side
+          (branch cv-integration): lib/measuredVision.ts (Gemini VIDEO
+          call = GoogleAIFileManager upload+poll then a fileData part,
+          grounded prompt: watch the clip but every number traces to the
+          CV data, no invented %, they/them), app/api/measured/[clip]/
+          vision POST, + a "Watch the clip (deeper)" button beside "Read
+          the numbers" in MeasuredStats. Typecheck clean; UI renders
+          (screenshot); CV suite 204. NOT RUN yet -- the paid Gemini VIDEO
+          generateContent is saved for the Test2 demo (DJ cost pref);
+          mirrors the app's own analyzer so low-risk, but that one call
+          is the single unverified piece.
 - [~] L4. BRAND-NEW-CLIP DEMO (prove-the-flow-first, DJ 2026-07-22).
       CLIP: "C:\Users\djcha\New folder\Throw away repos\Basketball
       Analyer CV System Test\clips\Test2.mp4" -- Fairfield Indians girls

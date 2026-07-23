@@ -43,6 +43,10 @@ def main():
     import measured_stats
     out = measured_stats.generate(clip)
 
+    print("[analyze_clip] STAGE exporting tracking-span video (for the vision pass) ...", flush=True)
+    import export_span
+    export_span.export(clip)
+
     dt = time.time() - t0
     print(f"[analyze_clip] STAGE done clip={clip} in {dt:.0f}s "
           f"({len(out['box_score'])} players, {len(out['shots'])} shot(s) located)",
