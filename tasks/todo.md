@@ -286,13 +286,31 @@ set up), add browser setup for NEW clips after.
       Detail page (/measured/[clip]) is the CV-led analysis: CV facts
       lead, AI scouting read secondary, Run-CV button. Typecheck clean.
       Web files uncommitted on app main (DJ's call -- now ~11 files).
-- [ ] L3. GROUND THE AI: feed the CV facts into the Gemini synthesis so
-      the tactical story is consistent with + subordinate to the numbers
-      (the AI never restates a stat CV measured; cites CV facts). Reuses
-      the honesty-guardrail prompt approach already built + verified.
-- [ ] L4. BRAND-NEW-CLIP PATH: browser SETUP (mark court/hoops/roster) so
-      a new clip can be set up in-app, then enter L1's loop. Big
-      front-end build; its own plan.
+- [~] L3. GROUND THE AI. Split into two:
+      (a) TEXT grounding = DONE already (the AI Scouting Read narrates the
+          CV numbers under honesty guardrails -- lib/measuredNarrative.ts).
+      (b) VISION grounding (Gemini WATCHES the clip while holding the CV
+          box score -> tactical story matched to the numbers) = DEFERRED
+          by DJ 2026-07-22 into the brand-new-clip demo (L4), since it's a
+          paid Gemini VIDEO call and DJ wants to spend it on the real
+          demo, not a HARD preview. Build plan is ready (reuse the app's
+          uploadAndPoll + fileManager video path; CV exports the analyzed
+          span mp4 so Gemini watches the SAME window the box score covers).
+- [~] L4. BRAND-NEW-CLIP DEMO (prove-the-flow-first, DJ 2026-07-22).
+      CLIP: "C:\Users\djcha\New folder\Throw away repos\Basketball
+      Analyer CV System Test\clips\Test2.mp4" -- Fairfield Indians girls
+      game, DIFFERENT court/camera/teams. 1920x1080, 30fps, 1442 frames
+      (48.1s). Panning follow-cam; standard HS court; big red "F" at
+      center + GMC center-circle logo; scorebug bottom-left (mask it).
+      DJ DECISION: DJ does the MANUAL calibration himself (NO auto-cal
+      until post-ship). So the browser-setup UI is NOT this task.
+      HANDOFF: DJ sets up Test2 like HARD/TEST1 (clips_config entry w/
+      keyframes+landmarks+scorebug mask+hoop anchors; ClipConfig w/ span
+      +roster+hoop_anchors) + runs cache_tracks + cache_oncourt. THEN DJ
+      says "Test2 is calibrated" and I: analyze_clip.py TEST2 -> build+run
+      the grounded Gemini VISION pass (deferred L3b) -> show in the app.
+      (DJ may do calibration in his separate CV chat.)
+      Sample frames dumped to scratchpad (test2_f*.jpg) for reference.
 - [ ] L5. (parallel CV priority, DJ) MAKE/MISS -> shooting %; and the
       per-player POSITION heatmap (data exists) as a nearer-term add.
 
