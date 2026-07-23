@@ -54,6 +54,12 @@ LANE_Y0, LANE_Y1 = _COURT["lane_y0"], _COURT["lane_y1"]   # lane centered on 25
 FT_X = _COURT["ft_x"]                   # left FT line; right FT at LEN-FT_X
 CIRCLE_R = _COURT["circle_r"]
 CX, CY = COURT_LEN / 2.0, COURT_WID / 2.0   # center (42, 25) for HS
+# NFHS: basket 5.25 ft from baseline, 3pt radius 19.75 ft -> the arc apex
+# (top of the key, on the center line) sits 25.0 ft out from each baseline.
+# Added for the Test2 calibration (DJ marked the arc top; HARD's arc had
+# drifted without an arc constraint). Additive -- clips that don't mark it
+# are unaffected.
+HOOP_DX, R3 = 5.25, 19.75
 
 COURT_MODEL = {
     "LB_side_near": (0.0, 0.0),          "LB_side_far": (0.0, 50.0),
@@ -66,6 +72,7 @@ COURT_MODEL = {
     "RB_side_near": (COURT_LEN, 0.0),    "RB_side_far": (COURT_LEN, 50.0),
     "circle_top": (CX, CY + CIRCLE_R),   "circle_bottom": (CX, CY - CIRCLE_R),
     "circle_left": (CX - CIRCLE_R, CY),  "circle_right": (CX + CIRCLE_R, CY),
+    "L_arc_top": (HOOP_DX + R3, CY),     "R_arc_top": (COURT_LEN - HOOP_DX - R3, CY),
 }
 
 STILL_FRAMES = [300, 600, 750, 900, 1050, 1200, 1500, 2000, 2700]
@@ -164,6 +171,10 @@ def court_polylines():
     circ = [(CX + CIRCLE_R * np.cos(t), CY + CIRCLE_R * np.sin(t))
             for t in np.linspace(0, 2 * np.pi, 48)]
     polys.append(circ)
+    # 3pt arcs (same geometry as the arc_top tags), so the overlay shows them.
+    for hoop_x, a0, a1 in [(HOOP_DX, -68, 68), (L - HOOP_DX, 112, 248)]:
+        polys.append([(hoop_x + R3 * np.cos(np.radians(d)), CY + R3 * np.sin(np.radians(d)))
+                      for d in range(a0, a1 + 1, 4)])
     return polys
 
 

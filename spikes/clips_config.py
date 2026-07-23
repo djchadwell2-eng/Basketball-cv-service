@@ -212,6 +212,62 @@ CLIPS = {
             ],
         },
     },
+
+    # =========================================================================
+    # TEST2.mp4 -- FIRST fully NEW gym (different court/camera/teams): Fairfield
+    # Indians girls game. 1920x1080 30fps 48s. Panning follow-cam. Landmarks
+    # clicked by DJ in the browser court-marking tool (2026-07-22) -- the first
+    # clip calibrated through that interface. Keyframes span left->center->right
+    # (camera holds the left basket ~0-8s, then pans right). Includes the new
+    # 3pt-arc-top tag (L_arc_top/R_arc_top).
+    # =========================================================================
+    "TEST2": {
+        "video_path": r"C:\Users\djcha\New folder\Throw away repos\Basketball Analyer CV System Test\clips\Test2.mp4",
+        "keyframes": [40, 140, 240, 340, 400],
+        "reference_pos": None,
+        "exclude_regions": [
+            (0.0, 810.0, 580.0, 1080.0),   # scorebug, bottom-left
+        ],
+        "court": dict(HS_COURT),
+        "stills": [40, 240, 340, 400],
+        "landmarks": {
+            40: [
+                ('LB_side_far', 749, 210), ('L_lane_base_near', 267, 508),
+                ('L_lane_base_far', 484, 373), ('L_FT_near', 892, 618),
+                ('L_FT_far', 1052, 461), ('L_arc_top', 1185, 569),
+                ('circle_left', 1802, 663),
+            ],
+            140: [
+                ('LB_side_far', 769, 235), ('L_lane_base_near', 326, 513),
+                ('L_lane_base_far', 524, 388), ('L_FT_near', 899, 609),
+                ('L_FT_far', 1044, 469), ('L_arc_top', 1160, 569),
+                ('circle_left', 1731, 648),
+            ],
+            240: [
+                ('LB_side_far', 750, 206), ('L_lane_base_near', 265, 508),
+                ('L_lane_base_far', 477, 363), ('L_FT_near', 889, 616),
+                ('L_FT_far', 1050, 461), ('L_arc_top', 1187, 570),
+                ('circle_left', 1807, 660),
+            ],
+            340: [
+                ('L_FT_near', 86, 599), ('L_FT_far', 214, 441),
+                ('L_arc_top', 348, 520),
+                ('circle_left', 877, 532), ('circle_bottom', 1069, 623),
+                ('circle_top', 1077, 447), ('center_logo', 1072, 532),
+                ('circle_right', 1273, 543),
+                ('center_near', 1049, 1027), ('center_far', 1086, 265),
+                ('R_arc_top', 1816, 545),
+            ],
+            400: [
+                ('circle_left', 7, 658), ('circle_bottom', 224, 714),
+                ('circle_top', 208, 552), ('center_logo', 218, 624),
+                ('center_far', 187, 363), ('circle_right', 417, 599),
+                ('R_arc_top', 917, 538), ('R_FT_far', 1030, 459),
+                ('R_FT_near', 1155, 589), ('R_lane_base_far', 1502, 403),
+                ('R_lane_base_near', 1676, 520), ('RB_side_far', 1286, 259),
+            ],
+        },
+    },
 }
 
 # Which clip the stages operate on. Set to "HARD" for the regression check.
