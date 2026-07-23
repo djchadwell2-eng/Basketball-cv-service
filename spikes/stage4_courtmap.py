@@ -171,10 +171,15 @@ def court_polylines():
     circ = [(CX + CIRCLE_R * np.cos(t), CY + CIRCLE_R * np.sin(t))
             for t in np.linspace(0, 2 * np.pi, 48)]
     polys.append(circ)
-    # 3pt arcs (same geometry as the arc_top tags), so the overlay shows them.
-    for hoop_x, a0, a1 in [(HOOP_DX, -68, 68), (L - HOOP_DX, 112, 248)]:
-        polys.append([(hoop_x + R3 * np.cos(np.radians(d)), CY + R3 * np.sin(np.radians(d)))
-                      for d in range(a0, a1 + 1, 4)])
+    # 3pt arcs (same geometry as the arc_top tags). The arc is centered on the
+    # basket (HOOP_DX in, radius R3) and swept until it reaches the baseline
+    # (x=0 / x=L), so it matches the painted line's full extent, not a stub.
+    import math
+    lim = math.degrees(math.acos(-HOOP_DX / R3))     # angle where the arc hits x=0
+    for hoop_x, base in [(HOOP_DX, 0.0), (L - HOOP_DX, 180.0)]:
+        polys.append([(hoop_x + R3 * np.cos(np.radians(base + d)),
+                       CY + R3 * np.sin(np.radians(base + d)))
+                      for d in np.arange(-lim, lim + 0.5, 3.0)])
     return polys
 
 
