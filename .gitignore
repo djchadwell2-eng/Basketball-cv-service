@@ -3,6 +3,10 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+.venv-boxmot/
+
+# Local-only diagnostic images/logs and harvested training frames (regenerable, not source code)
+spikes/out/
 
 # Model weights (downloaded automatically by ultralytics on first run)
 *.pt

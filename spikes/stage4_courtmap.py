@@ -148,6 +148,47 @@ def compute_H_court(L_opt, tags):
     return H_court, dict(zip(tags, err)), float(err.mean()), float(err.max())
 
 
+def compute_H_court_per_keyframe():
+    """Per-keyframe DIRECT calibration -- alternative to the shared compute_H_court
+    for a fast-panning camera (opt-in via the clip's direct_keyframe_homography).
+
+    The shared path fits ONE court homography to the optimization's AVERAGED
+    landmark positions, reached through a cross-keyframe SIFT chain. On a fast
+    follow-cam that averaging + chaining drags each frame ~0.6 ft off its own
+    marks, concentrated in the arc / free-throw region (Test2: the 19.75 arc
+    bulged ~2 ft). Here each keyframe is fit DIRECTLY to its own clicked marks
+    (keyframe px -> court feet) -- no averaging, no chain.
+
+    The direct fits are re-expressed in the pipeline's existing (H_court, Hs)
+    contract so NO downstream code changes:
+        H_court = the reference keyframe's direct fit        (ref px -> feet)
+        Hs[pos] = inv(H_court) @ (keyframe-pos direct fit)   (kf px  -> ref px)
+    => H_court @ Hs[pos] == keyframe-pos's direct fit exactly.
+
+    Returns (KF, ref_pos, Hs, H_court, per_err, mean_err, max_err), where per_err
+    is keyed by keyframe index (each keyframe's own reprojection residual, feet).
+    """
+    KF = s2.KEYFRAMES
+    ref_pos = s2.REFERENCE_POS if s2.REFERENCE_POS is not None else len(KF) // 2
+    Hkf, per = {}, {}
+    for pos, idx in enumerate(KF):
+        marks = s2.LANDMARKS.get(idx, [])
+        src = np.array([[x, y] for (_, x, y) in marks], dtype=np.float64)
+        dst = np.array([COURT_MODEL[t] for (t, _, _) in marks], dtype=np.float64)
+        Hk, _ = cv2.findHomography(src, dst, method=0)                # this kf's marks
+        proj = cv2.perspectiveTransform(src.reshape(-1, 1, 2), Hk).reshape(-1, 2)
+        per[idx] = float(np.linalg.norm(proj - dst, axis=1).mean())   # FEET
+        Hkf[pos] = Hk
+    H_court = Hkf[ref_pos]
+    Hc_inv = np.linalg.inv(H_court)
+    Hs = {}
+    for pos in range(len(KF)):
+        M = Hc_inv @ Hkf[pos]
+        Hs[pos] = M / M[2, 2]
+    vals = list(per.values())
+    return KF, ref_pos, Hs, H_court, per, float(np.mean(vals)), float(np.max(vals))
+
+
 def to_px(M, fx, fy):
     """Map a court point (feet) to image px via M; None if behind the camera."""
     d = M[2, 0] * fx + M[2, 1] * fy + M[2, 2]

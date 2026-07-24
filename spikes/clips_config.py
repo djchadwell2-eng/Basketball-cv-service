@@ -228,6 +228,16 @@ CLIPS = {
         # the SIFT chain (the 240->340 direct pair was weak, arcs ~2ft off).
         "keyframes": [240, 275, 300, 325, 340, 400],
         "reference_pos": None,
+        # Fit EACH keyframe directly to its own clicked marks (px -> court feet),
+        # instead of the shared global model that HARD/TEST1 use. Diagnosed
+        # 2026-07-24: the shared model AVERAGES all keyframes into one court fit
+        # and CHAINS them to a reference; on this fast follow-cam that averaging
+        # drags every frame ~0.6 ft off its own marks -- worst in the arc/FT
+        # region, so the standard 19.75 arc bulged ~2 ft past the paint. The
+        # direct per-keyframe fit halves the error (1.16 -> ~0.5 ft) and the arc
+        # sits on the line. Opt-in so HARD/TEST1 (validated on the shared model)
+        # are untouched. See phase1/stage1_court_roi.build_court_anchor.
+        "direct_keyframe_homography": True,
         "exclude_regions": [
             (0.0, 810.0, 580.0, 1080.0),   # scorebug, bottom-left
         ],
@@ -235,18 +245,17 @@ CLIPS = {
         "stills": [240, 300, 340, 400],
         # Rims (NOT court landmarks -> not here; carried by hoop_anchor):
         #   left  rim = frame 240 px (509, 129);  right rim = frame 400 px (1473, 205)
-        # NOTE: the 3pt-arc-APEX marks (L_arc_top/R_arc_top) are intentionally
-        # NOT used as calibration landmarks. Measured 2026-07-23: the apex of a
-        # smooth curve can't be clicked precisely (a small pixel error -> ~2 ft),
-        # so those marks land ~17 ft (vs 19.75) and DRAG the fit -- excluding
-        # them drops mean error 1.02 -> 0.80 ft and the standard 19.75 arc then
-        # sits on the painted line. Good overall calibration fixes the arc; a
-        # noisy arc landmark does not.
+        # The 3pt-arc-apex marks (L_arc_top / R_arc_top) ARE good data: the court
+        # is standard 19.75, and with the direct fit above they pin the arc
+        # region (apex click maps to ~24 ft, near the true 25). They were briefly
+        # removed on the theory they were imprecise -- that was wrong; the shared
+        # model's averaging, not the marks, was compressing the arc.
         "landmarks": {
             240: [
                 ('LB_side_far', 750, 206), ('L_lane_base_near', 265, 508),
                 ('L_lane_base_far', 477, 363), ('L_FT_near', 889, 616),
                 ('L_FT_far', 1050, 461), ('circle_left', 1807, 660),
+                ('L_arc_top', 1187, 570),
             ],
             275: [
                 ('LB_side_far', 752, 216), ('L_lane_base_near', 283, 510),
@@ -273,6 +282,7 @@ CLIPS = {
                 ('circle_top', 1077, 447), ('center_logo', 1072, 532),
                 ('circle_right', 1273, 543), ('center_near', 1049, 1027),
                 ('center_far', 1086, 265),
+                ('L_arc_top', 348, 520), ('R_arc_top', 1816, 545),
             ],
             400: [
                 ('circle_left', 7, 658), ('circle_bottom', 224, 714),
@@ -280,7 +290,7 @@ CLIPS = {
                 ('center_far', 187, 363), ('circle_right', 417, 599),
                 ('R_FT_far', 1030, 459), ('R_FT_near', 1155, 589),
                 ('R_lane_base_far', 1502, 403), ('R_lane_base_near', 1676, 520),
-                ('RB_side_far', 1286, 259),
+                ('RB_side_far', 1286, 259), ('R_arc_top', 917, 538),
             ],
         },
     },

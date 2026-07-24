@@ -1,0 +1,13 @@
+# TEST 6 candidate (TEST_LOG.md): match_thresh loosened 0.8 -> 0.9, the
+# single biggest fragmentation-reduction lever measured to date (122->93
+# distinct ids, +35% mean lifespan on TEST1). Everything else identical
+# to ultralytics' stock bytetrack.yaml. NOT adopted -- pending the
+# ID-switch eyeball check this file exists to support.
+
+tracker_type: bytetrack
+track_high_thresh: 0.25
+track_low_thresh: 0.1
+new_track_thresh: 0.25
+track_buffer: 30
+match_thresh: 0.9
+fuse_score: True

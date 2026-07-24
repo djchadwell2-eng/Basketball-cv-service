@@ -365,6 +365,24 @@ set up), add browser setup for NEW clips after.
       floated off it) -- FIXED (basket-centered polyline to baseline).
       DJ re-marking F2-F4 + rims now; then re-run calib + eyeball; only
       THEN roster. Tool: same URL 4bc9fb91-....
+      *** ROOT CAUSE FOUND + FIXED 2026-07-24 (DJ pushed back: arc STILL
+      wrong after bridge frames). Diagnosed: the arc distortion is NOT the
+      marks and NOT a short line (DJ confirmed court is standard). It's the
+      calibration METHOD -- the shared H_court AVERAGES all 6 keyframes into
+      one court fit + CHAINS them to a reference; on this fast follow-cam
+      that drags each frame ~0.6ft off its OWN marks, worst in the arc/FT
+      region (19.75 arc bulged ~2ft). Proof: single-frame fit halved the
+      error (1.16->0.50ft) and lens-distortion search found nothing.
+      FIX (3 files, opt-in, HARD/TEST1 untouched): (1) clips_config TEST2
+      flag "direct_keyframe_homography": True + arc marks RESTORED (240 L,
+      340 L+R, 400 R -- they were GOOD data; I wrongly removed them);
+      (2) stage4.compute_H_court_per_keyframe() fits each kf directly, re-
+      expressed in the (H_court,Hs) contract so H_court@Hs[pos]==direct fit
+      EXACTLY (0.000000ft), zero downstream change; (3) branch in phase1/
+      stage1_court_roi.build_court_anchor on the flag. RESULT via REAL
+      pipeline math: mean 0.60ft / max 0.83 (was 1.16/1.89), arcs on the
+      paint in all 3 views. Suite 204 pass. Viewer updated (same URL
+      f7635aa2-...). Waiting on DJ's eyeball before roster.
       ALSO DONE 2026-07-22: AI reads now AUTOMATIC after a CV run +
       cached ({clip}_ai_read.json), so no button + no re-cost on reload
       (branch cv-integration). DJ asked for auto; done.
@@ -2376,6 +2394,86 @@ cumulative; model files never expire) — it must NOT block demo work.
 - Player-tracker plan (below) — item 2 (ID-switch ground truth session)
   is the highest-value unblock; can ride along with any labeling session.
 - HARD 7 queue items unsure; TEST1 2 refused resolutions; t49 splice.
+
+# CV UPGRADES CHAT — HANDOFF (2026-07-24)
+
+**SCOPE OF THIS CHAT: CV quality/accuracy work ONLY** (ball model,
+tracker safety, new signals like scoreboard OCR). Shipping/integration
+work (run_clip wiring, Phase 6 scaling, Phase 7 web worker) happens in
+the OTHER chat — see "SHIP HANDOFF" section above for that thread's
+state. Don't cross the streams; this chat measures and improves CV
+components, the other chat ships them.
+
+Full raw detail for everything below lives in TEST_LOG.md (TESTs 8-14).
+This is the plain-English index into that.
+
+## Where things stand, thread by thread
+
+**1. Ball model (own-trained, zero API dependency):**
+models/ball_finetuned_v3.pt is the strongest so far — TEST1 5/5 verified
+shots (full recovery), HARD 2/2 shots + both deflections correctly
+rejected. NOT adopted yet: it also confidently misreads a real
+rebound-then-outlet-pass as a made layup, and this is PROVEN to not be
+fixable by more ball labels (TEST 11/13 follow-ups) — a caught rebound
+and a thrown pass both look physically identical to a ball-position-only
+classifier. Two more real non-shots got DJ-confirmed and permanently
+added to ground truth (an inbounds hold, a cross-court pass) —
+spikes/local_weights_check.py's GROUND_TRUTH dict is the living record.
+NEXT: this needs the player-signal cross-check (item below), not more
+ball training.
+
+**2. Player tracker safety (match_thresh 0.8->0.9, the big fragmentation
+win from earlier testing):** TEST 12 DJ-confirmed a REAL identity switch
+this setting causes (cross-team, id=17, with picture proof) — NOT
+adopted. TEST 13 tried a jersey-color check at the moment a track
+reattaches after going missing: correctly catches the known switch, but
+of 8 flagged moments only 2 were real switches — the other 6 were mostly
+a DIFFERENT bug this same probe accidentally found (the player detector
+sometimes tracks the scoreboard graphic and referees as if they were
+players). NEXT: filter those two junk-detection sources out BEFORE
+re-scoring the color check — should raise precision a lot, cheap to try.
+Tools built + reusable: phase2/bytetrack_mt09.yaml,
+spikes/render_tracker_overlay.py (watchable video from any tracks.json),
+spikes/tracker_color_reattach_check.py.
+
+**3. Scoreboard OCR as a make/miss signal (DJ's idea, works):**
+spikes/scoreboard_ocr_probe.py reads the scoreboard graphic independently
+of player/ball detection (it sits at a fixed screen position all game).
+VALIDATED on HARD (correctly reads "never changes" — matches known
+ground truth) and TEST1 (reads a sane, monotonic score progression).
+Two real bugs found + fixed this session: (a) a naive per-frame
+confidence gate rejected genuinely-correct-but-blurry digit reads,
+delaying TEST1's first reliable lock by 26+ seconds; (b) re-seeking the
+video on every single frame instead of reading sequentially made a dense
+pass absurdly slow (25+ min and still not done) — fixed. OPEN, UNSOLVED:
+attributing a specific make to a specific one of TEST1's clustered early
+shots needs sampling every few frames right after each shot, but real
+player bodies passing through that corner of the screen for several
+frames in a row can fool even a spread-out vote (not just single-frame
+noise — proven with a still image, a player is standing right in/near
+the graphic at the moment of the bad "5-0" read). Paused here for a
+decision, not resolved. NEXT ACTION IDEAS (neither built): detect when a
+player bbox overlaps the scoreboard region and skip those frames
+entirely rather than voting through them; or accept coarser attribution
+(which shot-CLUSTER scored, not which exact shot) as good enough.
+Also found: TEST1's one clean coarse-pass event (27s) falls AFTER all 5
+verified shots' windows -- it belongs to some OTHER, untracked shot in
+the clip, not one of the five. Bonus, not yet acted on: the scoreboard's
+fixed region is a known false-detection source for the player detector
+(ties to item 2's bonus finding) -- once this is trustworthy it's a
+free exclusion zone.
+
+## Open items ranked (my recommendation, not decided)
+1. Player-signal cross-check (shooter posture/hands-already-there vs a
+   real release) -- the only thing that fixes the ball model's remaining
+   false-positive class. Needs player labels/tracking data.
+2. Filter scoreboard+ref detections before re-scoring the TEST 13 color
+   check -- cheap, likely raises precision a lot, no new data needed.
+3. Scoreboard-to-shot attribution refinement (the occlusion-skip idea) --
+   real but lower priority than #1; make/miss is a nice-to-have, shot
+   detection itself already works.
+4. Player labeling ("my-footage-players", 280 frames) continues in the
+   background at DJ's pace, no deadline -- feeds #1 directly.
 
 # PLAYER-TRACKER PLAN OF RECORD (DJ-approved 2026-07-17)
 

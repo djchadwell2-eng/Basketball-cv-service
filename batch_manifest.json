@@ -1,0 +1,64 @@
+{
+  "git_commit": "a2f014f491ccbdd70a87c1bc772f3a36c7ffe9fd",
+  "run_at": "2026-07-22T15:43:40",
+  "clips": [
+    {
+      "clip": "TEST1",
+      "exit_code": 0,
+      "completed_marker_found": true,
+      "passed": true,
+      "duration_s": 331.2,
+      "log": "C:\\Users\\djcha\\New folder\\basketball-cv-service\\spikes\\out\\TEST1_batch_run.log",
+      "config_fingerprint": {
+        "video_path": "C:\\Users\\djcha\\Downloads\\Test1.mp4",
+        "tracking_span": [
+          120,
+          461
+        ],
+        "ball_weights": "ball_finetuned_v2.pt",
+        "ball_span": [
+          0,
+          605
+        ]
+      },
+      "artifacts": {
+        "box_score_json": "C:\\Users\\djcha\\New folder\\basketball-cv-service\\phase2\\out\\TEST1_box_score.json",
+        "box_score_csv": "C:\\Users\\djcha\\New folder\\basketball-cv-service\\phase2\\out\\TEST1_box_score.csv",
+        "shot_attempts": "C:\\Users\\djcha\\New folder\\basketball-cv-service\\spikes\\out\\TEST1_shot_attempts.json",
+        "shot_locations": "C:\\Users\\djcha\\New folder\\basketball-cv-service\\spikes\\out\\TEST1_shot_locations.json",
+        "shot_outcomes": "C:\\Users\\djcha\\New folder\\basketball-cv-service\\spikes\\out\\TEST1_shot_outcomes.json",
+        "shot_chart": "C:\\Users\\djcha\\New folder\\basketball-cv-service\\spikes\\out\\TEST1_shot_chart.png"
+      }
+    },
+    {
+      "clip": "HARD",
+      "exit_code": 0,
+      "completed_marker_found": true,
+      "passed": true,
+      "duration_s": 318.1,
+      "log": "C:\\Users\\djcha\\New folder\\basketball-cv-service\\spikes\\out\\HARD_batch_run.log",
+      "config_fingerprint": {
+        "video_path": "C:\\Users\\djcha\\Downloads\\HARD.mp4",
+        "tracking_span": [
+          600,
+          601
+        ],
+        "ball_weights": "ball_finetuned_v2.pt",
+        "ball_span": [
+          0,
+          2746
+        ]
+      },
+      "artifacts": {
+        "box_score_json": "C:\\Users\\djcha\\New folder\\basketball-cv-service\\phase2\\out\\HARD_box_score.json",
+        "box_score_csv": "C:\\Users\\djcha\\New folder\\basketball-cv-service\\phase2\\out\\HARD_box_score.csv",
+        "shot_attempts": "C:\\Users\\djcha\\New folder\\basketball-cv-service\\spikes\\out\\HARD_shot_attempts.json",
+        "shot_locations": "C:\\Users\\djcha\\New folder\\basketball-cv-service\\spikes\\out\\HARD_shot_locations.json",
+        "shot_outcomes": "C:\\Users\\djcha\\New folder\\basketball-cv-service\\spikes\\out\\HARD_shot_outcomes.json",
+        "shot_chart": "C:\\Users\\djcha\\New folder\\basketball-cv-service\\spikes\\out\\HARD_shot_chart.png"
+      }
+    }
+  ],
+  "n_pass": 2,
+  "n_total": 2
+}

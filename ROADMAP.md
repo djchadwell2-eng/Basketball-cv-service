@@ -299,7 +299,7 @@ Effort: 2–3 weekends.
 **Goal:** prove the calibration engine (and its per-clip setup cost) across
 several *new* gyms, cut the manual clicking to minutes, and only then decide
 what auto-calibration needs to be.
-
+   
 **Build order:**
 1. Gather 3–5 new-gym clips (different floors, lighting, camera heights —
    your dad's network is the source). For each: keyframes + landmarks in
