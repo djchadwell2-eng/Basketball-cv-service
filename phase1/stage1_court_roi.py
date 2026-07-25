@@ -96,22 +96,11 @@ def build_court_anchor():
         reproj_px  = mean reprojection error of the inliers
         kf         = which keyframe the frame anchored to
     """
-    if s2.cfg.active().get("direct_keyframe_homography"):
-        # Fast-panning clip: fit each keyframe DIRECTLY to its own marks. Skips
-        # the shared-model averaging + cross-keyframe chain that inflate the arc/
-        # FT region (see stage4.compute_H_court_per_keyframe). Same (H_court,
-        # Hs_opt) contract, so the anchor + downstream math are unchanged.
-        print("Recovering PER-KEYFRAME direct homographies...")
-        KF, ref_pos, Hs_opt, H_court, per_err, mean_err, max_err = \
-            s4.compute_H_court_per_keyframe()
-        print(f"  per-keyframe direct fit: mean={mean_err:.2f} ft  max={max_err:.2f} ft "
-              f"(ref keyframe {KF[ref_pos]})")
-    else:
-        print("Recovering consistency-refit keyframes + H_court...")
-        KF, ref_pos, Hs_opt, L_opt, tags = refit_keyframes.refit()   # mutually-consistent
-        H_court, per_err, mean_err, max_err = s4.compute_H_court(L_opt, tags)
-        print(f"  H_court reprojection: mean={mean_err:.2f} ft  max={max_err:.2f} ft "
-              f"(ref keyframe {KF[ref_pos]})")
+    print("Recovering consistency-refit keyframes + H_court...")
+    KF, ref_pos, Hs_opt, L_opt, tags = refit_keyframes.refit()   # mutually-consistent
+    H_court, per_err, mean_err, max_err = s4.compute_H_court(L_opt, tags)
+    print(f"  H_court reprojection: mean={mean_err:.2f} ft  max={max_err:.2f} ft "
+          f"(ref keyframe {KF[ref_pos]})")
 
     cap = cv2.VideoCapture(s2.VIDEO_PATH)
     fps = cap.get(cv2.CAP_PROP_FPS) or 30.0

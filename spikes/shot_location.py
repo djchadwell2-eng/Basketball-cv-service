@@ -31,12 +31,20 @@ _ROOT = os.path.dirname(_HERE)
 sys.path.insert(0, _HERE)
 sys.path.insert(0, _ROOT)
 
-COURT_LEN, COURT_WID = 84.0, 50.0     # HS dims, same as stage4_courtmap.py
-LANE_Y0, LANE_Y1 = 19.0, 31.0
-FT_X = 19.0
-CIRCLE_R = 6.0
-HOOP_DX = 5.25                        # basket center distance from baseline
-R3 = 19.75                            # HS 3pt radius
+# The ACTIVE clip's own court, same source as stage4_courtmap.py. NOT a fixed
+# 84x50: gyms differ (TEST2 and HARD are full-size 94-ft floors, TEST1 is 84),
+# and on the wrong length the far basket sits 10 ft out, so every shot at that
+# end lands in the wrong zone and the chart is drawn the wrong shape.
+import clips_config as _cfg
+import court_detect as _cd
+
+_COURT = _cfg.active()["court"]
+COURT_LEN, COURT_WID = _COURT["length"], _COURT["width"]
+LANE_Y0, LANE_Y1 = _COURT["lane_y0"], _COURT["lane_y1"]
+FT_X = _COURT["ft_x"]
+CIRCLE_R = _COURT["circle_r"]
+HOOP_DX = _cd.HOOP_DX                 # basket center distance from baseline
+R3 = _cd.R3                           # HS 3pt radius
 
 
 def feet_to_px(fx, fy, scale):

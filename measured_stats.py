@@ -34,27 +34,34 @@ _ROOT = os.path.dirname(os.path.abspath(__file__))
 
 # Court geometry -- mirrors spikes/shot_location.py (kept local so this
 # module and its tests stay dependency-light: no cv2/numpy import).
+# COURT_LEN is only the DEFAULT. The real length varies by gym (TEST2 and
+# HARD are 94-ft floors, TEST1 is 84) and it moves the far basket by 10 ft,
+# so generate() passes the clip's own length in rather than assuming this one.
 COURT_LEN, COURT_WID = 84.0, 50.0
 HOOP_DX = 5.25                       # basket center distance from baseline
 THREE_RADIUS_FT = 19.75              # HS 3pt radius
 PAINT_RADIUS_FT = 8.0                # within this of the rim = "paint"/at-rim
                                      # (a distance proxy for the lane, honest
                                      # simplification for a v1 zone split)
-_BASKETS = [(HOOP_DX, COURT_WID / 2.0), (COURT_LEN - HOOP_DX, COURT_WID / 2.0)]
 
 _ZONES = ("three", "midrange", "paint")
+
+
+def baskets(court_len=COURT_LEN):
+    """The two rim positions in court feet, for a floor of this length."""
+    return [(HOOP_DX, COURT_WID / 2.0), (court_len - HOOP_DX, COURT_WID / 2.0)]
 
 
 def _dist(ax, ay, bx, by):
     return ((ax - bx) ** 2 + (ay - by) ** 2) ** 0.5
 
 
-def classify_zone(court_x, court_y):
+def classify_zone(court_x, court_y, court_len=COURT_LEN):
     """(zone, dist_to_nearest_basket_ft) for a shooter's court-feet spot.
     Nearest basket = the basket being attacked (a shooter is far closer to
     the rim they shoot at than the other one), so a right-side shot is
     measured against the right rim, not read as a 70ft heave."""
-    dist = min(_dist(court_x, court_y, bx, by) for (bx, by) in _BASKETS)
+    dist = min(_dist(court_x, court_y, bx, by) for (bx, by) in baskets(court_len))
     if dist > THREE_RADIUS_FT:
         zone = "three"
     elif dist <= PAINT_RADIUS_FT:
@@ -79,7 +86,7 @@ _BOX_FIELDS = ("number", "team", "seconds_total", "seconds_live", "seconds_retro
                "windows_present", "zone_seconds", "top_zone", "disputed_seconds")
 
 
-def build_measured_stats(clip, box_doc, loc_doc, att_doc):
+def build_measured_stats(clip, box_doc, loc_doc, att_doc, court_len=COURT_LEN):
     """Assemble the web-ready contract from the three loaded docs."""
     # attempt lookup by frame span -> shot_type / hoop for a located shot
     att_by_span = {(a["start_frame"], a["end_frame"]): a
@@ -93,7 +100,7 @@ def build_measured_stats(clip, box_doc, loc_doc, att_doc):
             unlocated += 1
             continue
         cx, cy = loc["court_feet"]
-        zone, dist = classify_zone(cx, cy)
+        zone, dist = classify_zone(cx, cy, court_len)
         att = att_by_span.get((loc["start_frame"], loc["end_frame"]), {})
         shots.append({
             "start_frame": loc["start_frame"], "end_frame": loc["end_frame"],
@@ -109,7 +116,7 @@ def build_measured_stats(clip, box_doc, loc_doc, att_doc):
         "meta": {
             "make_miss_available": False,
             "box_score_note": box_doc.get("note", ""),
-            "court": {"length_ft": COURT_LEN, "width_ft": COURT_WID,
+            "court": {"length_ft": court_len, "width_ft": COURT_WID,
                       "hoop_dx_ft": HOOP_DX, "three_radius_ft": THREE_RADIUS_FT},
         },
         "box_score": box_score,
@@ -124,6 +131,15 @@ def _load(path):
         return json.load(f)
 
 
+def court_length_for(clip):
+    """The clip's real floor length. Imported lazily so this module stays
+    dependency-light for callers that only want classify_zone()."""
+    sys.path.insert(0, os.path.join(_ROOT, "spikes"))
+    import clips_config
+    clips_config.ACTIVE = clip
+    return float(clips_config.active()["court"]["length"])
+
+
 def generate(clip):
     """Load the three artifacts for `clip`, build the web contract, write
     {clip}_measured_stats.json, and return it. Callable by analyze_clip.py
@@ -132,7 +148,7 @@ def generate(clip):
     loc = _load(os.path.join(_ROOT, "spikes", "out", f"{clip}_shot_locations.json"))
     att = _load(os.path.join(_ROOT, "spikes", "out", f"{clip}_shot_attempts.json"))
 
-    out = build_measured_stats(clip, box, loc, att)
+    out = build_measured_stats(clip, box, loc, att, court_length_for(clip))
     out_path = os.path.join(_ROOT, "spikes", "out", f"{clip}_measured_stats.json")
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(out, f, indent=2)

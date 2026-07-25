@@ -1,4 +1,142 @@
-# PHASE 7 -- connect the pipeline to DJ's real web app (current task, 2026-07-22)
+# COURT HOMOGRAPHY -- REAL ROOT CAUSE FOUND (current task, 2026-07-25)
+
+DJ: "the court homography is completely wrong... I have clicked right, and we
+built this before on a different clip and it was glued. We are not moving on
+until we perfect the coding and the math of the core homography."
+
+## THE ROOT CAUSE: Fairfield's court is 94 ft long. We told the code 84.
+
+TEST2 (Fairfield) is a 94-foot floor. `clips_config` gives it
+`dict(HS_COURT)` = 84 x 50, copy-pasted from HARD/TEST1 without ever checking.
+So the engine was told to squeeze a 94-ft court into 84 ft. Every mark DJ
+clicked was then forced ~10 ft out of place along the court's length -- which
+is exactly the symptom: arcs off, lines not glued, the far end wrong.
+
+DJ's clicks were never the problem. Neither was the camera, the pan, the
+glare, the worn lines, or lens distortion (all four investigated and all four
+wrong). This was measured, not guessed:
+
+- SOLVED the court from DJ's clicks instead of assuming it (unknowns = one
+  homography per keyframe + court length/lane width/FT distance/circle radius/
+  3pt apex; 56 marks, held width at 50 ft as the scale gauge):
+      TEST1 -> length 82.6, lane 11.9, FT 18.4, circle 5.96, apex 25.0
+               = a standard HS court. Which is why TEST1 came out glued.
+      TEST2 -> length 93.86, lane 11.75, FT 18.8, circle 5.97, apex 24.82
+               = a 94-ft floor with ordinary HS markings (12-ft lane,
+                 19.75 3pt). Error 0.62 -> 0.19 ft just by freeing length.
+- SWEPT the length 80->100 ft, everything else held at HS values. One clean
+  minimum each: TEST1 at 85.0 ft, TEST2 at 94.5 ft. At 84 ft TEST2 is 3x
+  worse (0.618 vs 0.199 ft).
+- Cross-ratio check (no homography, no assumed dims -- 5 marks on the
+  half-court line, 3 of which cannot be wrong): centre circle measures
+  ~6 ft radius on BOTH clips. So the circle is fine and the width is fine;
+  only the LENGTH was wrong.
+
+RESULT with length = 94 and the ORIGINAL shared model:
+      TEST2  mean 0.29 ft / max 0.72 ft   <-- was 0.94 / 2.44
+      TEST1  mean 0.29 ft / max 0.56 ft   (the glued benchmark)
+  Identical. And circle_left/right, the two marks that were 1.3-1.5 ft off,
+  land at 0.03 / 0.02 ft. Eyeball-confirmed on kf 240/340/400: centre circle
+  on the painted circle, half-court line on the painted line, both 3pt arcs
+  on the paint, sidelines on the border.
+
+## SECOND BUG: last session's "fix" was overfitting, and must come out
+
+`direct_keyframe_homography` (fit each keyframe to ONLY its own marks) made
+the reported error fall 1.16 -> 0.60 ft, which is why it looked like a fix.
+It was not. A homography has 8 degrees of freedom and those keyframes have
+6-7 marks, so the fit just ate its own data. Leave-one-out proves it -- hold
+back one mark, fit on the rest, predict it:
+      TEST1 per-keyframe:  in-sample 0.16 ft -> held-out 0.37 ft
+      TEST2 per-keyframe:  in-sample 0.62 ft -> held-out 1.62 ft  (2.6x)
+      HARD  per-keyframe:  in-sample 0.56 ft -> held-out 26.3 ft, max 538 ft
+HARD explodes because two of its keyframes carry only 5 marks. That is
+exactly what the shared model exists to prevent: it pools all ~56-66 marks
+across every keyframe into one court fit, so no single frame has to be
+self-sufficient. The per-keyframe path also throws away the whole near half
+of the court on frames 240/275 (no mark below y=19), so the overlay was
+extrapolating blind -- hence "missing lines".
+
+## Plan  (DJ approved 2026-07-25: "if you believe that's the best route,
+## I 100% back it" -- the court comes from the clicks, not a hard-coded dim)
+- [x] 1. TEST2 court -> measured, not assumed. It is now `"court": "auto"`.
+- [x] 2. Removed `direct_keyframe_homography` -- the flag, stage4's
+      `compute_H_court_per_keyframe()`, and the branch in
+      stage1_court_roi.build_court_anchor(). One shared validated path again.
+- [x] 3. Un-hard-coded the court length downstream:
+        spikes/shot_location.py  -> reads the active clip's court (like stage4)
+        measured_stats.py        -> classify_zone(x, y, court_len) +
+                                    court_length_for(clip); default kept so
+                                    existing callers/tests are untouched
+- [x] 4. spikes/court_detect.py -- the thing that stops this recurring.
+      DESIGN NOTE (why it is not "fit the court freely"): free-fitting
+      returns 82.61 ft for TEST1, whose floor is really 84.0 -- it buys a
+      hair of reprojection error and pays with a 1.4 ft error baked into
+      every shot location. A court is not an arbitrary shape. So the module
+      SCORES the four courts that actually exist (84/94 ft x 12/16 ft key)
+      and uses the winner's EXACT published dimensions: the measurement
+      picks the court, the rulebook supplies the numbers. It refuses in two
+      cases rather than guess -- when the runner-up is within 1.35x (the
+      marks can't tell the floors apart) and when even the best is over
+      1.0 ft off (a mark is wrong, not the court). `"court": "auto"` in
+      clips_config resolves through it and RAISES if it can't tell.
+      court_model() is now the single source of truth for tag -> court feet;
+      stage4 builds COURT_MODEL from it so the two can never drift.
+- [x] 5. Suite 204 -> 218 green. TEST2 re-rendered through the SHIPPED path
+      (nothing patched): 0.29 ft mean / 0.72 max, and eyeball-confirmed on
+      keyframe 300, which was never used for any of the tuning.
+
+NOT in scope: auto-calibration, the marking tool, roster, shot-chart run.
+
+## Review (2026-07-25)
+- TEST2 is glued: 0.29 ft mean / 0.72 ft max, identical to TEST1's 0.29.
+  Both keyframe 300 and 340 confirm by eye -- centre circle on the painted
+  circle, half-court line on the painted line, both arcs on the paint.
+- The court is no longer declared anywhere for TEST2. It is measured from
+  DJ's clicks (0.20 ft for the 94-ft court vs 0.62 for the 84, a 3.1x call),
+  which is the actual feature: the next new clip needs no court knowledge.
+- TEST1 re-verified UNCHANGED at 0.29 ft / 0.56 max. HARD unchanged. Both
+  keep explicit dims; only TEST2 is on "auto".
+- Blast-radius check on the hard-coded 84s, since it is easy to under-rate:
+  the same court position reads as a 20.0 ft three on an 84-ft model and
+  26.5 ft on a 94-ft one. Zone classification and the chart shape both move.
+
+## OPEN -- NEEDS DJ'S DECISION: HARD is a 94-ft floor too
+Found while testing the detector on all three clips. HARD (Winton Woods) is
+configured 84 ft and measures 94, by the same three independent methods that
+caught TEST2:
+    length sweep      sharp minimum at 94.0 ft (0.202) vs 84 ft (0.555)
+    free solve        93.90 ft; lane 11.70, FT 18.97, circle 5.98, apex 25.00
+                      -- i.e. ordinary HS markings on a full-size floor
+    detector          94 ft, 2.7x clear of the runner-up
+This also explains something never questioned: HARD's calibration has always
+sat at ~0.95 ft while TEST1 sat at 0.25, and that gap was written off as
+"on par". It was the wrong court all along.
+Why it is NOT changed here: HARD is the validated baseline the whole shot
+layer was gated on (TEST 10). Switching it moves every HARD court_feet
+position, its shot chart, its zones, and the numbers now showing in the web
+app. The test suite does NOT lock it (the shot-layer regressions are all
+pixel-space, and test_possessions passes its own synthetic LEN), so nothing
+would fail loudly -- which is exactly why this needs a deliberate call.
+Note HARD's shared-model fit only improves 0.99 -> 0.78 ft at 94 ft, because
+HARD carries a separate ~0.7 ft error from its 7-keyframe SIFT chain across a
+long pan. Its per-keyframe fit is 0.20 ft at 94 vs 0.56 at 84, so the court is
+not in doubt -- but HARD's chain is a second, unrelated weakness worth its own
+look if DJ wants HARD tight rather than just correct.
+
+## Notes for the marking tool (later, not now)
+The tool's mini court diagram is drawn to HS proportions, and the config
+palette assumes them too. When court length becomes per-clip, the tool
+should ask which floor it is (or infer it after the first fit) rather than
+silently drawing an 84-ft court over a 94-ft gym.
+
+## Notes for the marking tool (later, not now)
+The tool's mini court diagram is drawn to HS proportions, and the config
+palette assumes them too. When court length becomes per-clip, the tool
+should ask which floor it is (or infer it after the first fit) rather than
+silently drawing an 84-ft court over a 94-ft gym.
+
+# PHASE 7 -- connect the pipeline to DJ's real web app (2026-07-22)
 
 Ship-handoff item 3. Goal (ROADMAP Phase 7): a coach works entirely in
 the web app -> a job runs -> box score + shot chart appear there.

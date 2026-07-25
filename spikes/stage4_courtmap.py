@@ -32,6 +32,7 @@ sys.path.insert(0, _here)
 sys.path.insert(0, os.path.dirname(_here))            # project root for src/
 import stage2_multikeyframe as s2
 import stage3_optimize as s3                           # reuse helpers only
+import court_detect                                    # court geometry + which-court
 from src.camera_tracking import CameraTracker
 
 OUT_DIR = s2.OUT_DIR
@@ -53,27 +54,14 @@ COURT_LEN, COURT_WID = _COURT["length"], _COURT["width"]
 LANE_Y0, LANE_Y1 = _COURT["lane_y0"], _COURT["lane_y1"]   # lane centered on 25
 FT_X = _COURT["ft_x"]                   # left FT line; right FT at LEN-FT_X
 CIRCLE_R = _COURT["circle_r"]
-CX, CY = COURT_LEN / 2.0, COURT_WID / 2.0   # center (42, 25) for HS
-# NFHS: basket 5.25 ft from baseline, 3pt radius 19.75 ft -> the arc apex
-# (top of the key, on the center line) sits 25.0 ft out from each baseline.
-# Added for the Test2 calibration (DJ marked the arc top; HARD's arc had
-# drifted without an arc constraint). Additive -- clips that don't mark it
-# are unaffected.
-HOOP_DX, R3 = 5.25, 19.75
+CX, CY = COURT_LEN / 2.0, COURT_WID / 2.0   # center (42, 25) on an 84-ft floor
+# Basket 5.25 ft in from the baseline; 19.75 ft 3pt radius -> arc apex 25.0 ft
+# out from each baseline. Lives in court_detect with the rest of the geometry.
+HOOP_DX, R3 = court_detect.HOOP_DX, court_detect.R3
 
-COURT_MODEL = {
-    "LB_side_near": (0.0, 0.0),          "LB_side_far": (0.0, 50.0),
-    "L_lane_base_near": (0.0, LANE_Y0),  "L_lane_base_far": (0.0, LANE_Y1),
-    "L_FT_near": (FT_X, LANE_Y0),        "L_FT_far": (FT_X, LANE_Y1),
-    "center_near": (CX, 0.0),            "center_logo": (CX, CY),
-    "center_far": (CX, 50.0),
-    "R_FT_near": (COURT_LEN - FT_X, LANE_Y0),  "R_FT_far": (COURT_LEN - FT_X, LANE_Y1),
-    "R_lane_base_near": (COURT_LEN, LANE_Y0),  "R_lane_base_far": (COURT_LEN, LANE_Y1),
-    "RB_side_near": (COURT_LEN, 0.0),    "RB_side_far": (COURT_LEN, 50.0),
-    "circle_top": (CX, CY + CIRCLE_R),   "circle_bottom": (CX, CY - CIRCLE_R),
-    "circle_left": (CX - CIRCLE_R, CY),  "circle_right": (CX + CIRCLE_R, CY),
-    "L_arc_top": (HOOP_DX + R3, CY),     "R_arc_top": (COURT_LEN - HOOP_DX - R3, CY),
-}
+# tag -> court feet. Built by court_detect so the engine and the which-court
+# check can never disagree about what a landmark means.
+COURT_MODEL = court_detect.court_model(_COURT)
 
 STILL_FRAMES = [300, 600, 750, 900, 1050, 1200, 1500, 2000, 2700]
 
@@ -146,47 +134,6 @@ def compute_H_court(L_opt, tags):
     proj = cv2.perspectiveTransform(src.reshape(-1, 1, 2), H_court).reshape(-1, 2)
     err = np.linalg.norm(proj - dst, axis=1)                          # FEET
     return H_court, dict(zip(tags, err)), float(err.mean()), float(err.max())
-
-
-def compute_H_court_per_keyframe():
-    """Per-keyframe DIRECT calibration -- alternative to the shared compute_H_court
-    for a fast-panning camera (opt-in via the clip's direct_keyframe_homography).
-
-    The shared path fits ONE court homography to the optimization's AVERAGED
-    landmark positions, reached through a cross-keyframe SIFT chain. On a fast
-    follow-cam that averaging + chaining drags each frame ~0.6 ft off its own
-    marks, concentrated in the arc / free-throw region (Test2: the 19.75 arc
-    bulged ~2 ft). Here each keyframe is fit DIRECTLY to its own clicked marks
-    (keyframe px -> court feet) -- no averaging, no chain.
-
-    The direct fits are re-expressed in the pipeline's existing (H_court, Hs)
-    contract so NO downstream code changes:
-        H_court = the reference keyframe's direct fit        (ref px -> feet)
-        Hs[pos] = inv(H_court) @ (keyframe-pos direct fit)   (kf px  -> ref px)
-    => H_court @ Hs[pos] == keyframe-pos's direct fit exactly.
-
-    Returns (KF, ref_pos, Hs, H_court, per_err, mean_err, max_err), where per_err
-    is keyed by keyframe index (each keyframe's own reprojection residual, feet).
-    """
-    KF = s2.KEYFRAMES
-    ref_pos = s2.REFERENCE_POS if s2.REFERENCE_POS is not None else len(KF) // 2
-    Hkf, per = {}, {}
-    for pos, idx in enumerate(KF):
-        marks = s2.LANDMARKS.get(idx, [])
-        src = np.array([[x, y] for (_, x, y) in marks], dtype=np.float64)
-        dst = np.array([COURT_MODEL[t] for (t, _, _) in marks], dtype=np.float64)
-        Hk, _ = cv2.findHomography(src, dst, method=0)                # this kf's marks
-        proj = cv2.perspectiveTransform(src.reshape(-1, 1, 2), Hk).reshape(-1, 2)
-        per[idx] = float(np.linalg.norm(proj - dst, axis=1).mean())   # FEET
-        Hkf[pos] = Hk
-    H_court = Hkf[ref_pos]
-    Hc_inv = np.linalg.inv(H_court)
-    Hs = {}
-    for pos in range(len(KF)):
-        M = Hc_inv @ Hkf[pos]
-        Hs[pos] = M / M[2, 2]
-    vals = list(per.values())
-    return KF, ref_pos, Hs, H_court, per, float(np.mean(vals)), float(np.max(vals))
 
 
 def to_px(M, fx, fy):

@@ -228,28 +228,25 @@ CLIPS = {
         # the SIFT chain (the 240->340 direct pair was weak, arcs ~2ft off).
         "keyframes": [240, 275, 300, 325, 340, 400],
         "reference_pos": None,
-        # Fit EACH keyframe directly to its own clicked marks (px -> court feet),
-        # instead of the shared global model that HARD/TEST1 use. Diagnosed
-        # 2026-07-24: the shared model AVERAGES all keyframes into one court fit
-        # and CHAINS them to a reference; on this fast follow-cam that averaging
-        # drags every frame ~0.6 ft off its own marks -- worst in the arc/FT
-        # region, so the standard 19.75 arc bulged ~2 ft past the paint. The
-        # direct per-keyframe fit halves the error (1.16 -> ~0.5 ft) and the arc
-        # sits on the line. Opt-in so HARD/TEST1 (validated on the shared model)
-        # are untouched. See phase1/stage1_court_roi.build_court_anchor.
-        "direct_keyframe_homography": True,
         "exclude_regions": [
             (0.0, 810.0, 580.0, 1080.0),   # scorebug, bottom-left
         ],
-        "court": dict(HS_COURT),
+        # MEASURED from DJ's own marks, not assumed (court_detect.identify).
+        # This gym is a FULL-SIZE 94-ft floor with ordinary high-school
+        # markings -- and getting that wrong is what broke the calibration for
+        # two sessions. It had been given dict(HS_COURT) (84 ft) copied from
+        # TEST1, so the engine squeezed a 94-ft court into 84 ft and dragged
+        # every mark ~10 ft out of place along the length: mean error 0.94 ft,
+        # arcs visibly off the paint, and the marks blamed instead. Detected at
+        # 0.20 ft vs 0.62 ft for the 84-ft court (3.1x -- a clear call); with
+        # the right court the fit is 0.29 ft, identical to TEST1's glued 0.29.
+        "court": "auto",
         "stills": [240, 300, 340, 400],
         # Rims (NOT court landmarks -> not here; carried by hoop_anchor):
         #   left  rim = frame 240 px (509, 129);  right rim = frame 400 px (1473, 205)
-        # The 3pt-arc-apex marks (L_arc_top / R_arc_top) ARE good data: the court
-        # is standard 19.75, and with the direct fit above they pin the arc
-        # region (apex click maps to ~24 ft, near the true 25). They were briefly
-        # removed on the theory they were imprecise -- that was wrong; the shared
-        # model's averaging, not the marks, was compressing the arc.
+        # The 3pt-arc-apex marks (L_arc_top / R_arc_top) are good data -- the
+        # arc is the standard 19.75 and they land 0.3-0.4 ft on the right court.
+        # They were once removed as "imprecise"; that was wrong.
         "landmarks": {
             240: [
                 ('LB_side_far', 750, 206), ('L_lane_base_near', 265, 508),
@@ -299,7 +296,35 @@ CLIPS = {
 # Which clip the stages operate on. Set to "HARD" for the regression check.
 ACTIVE = "TEST1"
 
+_RESOLVED = {}          # clip name -> court dims worked out from its marks
+
+
+def _resolve_court(name, clip):
+    """Work out which real court this clip was filmed on, from its own marks.
+
+    Raises if it cannot tell. That is deliberate: a clip whose court can't be
+    identified must stop the run, not quietly proceed on a guessed court --
+    guessing is exactly what put TEST2 on an 84-ft model in a 94-ft gym and
+    made every mark look 10 ft out of place.
+    """
+    import court_detect
+    result = court_detect.identify(clip["landmarks"])
+    print(f"[{name}] " + f"\n[{name}] ".join(court_detect.report(result)))
+    if not result["identified"]:
+        raise ValueError(
+            f"{name}: cannot tell which court this is -- {result['reason']}")
+    return result["dims"]
+
 
 def active():
-    """The config dict for the currently selected clip."""
-    return CLIPS[ACTIVE]
+    """The config dict for the currently selected clip.
+
+    A clip whose "court" is "auto" gets its dimensions measured from its own
+    clicked landmarks (once, then cached) instead of assuming a court.
+    """
+    clip = CLIPS[ACTIVE]
+    if clip.get("court") != "auto":
+        return clip
+    if ACTIVE not in _RESOLVED:
+        _RESOLVED[ACTIVE] = _resolve_court(ACTIVE, clip)
+    return dict(clip, court=_RESOLVED[ACTIVE])
