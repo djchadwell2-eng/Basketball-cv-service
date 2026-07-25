@@ -1,3 +1,244 @@
+# CV QUALITY -- STATUS BOARD + TEST 15-20 PLAN (current task, 2026-07-25)
+
+This section belongs to the CV-QUALITY chat (ball model / tracker safety /
+scoreboard). Shipping and web-app wiring are a DIFFERENT chat's job -- do not
+mix them here. The calibration section below (same date) is that other track.
+
+## PART A -- STATUS BOARD (what is done vs still open, as of 2026-07-25)
+
+Fourteen gated tests, 2026-07-13 -> 2026-07-23. Full raw evidence in
+TEST_LOG.md; this is the index, not a replacement for it.
+
+### DONE / SOLVED (on the two test clips)
+
+- [x] **Robust arc fitting** (TEST 1) -- outlier-tolerant parabola fitter;
+      recovered TEST1 shot B, which the plain fitter threw away. 6 new tests.
+- [x] **Resolution lever, closed** (DECISIONS 20) -- 1024/1280/1920 bracketed
+      on BOTH sides. 1280 is the proven optimum; 1920 raised raw coverage and
+      LOST BOTH known shots. Tiling/SAHI abandoned unmeasured for the same
+      reason (it is more effective resolution = the direction that hurt).
+      DO NOT RE-RUN.
+- [x] **Model-capacity lever, closed** (DECISIONS 21) -- yolov8x vs yolov8m
+      on stock: a wash.
+- [x] **Own ball model, 3 generations** (TESTS 8/10/11) -- v1 (HARD gate
+      pass, TEST1 2/5) -> v2 (recipe: yolov8l/cos_lr/scale=0.7, TEST1 4/5 but
+      lost shot B) -> **v3** (v2 + DJ's 230 own-footage labels, warm-started
+      from v2): **TEST1 5/5, HARD 2/2 + all 4 known non-shots rejected**,
+      coverage 79.4% vs hosted 86.2%. Zero API calls. v1/v2's complementary
+      blind spots are gone -- one model does it all.
+- [x] **Off-the-shelf tracker survey, closed** (TESTS 5/6/7 + DECISIONS 11) --
+      BoT-SORT+GMC (117/116.2), OC-SORT (107/114.6), buf=60 (120/107.6),
+      appearance re-ID (131/~106, WORSE -- teammates look identical),
+      mt=0.7 (256/46.5, catastrophic), vs baseline 122/105.8. StrongSORT
+      unrunnable (upstream packaging bug). Only mt=0.9 (93/143.1) is a real
+      outlier -- see OPEN.
+- [x] **Ref/player semantic split, measured** (TEST 4) -- fine-tuned Player
+      class = clean substitute for the per-clip ROI mask (43 on-court ids,
+      identical to baseline's own on-court 43; 10 players + 3 refs/frame at
+      conf>=0.4). 6 of 43 on-court ids are REFEREES = ~14% review-queue
+      reduction available. Not wired in.
+- [x] **Scoreboard is readable** (TEST 14) -- fixed screen position all game;
+      sliding-window majority vote + monotonicity guard. HARD "15-12", zero
+      changes (independently confirms both known shots were misses); TEST1
+      reads a sane monotonic progression. Two real bugs found + fixed.
+- [x] **ID-switch risk of mt=0.9, proven with pictures** (TEST 12) -- id=17
+      carries through an 0.83s gap and reattaches to an OPPOSING-TEAM player
+      (white Milford f=196 -> green Little Miami f=221). Also established the
+      key nuance: the switch is NOT new, the committed system mishandles the
+      same moment -- it just fails SAFER (ends the track vs silently
+      continuing it onto the wrong body).
+- [x] **Ball-physics-only false-positive gates, RULED OUT** (TEST 11
+      follow-ups + TEST 12 follow-up). accel_y looked like a clean separator
+      at n=9 (real >=0.848, suspect <=0.655) and DJ's ground truth DESTROYED
+      it: the 1352-1378 cross-court pass has accel_y=1.388, squarely inside
+      the real cluster. A pass thrown by a human arm and a shot thrown by a
+      human arm ARE the same physics. **No further ball-physics-only gates
+      should be attempted on this data.**
+
+### OPEN (real gaps, with the diagnosis already done)
+
+- [ ] **FALSE POSITIVES -- the #1 correctness gap.** v3 claims 3 DJ-refuted
+      non-shots (all now permanent ground truth in local_weights_check.py):
+        (a) 403-415 rebound caught -> dished out (HARD ~13.4s)
+        (b) 2234-2250 player just HOLDING the ball on an inbounds (~74.5s)
+        (c) 1352-1378 cross-court PASS (~45.1s)
+      TWO DISTINCT CATEGORIES, proven: category A (rebound/held ball -- low
+      or bogus accel_y) and category B (legitimate pass that geometrically
+      arcs near the hoop pixel -- normal shot-like accel_y). Ball position
+      cannot see either. **This is why v3 is NOT adopted** despite being the
+      best model we have -- it sits on disk as a one-line config change.
+      FIX = a player signal answering "does this look like a person shooting
+      AT the hoop." Both categories fail that question; neither fails a
+      trajectory test. -> TEST 16.
+- [ ] **Tracker: the 35% win is unsafe as-is.** mt=0.9 needs a safeguard at
+      the REATTACH moment. TEST 13 built a jersey-color check (unsupervised
+      k=2 clustering, no roster/OCR needed): caught BOTH known real switches
+      (100% recall on n=2) but only 2-3 of 8 flags were real switches.
+- [ ] **Junk detections -- newly found, cheap, blocking the above.** 4 of
+      TEST 13's 6 false alarms were the person detector firing on the
+      ANIMATED SCOREBOARD GRAPHIC; 1 more was a REFEREE. Not jersey-color
+      noise at all -- a separate detector bug. Filtering both should lift the
+      color check's precision a lot. -> TEST 15.
+- [ ] **Scoreboard -> which shot scored.** Coarse pass works; per-shot
+      attribution does not. Dense sampling after each attempt is fooled by
+      real player bodies walking through that screen corner for several
+      frames running (proven with a still -- not single-frame noise, so
+      spreading the vote does not fix it). PAUSED, not failed. -> TEST 20.
+- [ ] **We are steering on a val set that has never worked.** The only
+      validation is 32 public images / 18 ball instances containing NONE of
+      DJ's footage. It failed to predict the clip result in EITHER direction
+      for v1 vs v2 (TEST 10 says so explicitly). Every model version
+      therefore costs a full clip-gate run to judge. -> TEST 18.
+- [ ] **Everything we know comes from 2 clips.** Every threshold, gate and
+      verified shot is HARD + TEST1. Generalization is UNMEASURED. Given the
+      accel_y lesson (a clean-looking rule at n=9 destroyed by new ground
+      truth), this is the single biggest unknown in the project. -> TEST 19.
+- [ ] **Player labeling queue is 25 days at current pace.** 30 of 280 done at
+      ~10/day, started 2026-07-22. The #1 fix is gated behind a month of
+      manual clicking and does not need to be. -> PRE-FILL task below.
+
+### STANDING CONSTRAINTS (do not relitigate)
+
+- Camera is fixed (Hudl/Veo, 2026-07-14). Three separate investigations
+  (resolution, layups, fragmentation) all bottomed out at the same root
+  cause: 24px ball, small distant players. It is the ceiling on all of this.
+- Raw detection coverage is a LIAR -- it pointed the wrong way in
+  DECISIONS 13, 18 and 20. The only metric is whether real shots survive
+  the physics gate and non-shots do not.
+- Fragmentation metrics CANNOT see wrong-merges. A confidently-wrong track
+  is worse than a fragmented one. Nothing adopts on proxy metrics alone.
+- Nothing is adopted without a gate + DJ eyeball. Stock yolov8m is still
+  the committed ball detector in run_clip.
+
+## PART B -- TEST 15-20 PLAN (DJ approved the direction 2026-07-25)
+
+Same protocol as TESTS 1-14: suite green before and after, raw output only,
+nothing adopted, every result logged to TEST_LOG.md as
+"MEASURED -- pending DJ review".
+
+### Phase 1 -- no GPU, no new data, can start immediately
+
+- [ ] **TEST 15 -- junk-detection filter (scoreboard region + referees).**
+      Cheapest open item, and it unblocks the tracker safeguard.
+      - Reuse the per-clip `exclude_regions` ALREADY in spikes/clips_config.py
+        (TEST1: 0,810,415,1080) -- no new constant, no new hand-tuning.
+      - Drop person detections whose box centre falls in that region, and
+        drop boxes the fine-tuned Ref class claims (TEST 4 measured Ref at
+        3/frame at conf>=0.4 -- sane).
+      - Re-run spikes/tracker_color_reattach_check.py on the same mt=0.9
+        tracks and re-score.
+      - SUCCESS: the 4 scoreboard flags + the 1 ref flag disappear, and BOTH
+        confirmed real switches (id=17, id=45) are STILL flagged. That is
+        precision 2/8 -> 2/3 with recall intact.
+      - FAILURE MODE TO WATCH: if a real switch stops being flagged, the
+        filter is too aggressive -- report it, do not tune until it passes.
+
+- [ ] **TEST 16 -- pose estimation vs the 3 confirmed false positives.**
+      THE headline test. Off-the-shelf pretrained pose (yolo11x-pose,
+      COCO-trained) gives shoulder/elbow/wrist keypoints with ZERO labeling.
+      - Run pose over the exact frames of all 10 events that now have DJ
+        ground truth: 7 confirmed real shots + 3 confirmed non-shots.
+      - At each arc's START frame, measure raw, uninterpreted quantities:
+        distance from the ball to the nearest wrist; whether that person's
+        wrists are above their shoulders; the arm-extension angle; and where
+        the ball ENDS (near the rim, or near another player's wrists).
+      - REPORT THE RAW TABLE FIRST, before proposing any rule. This is the
+        explicit accel_y guard: a rule fitted to n=10 after seeing the data
+        is a HYPOTHESIS, not a gate, and must be labelled as such.
+      - SUCCESS: a visible separation between the 7 and the 3. Any rule found
+        is then FROZEN and must survive TEST 19's holdout clip before anyone
+        calls it a fix.
+      - HONEST RISK, stated up front: pose models degrade on small distant
+        figures, which is exactly this footage's known weakness. A clean
+        negative here is a real result -- it says the player-labeling grind
+        is the necessary path, and it costs an afternoon to find out.
+      - Runs on CPU for a few hundred frames; GPU makes full-clip feasible.
+
+- [ ] **PRE-FILL the remaining player labels (unblocks DJ's 25-day queue).**
+      Not a test -- a chore that should have been offered before DJ started.
+      - Run v3 (whose Player class scores mAP50 0.903) over the ~250 unlabeled
+        frames in spikes/out/label_harvest_players, export boxes in Roboflow's
+        import format so DJ CORRECTS pre-drawn boxes instead of drawing from
+        scratch. Typically 3-5x faster on crowded frames.
+      - Also recommend stopping at ~100-120 total rather than 280: the ball
+        model needed 230 for a much harder target, and 5-10 min of extra
+        labeling is worth less than getting the signal tested sooner.
+
+### Phase 2 -- needs the GPU (DJ opens it; runs unattended for hours)
+
+- [ ] **TEST 17 -- newer-architecture bracket on the SAME data.**
+      Installed ultralytics 8.4.75 supports yolo11, yolo12, yolo26 and
+      rt-detr; every model to date is yolov8. One word changes in the train
+      command; the dataset (1370 train imgs incl. DJ's 230) is already on the
+      network volume.
+      - Candidates: yolo11l, yolo12l, rt-detr-l, and yolo26 if it trains
+        cleanly. Same recipe as v3 (imgsz=1280, cos_lr, scale=0.7,
+        epochs 150 / patience 60).
+      - CONTROL RUN REQUIRED: yolov8l from STOCK on the same merged dataset.
+        v3 was warm-started from v2, so without this control we cannot tell
+        "new architecture" from "warm start" -- the comparison would be
+        meaningless. This is the test's load-bearing detail.
+      - Gate for every candidate: the SAME gate v3 passed -- HARD 2 verified
+        shots reproduced, all 4 known non-shots rejected, TEST1 5/5.
+      - EXPECTATION, on the record before running: probably incremental.
+        Bigger/newer models were already a wash once (DECISIONS 21), and this
+        footage is information-limited, not architecture-limited. It is worth
+        doing because it is ~2h unattended per run and a few dollars, not
+        because it is likely to be the breakthrough.
+      - Cost: ~2h/run on a 4090, 4-5 runs, roughly $3-6 total.
+
+### Phase 3 -- needs DJ (ground truth / labels), the most valuable phase
+
+- [ ] **TEST 19 -- THIRD AND FOURTH CLIP AS A TRUE HOLDOUT.**
+      The single most valuable test in this plan. Everything we believe is
+      tuned on 2 clips; this is the first honest generalization measurement.
+      - Clips: TEST2 (Fairfield, 48s, rims already recorded in clips_config)
+        + the longer ~5-min clip DJ offered. The 5-min clip matters more --
+        48s is too few shots to conclude anything.
+      - REQUIRES FROM DJ: a watched-once list of shot timestamps and what
+        each one was (shot / layup / pass / rebound / inbounds hold). NOT the
+        roster and NOT calibration -- shot detection needs neither. Roster
+        and court dims only matter for identity and shot LOCATION, which is
+        the other chat's track.
+      - Run v3 (and TEST 17's winner) cold against that list. Report caught,
+        missed, and falsely claimed.
+      - This is also where any TEST 16 pose rule gets its real verdict.
+        A rule that survives a clip it was not built on is a finding; a rule
+        that only fits HARD+TEST1 is accel_y all over again.
+
+- [ ] **TEST 18 -- own-footage validation set (retire the useless 32-image
+      val).** Harvest ~50 ball frames from a clip NOT in training, pre-fill
+      boxes with v3, DJ corrects. Held back from training, permanently.
+      Turns "one hour of clip gates" into "30 seconds" for every future
+      model version -- it compounds across every run in TEST 17 and beyond.
+
+- [ ] **TEST 20 -- scoreboard occlusion-skip (stretch, lowest priority).**
+      Detect when a player box overlaps the scoreboard region and SKIP those
+      frames entirely rather than voting through them. Optionally read the
+      game CLOCK too: it ticks down one second at a time, so it validates
+      itself (a read that is not previous-minus-one is wrong, no vote
+      needed) and marks whistles, which is when baskets get counted.
+      Deliberately last: make/miss is a nice-to-have, shot detection is not.
+
+### Ordering rationale
+
+15 and 16 need nothing and answer the two biggest open questions (is the
+junk-detection bug the tracker blocker? does pose separate the false
+positives?). 17 runs unattended in the background while 15/16 proceed. 19 is
+the highest-value test but is gated on DJ's ground-truth list, so it is
+staged last -- and it is the ONLY thing that can validate whatever 16 finds.
+
+### What each phase needs from DJ
+
+1. **GPU opened** -- for TEST 17 only. Phase 1 does not need it.
+2. **Shot list for TEST2 + the longer clip** -- timestamps + what each play
+   actually was. This is the gating input for TEST 19.
+3. **The longer ~5-min clip** -- yes please, more valuable than TEST2's 48s.
+4. **Roster/jersey colors** -- NOT needed for any test here. That belongs to
+   the calibration/identity track, not CV quality.
+
+---
+
 # COURT HOMOGRAPHY -- REAL ROOT CAUSE FOUND (current task, 2026-07-25)
 
 DJ: "the court homography is completely wrong... I have clicked right, and we
@@ -101,28 +342,54 @@ NOT in scope: auto-calibration, the marking tool, roster, shot-chart run.
   the same court position reads as a 20.0 ft three on an 84-ft model and
   26.5 ft on a 94-ft one. Zone classification and the chart shape both move.
 
-## OPEN -- NEEDS DJ'S DECISION: HARD is a 94-ft floor too
-Found while testing the detector on all three clips. HARD (Winton Woods) is
-configured 84 ft and measures 94, by the same three independent methods that
-caught TEST2:
-    length sweep      sharp minimum at 94.0 ft (0.202) vs 84 ft (0.555)
-    free solve        93.90 ft; lane 11.70, FT 18.97, circle 5.98, apex 25.00
-                      -- i.e. ordinary HS markings on a full-size floor
-    detector          94 ft, 2.7x clear of the runner-up
-This also explains something never questioned: HARD's calibration has always
-sat at ~0.95 ft while TEST1 sat at 0.25, and that gap was written off as
-"on par". It was the wrong court all along.
-Why it is NOT changed here: HARD is the validated baseline the whole shot
+## SECOND BUG FIXED: the renderer silently deleted the whole court
+DJ's other complaint -- "there's missing lines" -- was a real and separate
+bug, not a symptom of the court length. A homography is defined only up to
+sign, so the same correct transform can arrive with every depth negated.
+`stage4.to_px` reads a negative depth as "behind the camera" and returns None,
+and `draw_court` only draws a segment when BOTH ends survive -- so on a view
+where the sign came out negative, EVERY line vanished. Measured on HARD
+keyframe 1200: 205 of 207 court points dropped, including the right lane and
+rim sitting in plain view, while that keyframe's own marks reprojected fine at
+0.59 ft. The calibration was right; the picture was empty.
+Already known and already solved ONCE: spikes/stage5_courtmap.py exists
+because of this exact bug ("the Stage-4 blank right half was NOT a
+representation limit, it was a homography SIGN-convention bug") and carries
+its own `signfix`. stage4 -- the renderer every calibration overlay actually
+goes through, including stage1's eyeball video and every image DJ has been
+judging -- never got it. Fixed at the source: `stage4.signfix()` + one line in
+`draw_court`, so every caller is covered. Uses the real court centre (CX, CY)
+rather than stage5's hard-coded (42, 25), which is itself wrong on a 94-ft
+floor. No effect where the sign was already positive.
+The MEASUREMENT pipeline was never affected -- phase1's `on_court()` compares
+depth against a reference point's sign, so it is sign-agnostic. This was an
+eyeball-only bug, which is exactly why it survived: the numbers looked fine.
+
+## RESOLVED: HARD is a 94-ft floor too
+Found while testing the detector on all three clips, then confirmed through
+the REAL pipeline path (refit_keyframes, not stage4.run_optimization):
+    HARD court = 84 ft  ->  mean 0.76 ft / max 1.97   (its configured value)
+    HARD court = 94 ft  ->  mean 0.32 ft / max 0.74
+    length sweep        sharp minimum at 94.0 ft (0.202) vs 84 ft (0.555)
+    free solve          93.90 ft; lane 11.70, FT 18.97, circle 5.98
+    detector            94 ft, 2.7x clear of the runner-up
+    eyeball             at 94 ft the arc lands on the painted arc at kf1200;
+                        at 84 ft it is visibly inside the paint
+All three clips now sit together: TEST1 0.29, TEST2 0.27, HARD 0.32 ft.
+CORRECTION to an earlier note here: the free solve's "apex 25.00" was cited as
+HARD evidence and should not have been -- HARD has no arc marks at all, so that
+parameter was unconstrained and simply stayed at its starting value. The other
+four lines above stand on their own.
+This also explains something never questioned: HARD's calibration always sat
+near 0.95 ft while TEST1 sat at 0.25, and the gap was written off as "on par".
+It was the wrong court the whole time.
+WHY IT IS STILL NOT SWITCHED: HARD is the validated baseline the whole shot
 layer was gated on (TEST 10). Switching it moves every HARD court_feet
-position, its shot chart, its zones, and the numbers now showing in the web
-app. The test suite does NOT lock it (the shot-layer regressions are all
-pixel-space, and test_possessions passes its own synthetic LEN), so nothing
-would fail loudly -- which is exactly why this needs a deliberate call.
-Note HARD's shared-model fit only improves 0.99 -> 0.78 ft at 94 ft, because
-HARD carries a separate ~0.7 ft error from its 7-keyframe SIFT chain across a
-long pan. Its per-keyframe fit is 0.20 ft at 94 vs 0.56 at 84, so the court is
-not in doubt -- but HARD's chain is a second, unrelated weakness worth its own
-look if DJ wants HARD tight rather than just correct.
+position, its shot chart, its zones, and the numbers currently rendering in
+the web app. The suite does NOT lock it (the shot-layer regressions are all
+pixel-space; test_possessions passes its own synthetic LEN), so nothing would
+fail loudly -- which is precisely why it needs a deliberate call rather than a
+quiet edit. Recommended: switch HARD to "auto" and re-verify its shot chart.
 
 ## Notes for the marking tool (later, not now)
 The tool's mini court diagram is drawn to HS proportions, and the config

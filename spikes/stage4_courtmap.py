@@ -136,8 +136,26 @@ def compute_H_court(L_opt, tags):
     return H_court, dict(zip(tags, err)), float(err.mean()), float(err.max())
 
 
+def signfix(M):
+    """A homography is defined only up to sign, so the same correct transform
+    can arrive with every depth negated. to_px() reads a negative depth as
+    "behind the camera" and drops the point, which silently deletes the ENTIRE
+    court from the overlay -- the "missing lines" on right-basket views.
+    Flip so the middle of the court is in front, and every depth follows.
+
+    Found in stage5 (which built its own copy to work around it); doing it here
+    means every renderer that draws through to_px gets it, including stage1's
+    eyeball video. No effect when the sign is already right.
+    """
+    w = M[2, 0] * CX + M[2, 1] * CY + M[2, 2]
+    return -M if w < 0 else M
+
+
 def to_px(M, fx, fy):
-    """Map a court point (feet) to image px via M; None if behind the camera."""
+    """Map a court point (feet) to image px via M; None if behind the camera.
+
+    Pass M through signfix() first (draw_court does) or a whole view can come
+    back empty."""
     d = M[2, 0] * fx + M[2, 1] * fy + M[2, 2]
     if d <= 1e-9:
         return None
@@ -176,6 +194,7 @@ POLYS = court_polylines()
 
 def draw_court(frame, M):
     """Draw the court model (feet) onto the frame using M: feet -> frame px."""
+    M = signfix(M)
     for poly in POLYS:
         pts = [to_px(M, fx, fy) for (fx, fy) in poly]
         for j in range(len(pts) - 1):
