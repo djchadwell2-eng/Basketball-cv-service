@@ -131,3 +131,70 @@ def test_build_measured_stats_no_located_shots_is_safe():
     assert out["shots_unlocated"] == 1
     assert out["shot_distribution"]["n"] == 0
     assert len(out["box_score"]) == 1            # box score still present
+
+
+# ---------------------------------------------------------------------------
+# TRACKING COVERAGE -- the individual tracker's honesty, restored 2026-07-25.
+# The contract used to forward ONLY the named players, silently dropping
+# stage8's "unnamed" bucket (confirmed identities with no jersey number). On
+# HARD that bucket is 61.7 s across 15 identities -- MORE tracked player time
+# than every named player combined -- so the app showed 11 players as if that
+# were the whole floor, and the AI narrated the same partial picture as
+# complete. stage8 calls this out explicitly: "never dropped, never guessed".
+# ---------------------------------------------------------------------------
+def _box_doc_with_unnamed():
+    d = _box_doc()
+    d["unnamed_confirmed"] = {"identities": 15, "seconds_total": 61.7}
+    d["review"] = {"candidate_events": 7311, "unknown_events": 6169}
+    return d
+
+
+def test_unnamed_tracked_time_reaches_the_contract():
+    out = ms.build_measured_stats("X", _box_doc_with_unnamed(), _loc_doc(), _att_doc())
+    t = out["tracking"]
+    assert t["unnamed_seconds"] == 61.7
+    assert t["unnamed_identities"] == 15
+    assert t["named_seconds"] == 15.1
+    # 15.1 named of 76.8 tracked -> the app must be able to say "19.7% named"
+    assert t["pct_of_tracked_time_named"] == 19.7
+    assert t["review_backlog"]["candidate_events"] == 7311
+
+
+def test_coverage_is_safe_when_every_player_is_named():
+    """No unnamed bucket at all -> 100% named, not a crash or a divide-by-zero."""
+    t = ms.tracking_coverage(_box_doc())
+    assert t["unnamed_seconds"] == 0.0 and t["unnamed_identities"] == 0
+    assert t["pct_of_tracked_time_named"] == 100.0
+
+
+def test_coverage_is_safe_with_no_tracked_time_at_all():
+    t = ms.tracking_coverage({"players": [], "unnamed_confirmed": {}})
+    assert t["pct_of_tracked_time_named"] == 0.0
+
+
+def test_ambiguous_identities_are_flagged_not_disguised_as_players():
+    """HARD's #3 is claimed by BOTH rosters and stage8 refuses to guess, so it
+    carries 0.0 s. Unflagged it renders as a player who barely played, which
+    is a different (and wrong) thing to tell a coach."""
+    d = _box_doc()
+    d["players"].append(
+        {"number": 3, "team": "AMBIGUOUS (Milford (white/red) / Winton Woods (black/green))",
+         "seconds_total": 0.0, "seconds_live": 0.0, "seconds_retro": 0.0,
+         "windows_present": 0, "zone_seconds": {}, "top_zone": "-",
+         "disputed_seconds": 2.7, "unpositioned_frames": 0})
+    out = ms.build_measured_stats("X", d, _loc_doc(), _att_doc())
+    rows = {r["number"]: r for r in out["box_score"]}
+    assert rows[3]["ambiguous"] is True
+    assert rows[3]["disputed_seconds"] == 2.7      # the conflict is quantified
+    assert rows[24]["ambiguous"] is False          # a real player is not flagged
+
+
+def test_court_length_flows_into_the_contract_and_zones():
+    """A 94-ft floor puts the far basket 10 ft further out; the app draws its
+    chart from meta.court, so the wrong length there mis-places every shot."""
+    out84 = ms.build_measured_stats("X", _box_doc(), _loc_doc(), _att_doc(), 84.0)
+    out94 = ms.build_measured_stats("X", _box_doc(), _loc_doc(), _att_doc(), 94.0)
+    assert out84["meta"]["court"]["length_ft"] == 84.0
+    assert out94["meta"]["court"]["length_ft"] == 94.0
+    # the SAME shot is a three on one floor and further out on the other
+    assert out84["shots"][0]["dist_ft"] != out94["shots"][0]["dist_ft"]

@@ -86,6 +86,39 @@ _BOX_FIELDS = ("number", "team", "seconds_total", "seconds_live", "seconds_retro
                "windows_present", "zone_seconds", "top_zone", "disputed_seconds")
 
 
+def is_ambiguous(team):
+    """stage8 marks a number it could not attribute to one team by prefixing
+    the team label 'AMBIGUOUS (...)'. Surfaced as a flag here so the app can
+    show it as an unresolved conflict instead of a player who barely played."""
+    return str(team or "").startswith("AMBIGUOUS")
+
+
+def tracking_coverage(box_doc):
+    """How much of the tracked player time actually carries a jersey number.
+
+    stage8 deliberately keeps confirmed-but-numberless identities in an
+    'unnamed' bucket -- "real floor time that needs a coach click to become a
+    name. Never dropped, never guessed." This contract used to forward only the
+    named players, which silently threw that bucket away: on HARD it is 61.7 s
+    across 15 identities, MORE tracked time than all the named players combined.
+    The app then showed 11 players as if that were everyone, and the AI narrated
+    the same partial picture as if it were complete -- exactly the
+    confident-wrong failure the CV side refuses to commit.
+    """
+    unnamed = box_doc.get("unnamed_confirmed") or {}
+    named_s = sum(float(p.get("seconds_total") or 0.0)
+                  for p in box_doc.get("players", []))
+    unnamed_s = float(unnamed.get("seconds_total") or 0.0)
+    tracked = named_s + unnamed_s
+    return {
+        "named_seconds": round(named_s, 1),
+        "unnamed_seconds": round(unnamed_s, 1),
+        "unnamed_identities": int(unnamed.get("identities") or 0),
+        "pct_of_tracked_time_named": round(100.0 * named_s / tracked, 1) if tracked else 0.0,
+        "review_backlog": box_doc.get("review") or {},
+    }
+
+
 def build_measured_stats(clip, box_doc, loc_doc, att_doc, court_len=COURT_LEN):
     """Assemble the web-ready contract from the three loaded docs."""
     # attempt lookup by frame span -> shot_type / hoop for a located shot
@@ -109,7 +142,9 @@ def build_measured_stats(clip, box_doc, loc_doc, att_doc, court_len=COURT_LEN):
             "shooter_status": loc.get("shooter_status"),
         })
 
-    box_score = [{k: p.get(k) for k in _BOX_FIELDS} for p in box_doc.get("players", [])]
+    box_score = [dict({k: p.get(k) for k in _BOX_FIELDS},
+                      ambiguous=is_ambiguous(p.get("team")))
+                 for p in box_doc.get("players", [])]
 
     return {
         "clip": clip,
@@ -119,6 +154,7 @@ def build_measured_stats(clip, box_doc, loc_doc, att_doc, court_len=COURT_LEN):
             "court": {"length_ft": court_len, "width_ft": COURT_WID,
                       "hoop_dx_ft": HOOP_DX, "three_radius_ft": THREE_RADIUS_FT},
         },
+        "tracking": tracking_coverage(box_doc),
         "box_score": box_score,
         "shots": shots,
         "shots_unlocated": unlocated,
