@@ -45,9 +45,40 @@ def load_decisions(path: str, roster_numbers: set) -> dict:
     return out
 
 
+def load_ref_tracks(path: str) -> set:
+    """Track ids the human explicitly marked 'ref'.
+
+    These labels were being read and thrown away, which wasted the one signal
+    that can keep officials out of the player stats. stage4 seeds EVERY
+    on-court track (a ref is on-court by the Phase-1 rule), so referees become
+    CONFIRMED identities with real floor time: measured 41.5s on HARD and
+    40.2s on TEST1 -- and it is why TEST1 reported MORE confirmed player-time
+    than there are player slots. A ref stands in the paint all possession, so
+    one counted as a player invents exactly the positional tendency the
+    product sells. Excluding them ADDS information; it never lowers a
+    confidence bar.
+    """
+    if not os.path.exists(path):
+        return set()
+    doc = json.load(open(path, encoding="utf-8"))
+    return {int(tid) for tid, n in doc.get("track_labels", {}).items() if n == "ref"}
+
+
 _decisions_cache = None
 _spliced_cache = None
+_ref_cache = None
 _splice_warned: set = set()
+
+
+def ref_tracks() -> set:
+    """Track ids the human marked 'ref', cached. Empty set if never labelled."""
+    global _ref_cache
+    if _ref_cache is None:
+        _ref_cache = load_ref_tracks(DECISIONS_JSON)
+        if _ref_cache:
+            print(f"  referees: {len(_ref_cache)} track(s) the human marked 'ref' "
+                  f"-- excluded from seeding, so they cannot become players")
+    return _ref_cache
 
 
 def _decisions() -> dict:

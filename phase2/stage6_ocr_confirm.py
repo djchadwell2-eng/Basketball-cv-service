@@ -101,11 +101,16 @@ def main():
     def _on_court(key):
         return ident_of[key].track_id in onc.get(key[0], set())
 
-    all_cands = [k for k, i in ident_of.items() if i.state == IdentityState.CANDIDATE]
+    # EVER unresolved, not just unresolved AT THE END. An identity that spent
+    # hundreds of frames as CANDIDATE and then died reads as LOST here, and was
+    # therefore never offered to OCR at all -- 83% of HARD's 'one read away'
+    # mass. Dying is not evidence that the number is unreadable.
+    all_cands = [k for k, i in ident_of.items()
+                 if i.ever_unresolved and i.state is not IdentityState.CONFIRMED]
     candidates = [k for k in all_cands if _on_court(k)]           # the OCR pool
     off_court_candidates = len(all_cands) - len(candidates)
     before_review = [k for k, i in ident_of.items()
-                     if i.state in (IdentityState.CANDIDATE, IdentityState.UNKNOWN)
+                     if i.ever_unresolved and i.state is not IdentityState.CONFIRMED
                      and _on_court(k)]
 
     # --- PICK frames per candidate first (bbox data only, no images yet) ---
@@ -193,7 +198,7 @@ def main():
 
     # --- queue before vs after (on-court only; matches stage4's queue policy) ---
     after_review = sum(1 for k, i in ident_of.items()
-                       if i.state in (IdentityState.CANDIDATE, IdentityState.UNKNOWN)
+                       if i.ever_unresolved and i.state is not IdentityState.CONFIRMED
                        and _on_court(k))
     print(f"\nREVIEW QUEUE (on-court):  before OCR = {len(before_review)}  ->  "
           f"after OCR = {after_review}")

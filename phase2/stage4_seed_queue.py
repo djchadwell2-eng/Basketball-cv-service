@@ -97,9 +97,13 @@ def main():
             seen = set()
             on = onc.get(win, set())
             seeded, skipped = [], []
+            refs = roster.ref_tracks()
             for t in tracks:
                 if t.track_id not in on:          # off-court -> NOT auto-trusted
                     skipped.append(t.track_id)
+                    continue
+                if t.track_id in refs:            # the human says this is an official
+                    skipped.append(t.track_id)    # -- never a player, never seeded
                     continue
                 machine.seed(t.track_id, label=f"w{win}_t{t.track_id}")   # -> CONFIRMED
                 seeded.append(t.track_id)
@@ -125,7 +129,11 @@ def main():
         print(f"  final states: {dict(tally)}")
         on = onc.get(w, set())
         for ident in machine.all_identities():
-            if ident.state in (IdentityState.CANDIDATE, IdentityState.UNKNOWN):
+            # EVER unresolved, not just unresolved at the END of the run: an
+            # identity that was CANDIDATE for hundreds of frames and then died
+            # is LOST by now, and so was never put in front of the coach --
+            # 2290 track-frames, ~40% of HARD's player pool, silently skipped.
+            if ident.ever_unresolved and ident.state is not IdentityState.CONFIRMED:
                 if ident.track_id not in on:      # crowd/bench: keep OUT of the
                     off_court_excluded += 1       # coach's queue, but COUNT it
                     continue

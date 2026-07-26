@@ -52,8 +52,16 @@ def walk(machine, frames):
 
 def make_candidate(roster_number=None):
     """The canonical break: a (optionally seeded) track is lost, then reappears
-    cleanly -> the SAME Identity object relinked as CANDIDATE. Returns (machine,
-    identity)."""
+    cleanly under the SAME track id -> the same Identity relinked as CANDIDATE.
+
+    Same-id is the only continuity relink that still exists. Relinking onto a
+    DIFFERENT track id was removed 2026-07-25 after measurement: it overruled
+    ByteTrack on ~150px of proximity alone and was wrong about 70% of the time
+    (HARD 10/10, TEST1 2/2 wrong), merging up to three different players into
+    one identity. Same-id relinks measured 52/52 correct. The safety property is
+    unchanged and in fact stricter -- a different-id reappearance now abstains
+    to UNKNOWN, which attributes even less than CANDIDATE did. Locked by
+    test_relink_onto_a_different_track_id_is_refused below."""
     m = idmod.IdentityStateMachine()
     m.update(0, [T(1, 100, 100)])
     if roster_number is not None:
@@ -61,7 +69,7 @@ def make_candidate(roster_number=None):
     # steady motion so the relink has a real velocity prediction
     walk(m, [(f, [T(1, 100 + 10 * f, 100)]) for f in range(1, 5)])
     walk(m, [(5, []), (6, [])])                      # occlusion -> LOST
-    m.update(7, [T(2, 170, 100)])                    # reappear at the predicted spot
+    m.update(7, [T(1, 170, 100)])                    # reappear, SAME track id
     ident = m.active()[0]
     return m, ident
 
@@ -129,7 +137,7 @@ def test_relink_is_candidate_never_confirmed():
     m, ident = make_candidate()
     assert ident.state is IdentityState.CANDIDATE, (
         "continuity's ceiling is CANDIDATE; CONFIRMED here = the silent-swap bug")
-    assert ident.track_id == 2                        # follows the new track_id
+    assert ident.track_id == 1                        # same track, re-acquired
     assert ident.evidence["gap_frames"] == 3
     assert "distance_px" in ident.evidence
     assert m.breaks and m.breaks[0]["result"] == "candidate"
@@ -137,27 +145,92 @@ def test_relink_is_candidate_never_confirmed():
 
 def test_candidate_stays_candidate_under_continuity():
     m, ident = make_candidate()
-    walk(m, [(f, [T(2, 170 + 10 * (f - 7), 100)]) for f in range(8, 14)])
+    walk(m, [(f, [T(1, 170 + 10 * (f - 7), 100)]) for f in range(8, 14)])
     assert ident.state is IdentityState.CANDIDATE, "continuity NEVER promotes"
 
 
 def test_ambiguous_reappearance_stays_unknown():
-    """Two lost tracks contend at equal distance -> abstain, relink neither."""
+    """Two players vanish and one body reappears between them -> abstain, and
+    claim NEITHER lost identity. This is the exact scenario that used to invent
+    a merge, so the abstention outcome is the property that matters.
+
+    (The old build reached this outcome via an 'ambiguous, >=2 contenders' path.
+    A body reappearing under a new track id can no longer contend for anyone's
+    identity at all, so it is simply a fresh UNKNOWN -- the same abstention,
+    reached earlier and more cheaply.)"""
     m = idmod.IdentityStateMachine()
     walk(m, [(f, [T(1, 100, 100), T(2, 160, 100)]) for f in range(3)])
     m.update(3, [])                                   # both vanish
     m.update(4, [T(9, 130, 100)])                     # dead center between them
     ident = m.active()[0]
     assert ident.state is IdentityState.UNKNOWN
-    assert ident.evidence["contenders"] == 2
+    assert ident.roster_number is None, "must not inherit anyone's number"
     assert len(m.lost()) == 2, "neither lost identity may be claimed"
+
+
+def test_relink_onto_a_different_track_id_is_refused():
+    """A body appearing under a NEW track id -- however close, however clean the
+    motion prediction -- may not be relinked onto a lost identity.
+
+    Removed 2026-07-25 on measurement: these guesses overruled ByteTrack, which
+    had already declined the association, on proximity alone. Judged against the
+    human's own track labels they were wrong ~70% of the time (HARD 10/10,
+    TEST1 2/2), because a body is lost precisely WHEN it is in a crowd, so the
+    body that reappears nearby is usually the player who crowded it. One HARD
+    identity walked through tracks the human labelled #20, #23 and #44 while
+    carrying #20 throughout -- 47.2s credited to the wrong player, now 0.0s."""
+    m = idmod.IdentityStateMachine()
+    m.update(0, [T(1, 100, 100)])
+    m.seed(1, roster_number=23)
+    walk(m, [(f, [T(1, 100 + 10 * f, 100)]) for f in range(1, 5)])
+    walk(m, [(5, []), (6, [])])                       # lost
+    m.update(7, [T(2, 170, 100)])                     # PERFECT prediction, new id
+
+    fresh = m.active()[0]
+    assert fresh.state is IdentityState.UNKNOWN, "a new track id is a new person"
+    assert fresh.roster_number is None, (
+        "inheriting #23 here is the silent-swap bug: it credits one player's "
+        "stats to whoever happened to reappear nearby")
+    assert m.breaks == [], "no relink may be recorded across track ids"
+    assert len(m.lost()) == 1, "the real #23 stays honestly LOST"
+
+
+def test_refusing_a_bad_relink_lets_the_human_label_land():
+    """Why refusing raises coverage instead of lowering it. A relinked CANDIDATE
+    can never be late-seeded (windows.seed_labeled_newcomers refuses inherited
+    history), so a wrong relink also BLOCKED the coach's own click. Left as a
+    fresh UNKNOWN, the label applies -- which is why 'your clicks used' rose
+    from 46.9% to 55.2% on HARD while wrong-player time fell to zero."""
+    m = idmod.IdentityStateMachine()
+    m.update(0, [T(1, 100, 100)])
+    walk(m, [(f, [T(1, 100 + 10 * f, 100)]) for f in range(1, 5)])
+    walk(m, [(5, []), (6, [])])
+    m.update(7, [T(2, 170, 100)])                     # new body, new id
+
+    seeded = winmod.seed_labeled_newcomers(
+        m, [T(2, 170, 100)], seen=set(), on_set={2}, label_fn={2: 44}.get)
+    assert seeded == [2], "a fresh UNKNOWN must accept the human's label"
+    assert m._by_track[2].state is IdentityState.CONFIRMED
+    assert m._by_track[2].roster_number == 44
+
+
+def test_ever_unresolved_survives_the_identity_dying():
+    """The review queue and OCR ask 'was this EVER unresolved', not 'is it
+    unresolved now'. An identity that spent its whole life as CANDIDATE and then
+    vanished is LOST at the end -- under the old final-state test it was offered
+    to neither the coach nor OCR, hiding ~40% of HARD's player time."""
+    m, ident = make_candidate()
+    assert ident.state is IdentityState.CANDIDATE and ident.ever_unresolved
+    m.update(20, [])                                  # dies without ever resolving
+    assert ident.state is IdentityState.LOST
+    assert ident.ever_unresolved, "dying is not evidence that nobody should look"
 
 
 def test_gap_too_long_is_a_fresh_unknown():
     m = idmod.IdentityStateMachine()
     walk(m, [(f, [T(1, 100, 100)]) for f in range(3)])
     m.update(3, [])
-    m.update(3 + idmod.MAX_GAP_FRAMES + 10, [T(2, 100, 100)])   # way past the window
+    m.update(3 + idmod.MAX_GAP_FRAMES + 10, [T(1, 100, 100)])   # way past the window
     ident = m.active()[0]
     assert ident.state is IdentityState.UNKNOWN
     assert m.breaks == [], "no relink may be recorded for an expired gap"
@@ -215,7 +288,7 @@ def test_window_boundary_blocks_cross_window_relink():
     spans a window boundary (fresh machine, empty lost pool)."""
     frames = [(f, [T(1, 100, 100)]) for f in range(9)]      # window 0: frames 0..9
     frames += [(9, []), (10, []), (11, [])]                 # lost near the boundary
-    frames += [(12, [T(2, 100, 100)])]                      # reappears in window 1
+    frames += [(12, [T(1, 100, 100)])]                      # reappears in window 1
 
     # Control: ONE machine, no boundaries -> this relinks (gap 4, distance 0).
     single = walk(idmod.IdentityStateMachine(), frames)
@@ -254,9 +327,9 @@ def test_labeled_newcomer_is_seeded_mid_window():
 def test_relinked_candidate_is_never_late_seeded():
     """The label vouches for the track; a relinked CANDIDATE carries inherited
     continuity history the human never saw -- OCR/queue must resolve it."""
-    m, ident = make_candidate()                          # relinked as track 2
+    m, ident = make_candidate()                          # relinked, same track id
     seeded = winmod.seed_labeled_newcomers(
-        m, [T(2, 170, 100)], seen=set(), on_set={2}, label_fn={2: 44}.get)
+        m, [T(1, 170, 100)], seen=set(), on_set={1}, label_fn={1: 44}.get)
     assert seeded == []
     assert ident.state is IdentityState.CANDIDATE, "continuity history is not vouched"
 

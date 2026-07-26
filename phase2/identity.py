@@ -63,6 +63,13 @@ class Identity:
     track_id: int | None = None            # the ByteTrack id it currently follows
     evidence: dict = field(default_factory=dict)   # why it is in its current state
     roster_number: int | None = None       # jersey number from the seed (position hypothesis)
+    # Was this identity EVER unresolved (candidate/unknown)? The review queue and
+    # OCR used to test the state at the END of the run, so an identity that spent
+    # hundreds of frames as CANDIDATE and then died is LOST by then and invisible
+    # to BOTH -- 2290 track-frames (40% of HARD's player pool) that a coach was
+    # never offered and OCR never attempted. State at death is not evidence about
+    # whether a human should look at it.
+    ever_unresolved: bool = False
     last_bbox: tuple | None = None
     last_seen_frame: int | None = None
     # centre history (frame, cx, cy) for the motion model used in relinking.
@@ -110,6 +117,7 @@ class IdentityStateMachine:
     def _new_identity(self, track_id: int, bbox, frame: int, reason: str) -> Identity:
         ident = Identity(identity_id=self._next_id, track_id=track_id,
                          state=IdentityState.UNKNOWN,          # abstain until seeded
+                         ever_unresolved=True,                 # a human may need to look
                          evidence={"reason": reason})
         ident.push(bbox, frame)
         self._next_id += 1
@@ -217,6 +225,7 @@ class IdentityStateMachine:
             old_track = ident.track_id
             ident.track_id = t.track_id
             ident.state = IdentityState.CANDIDATE       # the CEILING for continuity
+            ident.ever_unresolved = True                # stays reviewable even if it dies
             ev["reappeared_frame"] = frame_index
             ident.evidence = ev
             ident.push(t.bbox, frame_index)
@@ -244,6 +253,25 @@ class IdentityStateMachine:
         cx, cy = _center(t.bbox)
         out = []
         for ident in self._lost:
+            if ident.track_id != t.track_id:
+                # SAME TRACK ID ONLY. A relink onto a DIFFERENT track id means
+                # overruling ByteTrack: it looked at this new body, declined to
+                # call it the lost one, and we bridge the gap anyway on nothing
+                # but "it appeared within 150px (~6 ft) of where I lost her".
+                # Measured against DJ's own labels those guesses are wrong about
+                # 70% of the time (HARD 10/10 wrong, TEST1 2/2), because bodies
+                # are lost precisely WHEN they are in a crowd -- so the body
+                # that reappears nearby is usually the player who crowded her.
+                # One HARD identity walked through tracks labelled #20, #23 and
+                # #44 while carrying #20 the whole way. Same-id relinks, which
+                # are ByteTrack's OWN re-acquisition, measured 52/52 correct.
+                # Refusing these also UNBLOCKS coverage: the newcomer stays a
+                # fresh UNKNOWN, so windows.seed_labeled_newcomers can finally
+                # apply the human's label to it (a relinked CANDIDATE never
+                # could). Distance cannot separate right from wrong here --
+                # right and wrong relinks overlap fully in px -- so the only
+                # honest discriminator is whether the tracker itself agreed.
+                continue
             gap = frame_index - ident.last_seen_frame
             if gap <= 0 or gap > MAX_GAP_FRAMES:
                 continue
