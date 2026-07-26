@@ -25,6 +25,11 @@ ROSTER_NUMBERS = ACTIVE_CLIP.roster_numbers()
 
 DECISIONS_JSON = os.path.join(_HERE, "out", f"{ACTIVE_CLIP.name}_decisions.json")
 
+# Labels that mean "this body is not a player in this footage". Both are
+# excluded from the stats; kept apart because they diagnose different things
+# (see load_ref_tracks).
+NON_PLAYER_LABELS = ("ref", "bench")
+
 
 def load_decisions(path: str, roster_numbers: set) -> dict:
     """{track_id: number} from a decisions file. Missing file -> {}. Labels
@@ -35,7 +40,7 @@ def load_decisions(path: str, roster_numbers: set) -> dict:
     doc = json.load(open(path, encoding="utf-8"))
     out = {}
     for tid_s, n in doc.get("track_labels", {}).items():
-        if n is None or n == "ref":
+        if n is None or n in NON_PLAYER_LABELS:
             continue
         if not isinstance(n, int) or n not in roster_numbers:
             print(f"  WARNING: decisions label t{tid_s} -> {n!r} is OFF-ROSTER "
@@ -45,8 +50,19 @@ def load_decisions(path: str, roster_numbers: set) -> dict:
     return out
 
 
-def load_ref_tracks(path: str) -> set:
-    """Track ids the human explicitly marked 'ref'.
+def load_ref_tracks(path: str, kinds=NON_PLAYER_LABELS) -> set:
+    """Track ids the human marked as NOT a player in this footage.
+
+    Two distinct kinds, both excluded from the stats but recorded separately
+    because they mean different things:
+      'ref'   -- an official. Correctly classified as on-court; simply not a
+                 player. Nothing to fix upstream.
+      'bench' -- a substitute sitting at the sideline. Being on-court AT ALL is
+                 an on-court-classifier miss: MARGIN_FT is 1.5 ft of slack for
+                 players who step on the line, and a seated sub sits right at
+                 it. TEST2 t18/t21 were credited 8.7s and 7.9s of "floor time"
+                 from the bench. So the count of these is a bug signal, not
+                 just a labelling chore.
 
     These labels were being read and thrown away, which wasted the one signal
     that can keep officials out of the player stats. stage4 seeds EVERY
@@ -61,7 +77,8 @@ def load_ref_tracks(path: str) -> set:
     if not os.path.exists(path):
         return set()
     doc = json.load(open(path, encoding="utf-8"))
-    return {int(tid) for tid, n in doc.get("track_labels", {}).items() if n == "ref"}
+    return {int(tid) for tid, n in doc.get("track_labels", {}).items()
+            if n in kinds}
 
 
 _decisions_cache = None
@@ -76,8 +93,9 @@ def ref_tracks() -> set:
     if _ref_cache is None:
         _ref_cache = load_ref_tracks(DECISIONS_JSON)
         if _ref_cache:
-            print(f"  referees: {len(_ref_cache)} track(s) the human marked 'ref' "
-                  f"-- excluded from seeding, so they cannot become players")
+            print(f"  non-players: {len(_ref_cache)} track(s) the human marked "
+                  f"ref/bench -- excluded from seeding, so they cannot become "
+                  f"players")
     return _ref_cache
 
 

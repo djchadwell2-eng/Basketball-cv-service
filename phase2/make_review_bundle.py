@@ -34,9 +34,16 @@ from clip_config import ACTIVE_CLIP as CLIP
 from ocr_reader import jersey_crop
 
 OUT_HTML = os.path.join(_HERE, "out", f"{CLIP.name}_review.html")
-CROPS_PER_TRACK = 3
+# 6, not 3: a coach cannot see an ID SWAP from three crops. Spread across the
+# whole track life, a swap shows up as the body simply changing partway along
+# the strip -- which is how DJ caught two of them on TEST2 by eye, and neither
+# purity.py nor identity_report.py can detect that class at all.
+CROPS_PER_TRACK = 6
 MIN_CROP_BOX_H = 60          # smaller than OCR's 90: humans read more than OCR
-CROP_SPACING = 5             # frames apart, so the 3 crops aren't near-duplicates
+CROP_SPACING = 5             # frames apart, so the crops aren't near-duplicates
+FULL_H = 190                 # whole player -- a coach may recognise the athlete
+NUM_H = 150                  # jersey patch, blown up bigger than the body shot
+                             # so the number itself is verifiable
 
 
 def _frames_at(video, need):
@@ -53,6 +60,23 @@ def _frames_at(video, need):
         idx += 1
     cap.release()
     return out
+
+
+def _pair(frame, bbox, f):
+    """One review cell: the WHOLE player beside a blown-up crop of just the
+    number. DJ's ask -- the full body so a coach can recognise the athlete, the
+    zoom so they can verify the number rather than trust it. Frame index shown
+    so anything suspicious can be found in the footage."""
+    x1, y1, x2, y2 = [int(v) for v in bbox]
+    H, W = frame.shape[:2]
+    body = frame[max(0, y1):min(H, y2), max(0, x1):min(W, x2)]
+    num = jersey_crop(frame, bbox)
+    return (f'<figure class="cell">'
+            f'<img class="body" src="data:image/jpeg;base64,'
+            f'{_b64_jpg(body, FULL_H)}" alt="whole player at frame {f}">'
+            f'<img class="num" src="data:image/jpeg;base64,'
+            f'{_b64_jpg(num, NUM_H)}" alt="jersey number at frame {f}">'
+            f'<figcaption>f{f}</figcaption></figure>')
 
 
 def _b64_jpg(img, height=110):
@@ -174,16 +198,21 @@ def main():
                        for n in sorted(team.numbers))
         team_btns += (f'<span class="team">{html.escape(team.name)}:</span>'
                       f'{nums}')
-    team_btns += ('<button data-n="ref" class="alt">REF / not a player</button>'
+    # 'bench' is deliberately its own button, not folded into 'not a player':
+    # a ref is correctly on-court and simply is not a player, whereas a seated
+    # sub being on-court at all is an on-court-classifier miss. Counting them
+    # apart turns the second one into a bug signal instead of a chore.
+    team_btns += ('<button data-n="ref" class="alt">REF / official</button>'
+                  '<button data-n="bench" class="alt">ON THE BENCH / not in play</button>'
                   '<button data-n="" class="alt">unsure</button>')
 
     rows = []
     n_quarantined = 0
     for tid in order:
-        crops = "".join(
-            f'<img src="data:image/jpeg;base64,{_b64_jpg(jersey_crop(imgs[f], bb))}" '
-            f'title="frame {f}, box {int(h)}px">'
-            for (h, f, bb) in picks.get(tid, []) if f in imgs)
+        crops = "".join(_pair(imgs[f], bb, f)
+                        for (h, f, bb) in sorted(picks.get(tid, []),
+                                                 key=lambda r: r[1])
+                        if f in imgs)
         wins = ",".join(str(w) for w in sorted(seed_tracks[tid]))
         pv = pur.get(tid)
         if pv and pv["verdict"] == "spliced":
@@ -242,7 +271,12 @@ def main():
 <title>{CLIP.name} — label the players</title><style>
 body{{background:#181818;color:#eee;font:14px/1.5 system-ui,sans-serif;margin:20px}}
 h1{{font-size:20px}} .row{{border-bottom:1px solid #333;padding:12px 0}}
-.crops img{{height:110px;margin-right:6px;border:1px solid #444}}
+.crops{{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}}
+.cell{{margin:0;text-align:center}}
+.cell img{{display:block;border:1px solid #444;background:#000}}
+.cell .body{{height:190px}}
+.cell .num{{height:150px;margin-top:4px;border-color:#c86}}
+.cell figcaption{{font:11px monospace;color:#888;margin-top:2px}}
 .meta{{color:#9c9;margin:4px 0}} .team{{color:#999;margin:0 6px 0 14px}}
 button{{margin:2px;padding:4px 10px;background:#2a2a2a;color:#eee;
 border:1px solid #555;border-radius:4px;cursor:pointer}}
@@ -256,7 +290,11 @@ display:inline-block;margin-top:4px}}
 <div id="bar"><button id="dl">Download {CLIP.name}_decisions.json</button>
 <span id="ct">0 labeled</span></div>
 <h1>Part 1 — {CLIP.name}: click the jersey number for each player</h1>
-<p>These crops are exactly what the machine sees. Label what YOU are sure of;
+<p><b>Each cell is the same body at one moment: whole player on top, the
+number blown up underneath.</b> The cells run left to right in time, so if the
+tracker jumped from one girl to another partway through, you will see the body
+change along the strip -- if it does, leave it blank and tell me the track
+number. Label what YOU are sure of;
 leave the rest unsure — an unsure player stays honestly unnamed (never guessed).
 Your earlier answers are pre-selected. When done: Download, move the file into
 <b>phase2/out/</b>, and tell Claude to re-run.</p>
