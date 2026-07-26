@@ -10,7 +10,37 @@
       "three_radius_ft": 19.75
     }
   },
+  "tracking": {
+    "named_seconds": 71.4,
+    "unnamed_seconds": 61.7,
+    "unnamed_identities": 15,
+    "pct_of_tracked_time_named": 53.6,
+    "review_backlog": {
+      "candidate_events": 5559,
+      "unknown_events": 7534
+    }
+  },
   "box_score": [
+    {
+      "number": 3,
+      "team": "Milford (white/red)",
+      "seconds_total": 15.366666666666667,
+      "seconds_live": 6.266666666666667,
+      "seconds_retro": 9.1,
+      "windows_present": 2,
+      "zone_seconds": {
+        "LEFT_CORNER": 1.0333333333333334,
+        "LEFT_WING": 1.2333333333333334,
+        "PAINT": 8.966666666666667,
+        "PERIMETER": 1.4666666666666666,
+        "RIGHT_CORNER": 0.26666666666666666,
+        "RIGHT_WING": 0.06666666666666667,
+        "TOP_OF_KEY": 2.3333333333333335
+      },
+      "top_zone": "PAINT",
+      "disputed_seconds": 0.0,
+      "ambiguous": false
+    },
     {
       "number": 24,
       "team": "Milford (white/red)",
@@ -25,117 +55,109 @@
         "PERIMETER": 7.433333333333334
       },
       "top_zone": "PERIMETER",
-      "disputed_seconds": 1.1333333333333333
+      "disputed_seconds": 1.1333333333333333,
+      "ambiguous": false
     },
     {
       "number": 10,
       "team": "Winton Woods (black/green)",
-      "seconds_total": 11.166666666666666,
-      "seconds_live": 11.166666666666666,
+      "seconds_total": 11.466666666666667,
+      "seconds_live": 11.466666666666667,
       "seconds_retro": 0.0,
       "windows_present": 2,
       "zone_seconds": {
         "LEFT_CORNER": 6.233333333333333,
+        "LEFT_WING": 0.16666666666666666,
         "PAINT": 4.233333333333333,
-        "PERIMETER": 0.7
+        "PERIMETER": 0.7,
+        "TOP_OF_KEY": 0.13333333333333333
       },
       "top_zone": "LEFT_CORNER",
-      "disputed_seconds": 0.0
-    },
-    {
-      "number": 3,
-      "team": "Milford (white/red)",
-      "seconds_total": 7.333333333333333,
-      "seconds_live": 3.9,
-      "seconds_retro": 3.433333333333333,
-      "windows_present": 2,
-      "zone_seconds": {
-        "LEFT_CORNER": 1.0333333333333334,
-        "LEFT_WING": 1.2333333333333334,
-        "PAINT": 2.7333333333333334,
-        "PERIMETER": 2.066666666666667,
-        "RIGHT_CORNER": 0.26666666666666666
-      },
-      "top_zone": "PAINT",
-      "disputed_seconds": 0.0
-    },
-    {
-      "number": 44,
-      "team": "Milford (white/red)",
-      "seconds_total": 5.8,
-      "seconds_live": 0.5333333333333333,
-      "seconds_retro": 5.266666666666667,
-      "windows_present": 1,
-      "zone_seconds": {
-        "LEFT_WING": 3.7,
-        "PAINT": 1.8,
-        "PERIMETER": 0.3
-      },
-      "top_zone": "LEFT_WING",
-      "disputed_seconds": 0.0
+      "disputed_seconds": 0.0,
+      "ambiguous": false
     },
     {
       "number": 20,
       "team": "Winton Woods (black/green)",
-      "seconds_total": 4.933333333333334,
-      "seconds_live": 0.26666666666666666,
-      "seconds_retro": 4.666666666666667,
+      "seconds_total": 9.066666666666666,
+      "seconds_live": 6.433333333333334,
+      "seconds_retro": 2.6333333333333333,
       "windows_present": 2,
       "zone_seconds": {
-        "LEFT_WING": 0.03333333333333333,
-        "PAINT": 0.9666666666666667,
-        "PERIMETER": 3.6666666666666665,
-        "RIGHT_CORNER": 0.26666666666666666
+        "PAINT": 1.2,
+        "PERIMETER": 6.466666666666667,
+        "RIGHT_CORNER": 0.26666666666666666,
+        "TOP_OF_KEY": 1.1333333333333333
       },
       "top_zone": "PERIMETER",
-      "disputed_seconds": 0.0
-    },
-    {
-      "number": 23,
-      "team": "Milford (white/red)",
-      "seconds_total": 4.4,
-      "seconds_live": 4.4,
-      "seconds_retro": 0.0,
-      "windows_present": 1,
-      "zone_seconds": {
-        "LEFT_CORNER": 0.7,
-        "LEFT_WING": 3.7
-      },
-      "top_zone": "LEFT_WING",
-      "disputed_seconds": 0.0
-    },
-    {
-      "number": 1,
-      "team": "Milford (white/red)",
-      "seconds_total": 4.3,
-      "seconds_live": 2.033333333333333,
-      "seconds_retro": 2.2666666666666666,
-      "windows_present": 2,
-      "zone_seconds": {
-        "LEFT_CORNER": 1.6,
-        "PERIMETER": 1.6666666666666667,
-        "RIGHT_WING": 0.4,
-        "TOP_OF_KEY": 0.6333333333333333
-      },
-      "top_zone": "PERIMETER",
-      "disputed_seconds": 0.0
+      "disputed_seconds": 0.0,
+      "ambiguous": false
     },
     {
       "number": 0,
       "team": "Winton Woods (black/green)",
-      "seconds_total": 3.1,
-      "seconds_live": 0.0,
-      "seconds_retro": 3.1,
-      "windows_present": 1,
+      "seconds_total": 5.933333333333334,
+      "seconds_live": 0.5666666666666667,
+      "seconds_retro": 5.366666666666666,
+      "windows_present": 2,
       "zone_seconds": {
-        "LEFT_CORNER": 0.23333333333333334,
-        "LEFT_WING": 1.0666666666666667,
-        "PAINT": 0.8666666666666667,
-        "PERIMETER": 0.8333333333333334,
-        "RIGHT_CORNER": 0.1
+        "LEFT_WING": 2.033333333333333,
+        "PAINT": 1.8,
+        "PERIMETER": 1.2666666666666666,
+        "RIGHT_CORNER": 0.5666666666666667,
+        "TOP_OF_KEY": 0.26666666666666666
       },
       "top_zone": "LEFT_WING",
-      "disputed_seconds": 0.0
+      "disputed_seconds": 0.0,
+      "ambiguous": false
+    },
+    {
+      "number": 44,
+      "team": "Milford (white/red)",
+      "seconds_total": 4.1,
+      "seconds_live": 1.8666666666666667,
+      "seconds_retro": 2.2333333333333334,
+      "windows_present": 1,
+      "zone_seconds": {
+        "PAINT": 1.5666666666666667,
+        "PERIMETER": 2.2333333333333334,
+        "RIGHT_CORNER": 0.3
+      },
+      "top_zone": "PERIMETER",
+      "disputed_seconds": 0.0,
+      "ambiguous": false
+    },
+    {
+      "number": 23,
+      "team": "Milford (white/red)",
+      "seconds_total": 3.8333333333333335,
+      "seconds_live": 3.8333333333333335,
+      "seconds_retro": 0.0,
+      "windows_present": 1,
+      "zone_seconds": {
+        "LEFT_CORNER": 0.6333333333333333,
+        "LEFT_WING": 3.1666666666666665,
+        "PAINT": 0.03333333333333333
+      },
+      "top_zone": "LEFT_WING",
+      "disputed_seconds": 0.0,
+      "ambiguous": false
+    },
+    {
+      "number": 1,
+      "team": "Milford (white/red)",
+      "seconds_total": 2.8,
+      "seconds_live": 2.2333333333333334,
+      "seconds_retro": 0.5666666666666667,
+      "windows_present": 2,
+      "zone_seconds": {
+        "LEFT_CORNER": 1.6,
+        "PERIMETER": 1.0,
+        "RIGHT_CORNER": 0.2
+      },
+      "top_zone": "LEFT_CORNER",
+      "disputed_seconds": 0.0,
+      "ambiguous": false
     },
     {
       "number": 23,
@@ -150,20 +172,23 @@
         "TOP_OF_KEY": 0.6666666666666666
       },
       "top_zone": "PERIMETER",
-      "disputed_seconds": 0.0
+      "disputed_seconds": 0.0,
+      "ambiguous": false
     },
     {
       "number": 13,
       "team": "Milford (white/red)",
-      "seconds_total": 0.8333333333333334,
-      "seconds_live": 0.8333333333333334,
+      "seconds_total": 1.0,
+      "seconds_live": 1.0,
       "seconds_retro": 0.0,
       "windows_present": 1,
       "zone_seconds": {
+        "PERIMETER": 0.16666666666666666,
         "RIGHT_CORNER": 0.8333333333333334
       },
       "top_zone": "RIGHT_CORNER",
-      "disputed_seconds": 0.0
+      "disputed_seconds": 0.0,
+      "ambiguous": false
     },
     {
       "number": 3,
@@ -174,7 +199,20 @@
       "windows_present": 0,
       "zone_seconds": {},
       "top_zone": "-",
-      "disputed_seconds": 2.7
+      "disputed_seconds": 2.7,
+      "ambiguous": true
+    },
+    {
+      "number": 23,
+      "team": "AMBIGUOUS (Milford (white/red) / Winton Woods (black/green))",
+      "seconds_total": 0.0,
+      "seconds_live": 0.0,
+      "seconds_retro": 0.0,
+      "windows_present": 0,
+      "zone_seconds": {},
+      "top_zone": "-",
+      "disputed_seconds": 0.6,
+      "ambiguous": true
     }
   ],
   "shots": [

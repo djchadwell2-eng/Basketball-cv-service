@@ -70,15 +70,19 @@ TEST_LOG.md; this is the index, not a replacement for it.
       FIX = a player signal answering "does this look like a person shooting
       AT the hoop." Both categories fail that question; neither fails a
       trajectory test. -> TEST 16.
-- [ ] **Tracker: the 35% win is unsafe as-is.** mt=0.9 needs a safeguard at
-      the REATTACH moment. TEST 13 built a jersey-color check (unsupervised
-      k=2 clustering, no roster/OCR needed): caught BOTH known real switches
-      (100% recall on n=2) but only 2-3 of 8 flags were real switches.
-- [ ] **Junk detections -- newly found, cheap, blocking the above.** 4 of
-      TEST 13's 6 false alarms were the person detector firing on the
-      ANIMATED SCOREBOARD GRAPHIC; 1 more was a REFEREE. Not jersey-color
-      noise at all -- a separate detector bug. Filtering both should lift the
-      color check's precision a lot. -> TEST 15.
+- [ ] **Tracker: the 35% win is unsafe, and the proposed safeguard is dead.**
+      TEST 15 (2026-07-25) settled it: with junk detections correctly removed
+      the jersey-colour check flags 0 of 2 confirmed switches. Appearance is
+      anti-correlated with switch difficulty (switches happen under
+      occlusion, which is exactly when colour is unreadable). mt=0.9 remains
+      UNADOPTED with no working safeguard. The honest next lever is ID-switch
+      GROUND TRUTH (player-tracker item 2), not another heuristic.
+- [x] **Junk detections -- FIXED and measured (TEST 15).** The person
+      detector fires on the ANIMATED SCOREBOARD GRAPHIC (842 detections on
+      TEST1 alone) and tracks REFEREES as players (2 whole tracks). Both now
+      filterable from data the project already had: the per-clip
+      `exclude_regions` rectangle and v3's Ref class. Not yet wired into the
+      real tracker -- it lives in the probe. Cheap, isolated, worth doing.
 - [ ] **Scoreboard -> which shot scored.** Coarse pass works; per-shot
       attribution does not. Dense sampling after each attempt is fooled by
       real player bodies walking through that screen corner for several
@@ -118,7 +122,28 @@ nothing adopted, every result logged to TEST_LOG.md as
 
 ### Phase 1 -- no GPU, no new data, can start immediately
 
-- [ ] **TEST 15 -- junk-detection filter (scoreboard region + referees).**
+- [x] **TEST 15 -- junk-detection filter (scoreboard region + referees).**
+      DONE 2026-07-25, see TEST_LOG. TWO results, opposite directions:
+      (1) THE FILTER IS A CLEAN WIN and stands alone -- 842 detections on the
+      animated scoreboard graphic + 2 whole referee tracks (id 7, 14, both in
+      TEST 4's independently-measured ref list) were being carried silently
+      through the tracker into everything downstream. Real detector bug,
+      cheaply fixed. A bug in my FIRST implementation (per-detection ref
+      removal fabricated events, 104 -> 126) was caught by the numbers and
+      fixed properly -- refs now excluded whole-track.
+      (2) IT KILLS TEST 13's COLOUR SAFEGUARD. With the junk gone, the check
+      flags NEITHER confirmed real switch (0/2, both abstain) while still
+      flagging the case a human could not call. TEST 13's "100% recall" was
+      riding on a contaminated colour scale (scoreboard + referee stripes are
+      extreme colour outliers polluting the 2-cluster fit). Structural, not
+      fixable by tuning: a switch happens BECAUSE players occluded each
+      other, so the reattaching box sits on a half-covered body and its
+      colour is a blend -- confident readings (2.9, 2.6) come exactly where
+      the check is not needed, mush (1.34, 1.39 vs a 1.40 line) exactly where
+      it is. RECOMMENDATION: stop pursuing appearance-based switch detection
+      (this is the 2nd independent finding in that direction after §11).
+      mt=0.9 stays UNSAFE and unadopted; it needs ID-switch ground truth
+      (player-tracker plan item 2), not another heuristic.
       Cheapest open item, and it unblocks the tracker safeguard.
       - Reuse the per-clip `exclude_regions` ALREADY in spikes/clips_config.py
         (TEST1: 0,810,415,1080) -- no new constant, no new hand-tuning.
@@ -133,7 +158,24 @@ nothing adopted, every result logged to TEST_LOG.md as
       - FAILURE MODE TO WATCH: if a real switch stops being flagged, the
         filter is too aggressive -- report it, do not tune until it passes.
 
-- [ ] **TEST 16 -- pose estimation vs the 3 confirmed false positives.**
+- [x] **TEST 16 -- pose estimation vs the 3 confirmed false positives.**
+      DONE 2026-07-25, see TEST_LOG. My stated hypothesis (shooting posture
+      at RELEASE) was WRONG -- release-hand distance and arms-raised do not
+      separate at all. What separates is the DESTINATION: 3/3 fakes end at a
+      hand, 6/7 real shots end at the rim, 9/10 with no fitted threshold.
+      Rim distance alone does NOT separate (2 fakes end closer to the rim
+      than 3 real shots), so the wrist is genuinely new information. One
+      miss, in the dangerous direction: TEST1 shot B, a REAL shot, ends at a
+      hand because its arc stops short of the rim. Two confounds checked and
+      CLEARED (clip imbalance -- separation holds within HARD alone; event
+      duration -- fakes sit inside the real range). Pose worked fine on small
+      distant players, the stated risk did not materialise.
+      BUT THE KEY CAVEAT: shifting the arc endpoint by 0.1s flips 3 of 10
+      verdicts. The signal is real but FRAGILE frame-to-frame, so a
+      single-frame reading is not a safe gate. Untested candidate fix
+      (specify BEFORE TEST 19, never tune after): read a WINDOW after the arc
+      ends -- a caught ball stays in hands, a ball that reaches the rim does
+      not linger in anyone's grip. FROZEN as a hypothesis pending TEST 19.
       THE headline test. Off-the-shelf pretrained pose (yolo11x-pose,
       COCO-trained) gives shoulder/elbow/wrist keypoints with ZERO labeling.
       - Run pose over the exact frames of all 10 events that now have DJ
@@ -154,7 +196,30 @@ nothing adopted, every result logged to TEST_LOG.md as
         is the necessary path, and it costs an afternoon to find out.
       - Runs on CPU for a few hundred frames; GPU makes full-clip feasible.
 
-- [ ] **PRE-FILL the remaining player labels (unblocks DJ's 25-day queue).**
+- [x] **PRE-FILL the remaining player labels (unblocks DJ's 25-day queue).**
+      DONE 2026-07-25. spikes/prefill_player_labels.py -> 3110 proposed boxes
+      over all 280 frames (11.1/frame: 2658 player + 452 ref), Roboflow-ready
+      YOLO folder at spikes/out/label_prefill_players (images + labels +
+      data.yaml, classes [player, ref]). Previews with boxes drawn:
+      spikes/out/label_prefill_preview.
+      HONEST QUALITY, eyeballed not assumed: on-court players and referees
+      are boxed tightly and correctly -- the hard part. BUT wide shots also
+      box SPECTATORS in the bleachers (~4-6 per frame), and one referee was
+      missed. Raising the confidence floor does NOT fix it (measured 0.25 ->
+      0.60: crowd boxes are confidently people, because they ARE people; it
+      only costs referees). Same root cause the ROI mask exists for (§9):
+      "person" != "player on court".
+      NET: still a clear win -- DJ DELETES ~5 boxes rather than DRAWING ~10,
+      and deleting is far cheaper than drawing. AVAILABLE IMPROVEMENT, not
+      built: phase1/stage1_court_roi.on_court() already solves exactly this
+      (incl. a horizon guard for bleacher bodies) but needs a per-frame
+      homography for each harvest frame, which reaches into the calibration
+      track's active area -- deliberately not done unilaterally. Worth it
+      only if the deleting turns out to be annoying in practice.
+      OPEN QUESTION FOR DJ (a labelling convention, not a bug): bench players
+      and coaches are currently NOT boxed. Decide in or out before labelling,
+      so the 280 frames are consistent.
+- [ ] (superseded description of the same task, kept for the reasoning)
       Not a test -- a chore that should have been offered before DJ started.
       - Run v3 (whose Player class scores mAP50 0.903) over the ~250 unlabeled
         frames in spikes/out/label_harvest_players, export boxes in Roboflow's
@@ -166,7 +231,13 @@ nothing adopted, every result logged to TEST_LOG.md as
 
 ### Phase 2 -- needs the GPU (DJ opens it; runs unattended for hours)
 
-- [ ] **TEST 17 -- newer-architecture bracket on the SAME data.**
+- [~] **TEST 17 -- newer-architecture bracket on the SAME data.** RUNNING
+      since 2026-07-25 20:54 on a fresh RTX 4090 pod (203.57.40.89:10157).
+      /workspace/bracket.py, sequential queue, ~70s/epoch. Volume survived
+      intact (1370 train imgs incl. DJ's 230, 32 valid). Queue order:
+      yolov8l-from-stock (CONTROL) -> yolo11l -> yolo12l -> yolo26l. Logs at
+      /workspace/bracket_queue.log + /workspace/bracket_<name>.log. A failing
+      candidate is logged and skipped, never kills the queue.
       Installed ultralytics 8.4.75 supports yolo11, yolo12, yolo26 and
       rt-detr; every model to date is yolov8. One word changes in the train
       command; the dataset (1370 train imgs incl. DJ's 230) is already on the
@@ -239,7 +310,158 @@ staged last -- and it is the ONLY thing that can validate whatever 16 finds.
 
 ---
 
-# COURT HOMOGRAPHY -- REAL ROOT CAUSE FOUND (current task, 2026-07-25)
+# INDIVIDUAL TRACKER -- coverage + a CORRECTNESS bug (current task, 2026-07-25)
+
+DJ: "the individual tracker is by far and away the most valuable piece... I
+don't want a lost player as long as it's correct. The metric is 90%; for now
+I'm fine with 70%." Two review subagents were run at DJ's request; every
+load-bearing claim below was re-verified by me against shipped artifacts.
+
+## BASELINE (measured, not assumed)
+Named coverage = player-seconds carrying a jersey number / (frames x 10):
+    HARD  29.8%      TEST1 73.3%
+Better denominator (on-court, referees excluded -- refs are ~2.98 track-frames
+per frame on BOTH clips, a ~30% tax, and are the whole reason TEST1 reported
+>100%):
+    HARD  31.2%      TEST1 75.3%
+PHYSICAL CEILING: non-ref bodies actually on court per frame is mean 9.7,
+median 9, min 5 on HARD (55% of frames have FEWER than 10). Ceiling for a
+"x10 players" metric is 91.2% HARD / 94.8% TEST1 -- and that is generous,
+since unlabelled refs/coaches still count. **90% is at or above the ceiling;
+70% is reachable.** Do not chase 90% -- anything reporting it is contamination.
+
+## THE CORRECTNESS BUG (verify: scratchpad/verify_relink.py, shipped data only)
+When ByteTrack loses a player, identity.py `_handle_reappearance` relinks the
+lost identity onto a DIFFERENT track id purely on motion proximity
+(MAX_MATCH_DIST_PX=150 ~ 6 ft, MAX_GAP_FRAMES=30). Those guesses are wrong
+most of the time, and the identity keeps its old roster_number the whole way:
+    HARD  7 of 18 judgeable chains (39%) span >=2 DIFFERENT human-labelled
+          numbers -- 1415 track-frames / 47.2s
+    TEST1 2 of 10 (20%) -- 436 frames
+    worst: window 0 identity 19 -- ONE identity, 278 frames, covering tracks
+           the human labelled #20, #23 AND #44.
+So floor time and zone data are being credited to the WRONG PLAYER. This is a
+correctness failure, not just missing coverage -- it outranks everything else.
+Agent measurement (replay reproduced shipped artifacts exactly): different-id
+relinks 10/10 wrong on HARD, 2/2 on TEST1; same-id relinks 52/52 CORRECT. The
+discriminator is same-id vs different-id, NOT distance (right and wrong relinks
+overlap fully in px, so tightening the gate is a measured dead end).
+
+## WHY HARD (30%) TRAILS TEST1 (73%)
+Not OCR, not the roster, not crop size. HARD fragments more (48 on-court
+non-ref fragments in w0 vs TEST1's 30), so the 70%-wrong relinker runs 209
+times vs 54 -- and EACH wrong relink also BLOCKS the human's own label:
+windows.py:76-78 refuses to late-seed a track whose identity is already a
+relinked CANDIDATE. Result: 53% of the frames on tracks DJ personally labelled
+(1675 frames / 55.8s on HARD) never reach the box score; 92% of them sit in
+CANDIDATE. TEST1 loses only 10%.
+CORRECTION to DECISIONS 4b ("the gap is DISTANCE / crop-size"): not supported
+by the cached data. On-court bbox height median HARD 172px vs TEST1 185px, and
+99%+ of BOTH clear MIN_OCR_HEIGHT=90. What separates them is CAMERA MOTION --
+HARD pans 3.6 px/frame median vs TEST1's 0.8 (4.5x) -- and crop sharpness
+(Laplacian median 213 vs 346). The live hypothesis is MOTION BLUR.
+
+## THE UNNAMED BUCKET IS A DEAD END (my earlier hypothesis was WRONG)
+I claimed naming the 30.8% confirmed-but-unnamed would take HARD to ~60%.
+Verified false: 67% of it (41.5s) is REFEREES the human already labelled
+"ref", and the other 33% is ten identities the human looked at and marked
+null = "can't tell". TEST1 is 93.5% refs. Naming them would credit officials
+as players -- a ref stands in the paint all possession, so it would fabricate
+exactly the positional tendency the product sells. Treat as ~0 opportunity.
+Also: roster.py:37-39 DISCARDS the "ref" labels, so nothing stops
+stage4_seed_queue.py:104 seeding officials as CONFIRMED.
+
+## RESULT (items 1-3 built + measured 2026-07-25; DJ approved "do the first 3")
+DJ also RESET THE TARGET: 80% of what is actually READABLE (on court, refs
+excluded), not 80% of the raw clip -- "good enough to be majority correct...
+it doesn't have to be 100% to get the idea of the player." identity_report.py
+measures exactly that.
+
+                       wrong-player time    coverage     your clicks used
+    HARD   before          47.2s             30.7%           46.9%
+    HARD   after            0.0s             36.7%           63.5%
+    TEST1  before          14.5s             74.8%           89.9%
+    TEST1  after            0.0s             70.6%           90.6%
+
+CORRECTNESS IS CLEAN ON BOTH CLIPS: zero identity chains span two differently-
+labelled players (was 7 on HARD, 2 on TEST1). The #20/#23/#44 chain is gone.
+TEST1's coverage FALLING is the fix working -- the old 74.8% counted seconds
+credited to the wrong player. A clean 70.6% beats a dirty 74.8%.
+NOT YET AT TARGET: HARD 36.7%, TEST1 70.6% vs 80%.
+COST TO WATCH: the review queue grew (HARD 23->82, TEST1 14->46) because item 3
+surfaces identities that were previously invisible. Those are clicks that are
+now POSSIBLE, not clicks that are now required -- but the queue must be sorted
+by payoff (seconds unlocked) before it is put in front of a coach, or it reads
+as more work rather than more reach. That is the next thing to build.
+Safety tests: 9 failed because they asserted the removed MECHANISM (relink onto
+a different track id -> CANDIDATE), not the property. A different-id
+reappearance now abstains to UNKNOWN, which attributes strictly LESS than
+CANDIDATE. Fixture moved to same-id, every safety assertion kept, 4 new tests
+added. Suite 223 -> 226.
+
+## FEWER CLICKS -- options for DJ, ranked (asked 2026-07-25, none built yet)
+- SORT THE QUEUE BY PAYOFF (seconds unlocked). Cheapest, biggest felt win:
+  click the top 10 of 82 instead of all 82.
+- RAISE ByteTrack's track_buffer (currently 30 = ~1s). Its OWN re-acquisitions
+  measured 52/52 correct while our guesses were ~30%, so pushing the work INTO
+  the tracker converts unreliable relinks into reliable ones and cuts breaks.
+  A buf60 sweep already exists (spikes/out/TEST1_tracks_sweep_buf60.json).
+- JERSEY-COLOUR VETO: color_tiebreak already builds team colour centroids. It
+  cannot separate teammates (DECISIONS 11) but it CAN prove two bodies in
+  different team colours are not the same person. Cheap negative filter.
+- COURT-FEET GATE instead of 150 PIXELS. Unlocked by today's calibration fix:
+  a pixel gate means different real distances at different zooms. Measure the
+  relink in feet and apply a real speed limit (a player cannot cross ~15 ft in
+  a third of a second).
+- LEGALITY CHECK: >5 players of one team on court is impossible. HARD credits
+  6 Milford players in a 20s clip today and nothing flags it.
+
+## PLAN (items 1-3 DONE, see RESULT above)
+- [ ] 1. Stop discarding "ref" labels; exclude ref-labelled tracks from
+      seeding. Cheap, safe, kills the >100% artifact, shrinks the queue by
+      removing non-players (the ONE safe queue reduction -- it ADDS
+      information rather than lowering a bar).
+- [ ] 2. Restrict continuity relinking to the SAME track id (identity.py:213,
+      ~3 lines). Removes 10/10 measured wrong relinks; coverage goes UP
+      (HARD 24.0->30.2%, TEST1 44.0->53.6% live-named) because refusing a bad
+      guess leaves the player a fresh UNKNOWN that DJ's label can then seed.
+      Safer AND more coverage -- rare, so verify hard. TESTS FIRST.
+      !! MIGRATION: identity ids shift, so DJ's saved queue_resolutions in
+      decisions.json land on DIFFERENT identities and stage7_merge.py:156-158
+      will NOT catch it. Needs a generation stamp + a re-run of the queue
+      session. Track labels (keyed by track_id) survive fine.
+- [ ] 3. Queue/OCR eligibility currently keys on the identity's FINAL state
+      (stage4:127-128, stage6:104), so an identity that was CANDIDATE and then
+      died is LOST at the end and invisible to BOTH. Hides 2290 track-frames
+      = 39.9% of HARD's player pool. Change to "was EVER candidate/unknown".
+      MUST come AFTER 2 -- done first it would surface the wrong chains and one
+      click would credit ~9s to the wrong player.
+- [ ] 4. Honest metric: key on (team, number) not number alone (HARD's #3 and
+      #23 are on BOTH rosters), denominator = on-court non-ref bodies, report
+      the ceiling, and add a "<=5 players per team on court" legality check --
+      HARD currently credits 6 Milford players in a 20s clip, which nothing
+      flags today.
+- [ ] 5. DJ'S CALL, NOT MINE: let a SAME-ID reappearance keep its prior state
+      instead of demoting to CANDIDATE. Would give HARD 54.5% / TEST1 76.9%
+      live-named -- clears 70% on TEST1 with no retro credit. Evidence 52/52
+      same-id relinks correct, but n is small and it loosens DECISIONS 1.
+      Argument FOR: the demotion does not defend against the actual observed
+      threat -- the t49-class splice (DECISIONS 7) happens INSIDE one track id
+      with no gap, and identity.py:206-209 already keeps that CONFIRMED. The
+      demotion only fires on gaps, which is not where splices were found.
+      Do NOT slip this in; it needs an explicit decision + an eyeball pass.
+- [ ] 6. Cross-channel contradiction check (existing KNOWN DEBT): a chain
+      holding >=2 different human-labelled numbers should be quarantined like
+      a spliced track (roster.py:74-84). Pure detection, coverage-neutral,
+      catches the exact class of error item 2 removes. w0 id19 is sitting in
+      the current data unflagged.
+
+NOT worth doing (measured dead ends): tightening the relink distance gate;
+investing in OCR for coverage on HARD (2.0% confident reads per crop -- the
+blocker is motion blur, a capture lever not a code lever); appearance re-ID
+for teammates (DECISIONS 11).
+
+# COURT HOMOGRAPHY -- REAL ROOT CAUSE FOUND (2026-07-25)
 
 DJ: "the court homography is completely wrong... I have clicked right, and we
 built this before on a different clip and it was glued. We are not moving on
