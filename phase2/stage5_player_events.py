@@ -84,8 +84,9 @@ def main():
             seen = set()
             on = onc.get(win, set())
             n_off = sum(1 for t in tracks if t.track_id not in on)
+            refs = roster.ref_tracks()      # the human says these are officials
             for t in tracks:
-                if t.track_id in on:
+                if t.track_id in on and t.track_id not in refs:
                     machine.seed(t.track_id, label=f"w{win}_t{t.track_id}")
             print(f"  window {win}: seeded {len(tracks) - n_off} on-court at f={fidx}, "
                   f"skipped {n_off} off-court (ROI mask)")

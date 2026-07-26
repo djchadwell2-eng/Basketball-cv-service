@@ -11,34 +11,17 @@
     }
   },
   "tracking": {
-    "named_seconds": 106.2,
-    "unnamed_seconds": 43.0,
-    "unnamed_identities": 8,
+    "named_seconds": 97.7,
+    "unnamed_seconds": 2.8,
+    "unnamed_identities": 2,
     "readable_seconds": 150.5,
-    "pct_of_readable_named": 70.6,
+    "pct_of_readable_named": 64.9,
     "review_backlog": {
-      "candidate_events": 1703,
-      "unknown_events": 6722
+      "candidate_events": 1904,
+      "unknown_events": 7983
     }
   },
   "box_score": [
-    {
-      "number": 3,
-      "team": "Milford (white/red)",
-      "seconds_total": 15.2,
-      "seconds_live": 6.6,
-      "seconds_retro": 8.6,
-      "windows_present": 2,
-      "zone_seconds": {
-        "LEFT_WING": 2.7666666666666666,
-        "PAINT": 3.1333333333333333,
-        "PERIMETER": 7.366666666666666,
-        "TOP_OF_KEY": 1.9333333333333333
-      },
-      "top_zone": "PERIMETER",
-      "disputed_seconds": 0.0,
-      "ambiguous": false
-    },
     {
       "number": 23,
       "team": "Milford (white/red)",
@@ -68,25 +51,6 @@
         "LEFT_WING": 2.066666666666667,
         "PAINT": 4.2,
         "PERIMETER": 6.5
-      },
-      "top_zone": "PERIMETER",
-      "disputed_seconds": 0.0,
-      "ambiguous": false
-    },
-    {
-      "number": 24,
-      "team": "Little Miami (green/yellow)",
-      "seconds_total": 12.866666666666667,
-      "seconds_live": 9.633333333333333,
-      "seconds_retro": 3.2333333333333334,
-      "windows_present": 2,
-      "zone_seconds": {
-        "LEFT_CORNER": 1.4,
-        "LEFT_WING": 1.0333333333333334,
-        "PAINT": 3.2,
-        "PERIMETER": 5.8,
-        "RIGHT_CORNER": 0.9333333333333333,
-        "TOP_OF_KEY": 0.5
       },
       "top_zone": "PERIMETER",
       "disputed_seconds": 0.0,
@@ -128,14 +92,47 @@
       "ambiguous": false
     },
     {
-      "number": 44,
-      "team": "Milford (white/red)",
-      "seconds_total": 7.933333333333334,
-      "seconds_live": 7.833333333333333,
-      "seconds_retro": 0.1,
+      "number": 24,
+      "team": "Little Miami (green/yellow)",
+      "seconds_total": 10.866666666666667,
+      "seconds_live": 9.633333333333333,
+      "seconds_retro": 1.2333333333333334,
       "windows_present": 2,
       "zone_seconds": {
-        "PAINT": 0.1,
+        "LEFT_CORNER": 1.4,
+        "LEFT_WING": 1.0333333333333334,
+        "PAINT": 2.1333333333333333,
+        "PERIMETER": 5.8,
+        "TOP_OF_KEY": 0.5
+      },
+      "top_zone": "PERIMETER",
+      "disputed_seconds": 0.0,
+      "ambiguous": false
+    },
+    {
+      "number": 3,
+      "team": "Milford (white/red)",
+      "seconds_total": 8.766666666666667,
+      "seconds_live": 6.6,
+      "seconds_retro": 2.1666666666666665,
+      "windows_present": 2,
+      "zone_seconds": {
+        "LEFT_WING": 0.6,
+        "PERIMETER": 6.633333333333334,
+        "TOP_OF_KEY": 1.5333333333333334
+      },
+      "top_zone": "PERIMETER",
+      "disputed_seconds": 0.0,
+      "ambiguous": false
+    },
+    {
+      "number": 44,
+      "team": "Milford (white/red)",
+      "seconds_total": 7.833333333333333,
+      "seconds_live": 7.833333333333333,
+      "seconds_retro": 0.0,
+      "windows_present": 2,
+      "zone_seconds": {
         "PERIMETER": 6.133333333333334,
         "RIGHT_CORNER": 0.13333333333333333,
         "RIGHT_WING": 1.5,

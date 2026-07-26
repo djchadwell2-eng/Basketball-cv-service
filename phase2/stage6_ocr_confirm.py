@@ -83,8 +83,9 @@ def main():
         if win != prev_win:
             seen = set()
             on = onc.get(win, set())
+            refs = roster.ref_tracks()  # officials never become players
             for t in tracks:
-                if t.track_id in on:        # ROI mask: seed on-court only
+                if t.track_id in on and t.track_id not in refs:
                     m.seed(t.track_id, roster_number=roster.seed_number_for(clip, t.track_id))
             prev_win = win
         else:                               # LABELED on-court newcomers seed on arrival

@@ -275,3 +275,49 @@ def test_arc_inside_a_longer_chain_is_found_without_claiming_the_rest():
     assert a["start_frame"] == 0
     assert a["end_frame"] >= MIN_FIT_LEN - 1
     assert a["end_frame"] <= 16          # small overhang ok; tail NOT swallowed
+
+
+# TEST4 frames 4485-4518 (TEST 19): DJ's MADE 3-pointer at 2:27, verbatim from
+# the v3 detection log -- one smooth 33-point flight that the greedy growth
+# loop carved into (4485,4508) + (4509,4518), so the shot layer claimed the
+# same shot TWICE. Literal real data, same convention as the shot-B chain
+# regression above: a synthetic parabola cannot reproduce this, because the
+# split is caused by real perspective bend (whole-span rms_y 5.31 > the gate
+# while both halves pass).
+TEST4_SPLIT_FLIGHT = [
+    (4485, 1225.1, 381.6), (4486, 1231.1, 353.5), (4488, 1242.6, 294.7),
+    (4489, 1243.0, 266.3), (4490, 1251.5, 247.3), (4491, 1255.5, 228.6),
+    (4492, 1260.5, 209.1), (4493, 1265.8, 192.4), (4494, 1269.0, 177.3),
+    (4495, 1273.1, 163.3), (4496, 1276.9, 151.2), (4497, 1281.5, 138.6),
+    (4498, 1285.3, 130.0), (4499, 1291.2, 122.5), (4500, 1294.5, 113.7),
+    (4501, 1297.6, 109.1), (4502, 1300.8, 103.7), (4503, 1302.9, 101.4),
+    (4504, 1306.4, 99.7), (4505, 1309.0, 99.1), (4506, 1311.8, 99.4),
+    (4507, 1313.5, 100.6), (4508, 1316.3, 102.3), (4509, 1318.4, 106.4),
+    (4510, 1320.7, 111.3), (4511, 1322.5, 117.9), (4512, 1324.6, 125.1),
+    (4513, 1326.9, 132.1), (4514, 1329.8, 140.0), (4515, 1332.7, 148.8),
+    (4516, 1333.6, 158.7), (4517, 1337.0, 168.3), (4518, 1338.5, 180.2),
+]
+
+
+def test_one_real_flight_is_not_claimed_as_two_shots():
+    """TEST 19's double-count bug: one flight must produce ONE arc, not two."""
+    chain = build_chains(frames_doc([det(f, x, y) for f, x, y in TEST4_SPLIT_FLIGHT]))[0]
+    out = classify_chain(chain)
+    assert out["verdict"] == "arc"
+    assert len(out["arcs"]) == 1, (
+        f"one flight claimed as {len(out['arcs'])} arcs: "
+        f"{[(a['start_frame'], a['end_frame']) for a in out['arcs']]}")
+    a = out["arcs"][0]
+    # the merged arc must actually span the flight, not just be one half
+    assert a["start_frame"] <= 4490 and a["end_frame"] >= 4515
+
+
+def test_merge_never_joins_two_arcs_separated_by_a_real_gap():
+    """The merge is only for a carved-up single flight. Two flights with a
+    hole between them must stay two arcs -- otherwise a shot and a later,
+    unrelated flight could be welded into one claim."""
+    first = parabola(range(0, 14))
+    second = parabola(range(60, 74))       # far beyond MAX_GAP_FRAMES
+    chains = build_chains(frames_doc(first + second))
+    total = sum(len(classify_chain(c)["arcs"]) for c in chains)
+    assert total == 2, f"expected 2 separate arcs, got {total}"

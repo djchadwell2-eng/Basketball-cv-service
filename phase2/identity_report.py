@@ -64,6 +64,15 @@ def collect(clip):
     chains = defaultdict(lambda: defaultdict(int))
     for e in events:
         chains[(e["window"], e["identity_id"])][int(e["track_id"])] += 1
+    # Can this check even fire? It convicts a chain that spans two DIFFERENTLY
+    # numbered tracks. Since the relink fix every identity lives on exactly one
+    # track, so no chain can span two of anything and the answer is structurally
+    # 0.0s -- arithmetic, not evidence. Say so out loud rather than printing a
+    # reassuring zero: the risk simply moved to a kind this test cannot express
+    # (the tracker walking one id onto a second body, e.g. TEST1 t49, which the
+    # purity check also scores "consistent").
+    multi_track_chains = sum(1 for t in chains.values() if len(t) > 1)
+
     wrong, judgeable, wrong_frames = [], 0, 0
     for key, tracks in chains.items():
         nums = {numbered[t] for t in tracks if t in numbered}
@@ -114,6 +123,7 @@ def collect(clip):
     return {
         "clip": clip, "fps": fps,
         "wrong_chains": len(wrong), "judgeable_chains": judgeable,
+        "check_can_fire": multi_track_chains > 0, "multi_track_chains": multi_track_chains,
         "wrong_frames": wrong_frames, "wrong_seconds": round(wrong_frames / fps, 1),
         "worst": wrong[:5],
         "readable_frames": readable, "named_frames": round(named_frames),
@@ -130,6 +140,13 @@ def render(r, target_pct=80.0):
     L = []
     L.append(f"===== {r['clip']} =====")
     L.append("  CORRECTNESS (outranks coverage -- these are provably wrong)")
+    if not r["check_can_fire"]:
+        L.append("    [!] THIS CHECK CANNOT CURRENTLY FIND ANYTHING. Every identity")
+        L.append("        sits on exactly one track, so no chain can span two labels")
+        L.append("        and the answer below is 0.0s by arithmetic, not by evidence.")
+        L.append("        The remaining risk -- the tracker walking one id onto a")
+        L.append("        second body -- is invisible here AND to purity.py.")
+        L.append("        Use a hold-out label test for a number that can be non-zero.")
     L.append(f"    identity chains covering 2+ DIFFERENT players you labelled: "
              f"{r['wrong_chains']} of {r['judgeable_chains']} checkable")
     L.append(f"    time credited to the WRONG player: {r['wrong_seconds']}s "
@@ -169,6 +186,9 @@ def compare(before, after):
         L.append(f"    your clicks used   {b['pct_your_clicks_used']:6.1f}% -> {a['pct_your_clicks_used']:6.1f}% ({dk:+.1f})")
         if dw > 0.05:
             verdict.append(f"{b['clip']}: REGRESSION -- more time on the wrong player")
+        elif not a["check_can_fire"]:
+            verdict.append(f"{b['clip']}: correctness UNMEASURED (the wrong-player "
+                           f"check can no longer fire -- 0.0s proves nothing)")
     L.append("")
     L.append("  VERDICT: " + ("; ".join(verdict) if verdict
                               else "no correctness regression on any clip"))

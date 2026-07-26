@@ -143,10 +143,37 @@ def merge_events(events_doc: dict, ocr_doc: dict,
 DECISIONS_JSON = os.path.join(_HERE, "out", f"{CLIP.name}_decisions.json")
 
 
-def load_queue_resolutions(path, roster_numbers, current_boundaries):
-    """Human queue resolutions from the decisions file. STALE resolutions
-    (made against different window boundaries -> identity ids shifted) are
-    REFUSED loudly; off-roster numbers are refused per item."""
+def _track_to_identity(events_doc):
+    """(window, track_id) -> identity_id for the CURRENT run."""
+    out = {}
+    for e in events_doc.get("player_events", []):
+        out[(e["window"], int(e["track_id"]))] = e["identity_id"]
+    return out
+
+
+def load_queue_resolutions(path, roster_numbers, current_boundaries,
+                           events_doc=None):
+    """Human queue resolutions from the decisions file, resolved by TRACK.
+
+    A click used to be filed as (window, identity_id). identity_id is a
+    creation counter, so ANY change to how identities are created renumbers it,
+    and this loader's only staleness guard was on window BOUNDARIES -- which do
+    not move when the identity logic changes. On 2026-07-25 the relink rule
+    changed, the boundary guard passed, and 11 of 15 HARD clicks silently
+    landed on a different body (~20.5s of the box score named from a click that
+    had moved). Nothing failed loudly. That is the failure mode this rewrite
+    exists to make impossible.
+
+    track_id comes from the tracker, not from our numbering, so it is stable
+    across code changes -- which is why the Part-1 track labels survived every
+    change while the queue clicks did not. Since the relink fix an identity maps
+    to exactly one track, so (window, track_id) names the same thing the old key
+    did, but durably.
+
+    A resolution WITHOUT a usable track_id is REFUSED, never applied on its
+    identity_id alone: an unverifiable click is exactly what caused the damage.
+    Run phase2/rekey_resolutions.py to migrate old ones.
+    """
     if not os.path.exists(path):
         return []
     dec = json.load(open(path, encoding="utf-8"))
@@ -162,17 +189,40 @@ def load_queue_resolutions(path, roster_numbers, current_boundaries):
             f"  the current windows are              {current_boundaries}\n"
             "Identity ids shift with windows; regenerate the review bundle "
             "and re-resolve.")
-    out = []
+
+    t2i = _track_to_identity(events_doc or {})
+    out, refused = [], []
     for r in items:
-        if r["number"] != "reject" and r["number"] not in roster_numbers:
-            print(f"  WARNING: queue resolution w{r['window']} "
-                  f"id{r['identity_id']} -> {r['number']!r} is OFF-ROSTER -- "
-                  f"REFUSED (fix the label or the roster)")
+        tag = f"w{r['window']} id{r.get('identity_id')}"
+        if r.get("needs_review"):
+            refused.append(f"{tag} -> {r['number']!r}: {r['needs_review']}")
             continue
-        out.append(r)
+        if r["number"] != "reject" and r["number"] not in roster_numbers:
+            print(f"  WARNING: queue resolution {tag} -> {r['number']!r} is "
+                  f"OFF-ROSTER -- REFUSED (fix the label or the roster)")
+            continue
+        tid = r.get("track_id")
+        if tid is None:
+            refused.append(f"{tag} -> {r['number']!r}: filed against an "
+                           "identity id with no track_id -- cannot verify it "
+                           "still points at the same body "
+                           "(run phase2/rekey_resolutions.py)")
+            continue
+        ident = t2i.get((r["window"], int(tid)))
+        if ident is None:
+            refused.append(f"{tag} -> {r['number']!r}: track {tid} is not "
+                           f"present in window {r['window']} in this run")
+            continue
+        out.append(dict(r, identity_id=ident))     # re-point at THIS run's id
+
+    if refused:
+        print(f"  REFUSED {len(refused)} queue resolution(s) -- these need a "
+              f"re-click, and are NOT credited to anyone:")
+        for line in refused:
+            print(f"    {line}")
     if out:
         print(f"  queue resolutions: {len(out)} human decision(s) loaded from "
-              f"{os.path.basename(path)}")
+              f"{os.path.basename(path)} (resolved by track_id)")
     return out
 
 
@@ -183,7 +233,8 @@ def main():
         raise SystemExit(f"{OCR_JSON} has no identities registry -- re-run "
                          f"stage6 (older format) before merging.")
     human = load_queue_resolutions(DECISIONS_JSON, CLIP.roster_numbers(),
-                                   ocr_doc.get("window_boundaries"))
+                                   ocr_doc.get("window_boundaries"),
+                                   events_doc=events_doc)
     doc = merge_events(events_doc, ocr_doc, human_resolutions=human)
 
     print(f"clip={doc['clip']}  events={len(doc['player_events'])}")
