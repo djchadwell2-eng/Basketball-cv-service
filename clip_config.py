@@ -184,6 +184,50 @@ HARD_CLIP = ClipConfig(
     },
 )
 
+# --- TEST2: the first clip set up AFTER the court-detection fix. Fairfield
+#   (home, white/red) vs Milford (away, black/red). Roster user-entered
+#   2026-07-26 and user-confirmed. The floor is 94 ft, MEASURED from the marks
+#   rather than assumed -- spikes/clips_config gives it "court": "auto".
+#
+#   THE HARD CASE ON PURPOSE (DJ: "this is actually good because this is gonna
+#   happen in a real product"): THREE of five numbers per team are on BOTH
+#   rosters -- #1, #4 and #13. TEST1 has no overlap and HARD has two, so this is
+#   the worst dual-roster case yet, and by number alone 60% of each team is
+#   unattributable. Everything rests on the jersey-colour tiebreak
+#   (phase2/color_tiebreak.py), and note BOTH kits contain RED: the separating
+#   colour is BLACK vs WHITE. A tiebreak that leans on red will fail here.
+TEST2_CLIP = ClipConfig(
+    name="TEST2",
+    video_path=(r"C:\Users\djcha\New folder\Throw away repos"
+                r"\Basketball Analyer CV System Test\clips\Test2.mp4"),
+    event_frames=range(40, 401, 10),
+    render_sample_frames=range(40, 401, 30),
+    # The calibrated window is 40..400 (the keyframes). Tracking must not run
+    # past it: outside the marked range there is no accurate homography, so
+    # court positions would be invented. 48s of clip, 12s of it calibrated.
+    tracking_span_start=40,
+    tracking_span_len=361,
+    teams=(
+        Team("Fairfield (white/red)", "white/red", frozenset({1, 3, 4, 13, 25})),
+        Team("Milford (black/red)", "black/red", frozenset({1, 4, 13, 23, 44})),
+    ),
+    seed_labels={},                     # no hand-verified track labels yet
+    accumulation_window_seconds=2.0,
+    tracks_cache_path=_cache("TEST2"),
+    # Ball layer over the same calibrated window.
+    ball_span_start=40,
+    ball_span_len=361,
+    # Rim pixels DJ marked in the browser tool. "far"/"near" are just the two
+    # labels the shot layer carries (shot_attempts picks whichever rim the arc
+    # actually reached), so which basket gets which label does not affect
+    # geometry -- recorded here so it is unambiguous:
+    #   "near" = the LEFT basket   "far" = the RIGHT basket
+    hoop_anchors={
+        "near": (240, (509.0, 129.0)),     # left rim, user-marked 2026-07-24
+        "far": (400, (1473.0, 205.0)),     # right rim, user-marked 2026-07-24
+    },
+)
+
 # The clip the stage scripts operate on when run standalone. The combined entry
 # point (run_clip.py) sets this (and spikes/clips_config.ACTIVE) per run.
 ACTIVE_CLIP = TEST1_CLIP

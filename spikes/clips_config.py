@@ -223,10 +223,15 @@ CLIPS = {
     # =========================================================================
     "TEST2": {
         "video_path": r"C:\Users\djcha\New folder\Throw away repos\Basketball Analyer CV System Test\clips\Test2.mp4",
-        # v2 keyframes (2026-07-23): dropped redundant 40/140, added 3 bridge
-        # frames (275/300/325) across the fast left->center pan to strengthen
-        # the SIFT chain (the 240->340 direct pair was weak, arcs ~2ft off).
-        "keyframes": [240, 275, 300, 325, 340, 400],
+        # v4 keyframes (2026-07-26): 40 and 140 RESTORED. They were dropped as
+        # "redundant" while chasing the arc problem, which turned out to be the
+        # court length, not the marks -- and dropping them shrank the calibrated
+        # window to 240..400, just 5.3s of a 48s clip. On the corrected 94-ft
+        # court they are DJ's two most accurate frames on this clip (0.10 and
+        # 0.19 ft), and restoring them more than doubles the usable span to
+        # 40..400 (12s, comparable to TEST1's 15s) with no new clicking.
+        # 275/300/325 are bridge frames across the fast left->centre pan.
+        "keyframes": [40, 140, 240, 275, 300, 325, 340, 400],
         "reference_pos": None,
         "exclude_regions": [
             (0.0, 810.0, 580.0, 1080.0),   # scorebug, bottom-left
@@ -248,6 +253,18 @@ CLIPS = {
         # arc is the standard 19.75 and they land 0.3-0.4 ft on the right court.
         # They were once removed as "imprecise"; that was wrong.
         "landmarks": {
+            40: [
+                ('LB_side_far', 749, 210), ('L_lane_base_near', 267, 508),
+                ('L_lane_base_far', 484, 373), ('L_FT_near', 892, 618),
+                ('L_FT_far', 1052, 461), ('L_arc_top', 1185, 569),
+                ('circle_left', 1802, 663),
+            ],
+            140: [
+                ('LB_side_far', 769, 235), ('L_lane_base_near', 326, 513),
+                ('L_lane_base_far', 524, 388), ('L_FT_near', 899, 609),
+                ('L_FT_far', 1044, 469), ('L_arc_top', 1160, 569),
+                ('circle_left', 1731, 648),
+            ],
             240: [
                 ('LB_side_far', 750, 206), ('L_lane_base_near', 265, 508),
                 ('L_lane_base_far', 477, 363), ('L_FT_near', 889, 616),
