@@ -14,7 +14,8 @@
     "named_seconds": 71.4,
     "unnamed_seconds": 61.7,
     "unnamed_identities": 15,
-    "pct_of_tracked_time_named": 53.6,
+    "readable_seconds": 194.3,
+    "pct_of_readable_named": 36.7,
     "review_backlog": {
       "candidate_events": 5559,
       "unknown_events": 7534

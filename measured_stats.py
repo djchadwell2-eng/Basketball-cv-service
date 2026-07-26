@@ -34,9 +34,10 @@ _ROOT = os.path.dirname(os.path.abspath(__file__))
 
 # Court geometry -- mirrors spikes/shot_location.py (kept local so this
 # module and its tests stay dependency-light: no cv2/numpy import).
-# COURT_LEN is only the DEFAULT. The real length varies by gym (TEST2 and
-# HARD are 94-ft floors, TEST1 is 84) and it moves the far basket by 10 ft,
-# so generate() passes the clip's own length in rather than assuming this one.
+# COURT_LEN is only the DEFAULT. The real length varies by gym (TEST2's floor
+# is 94 ft; HARD and TEST1 are configured 84) and it moves the far basket by
+# 10 ft, so generate() passes the clip's OWN length in rather than assuming
+# this one. Never read a court length from here -- ask the clip.
 COURT_LEN, COURT_WID = 84.0, 50.0
 HOOP_DX = 5.25                       # basket center distance from baseline
 THREE_RADIUS_FT = 19.75              # HS 3pt radius
@@ -109,12 +110,18 @@ def tracking_coverage(box_doc):
     named_s = sum(float(p.get("seconds_total") or 0.0)
                   for p in box_doc.get("players", []))
     unnamed_s = float(unnamed.get("seconds_total") or 0.0)
-    tracked = named_s + unnamed_s
+    # Denominator = READABLE player time (on court, referees excluded), computed
+    # by stage8 from the on-court cache. NOT named+unnamed: that drops every
+    # candidate/unknown frame, which is precisely the player time we failed to
+    # identify, and reads 53.6% on HARD where the honest figure is 36.7%. One
+    # number, one definition, shared with phase2/identity_report.py.
+    readable = float(box_doc.get("readable_seconds") or 0.0)
     return {
         "named_seconds": round(named_s, 1),
         "unnamed_seconds": round(unnamed_s, 1),
         "unnamed_identities": int(unnamed.get("identities") or 0),
-        "pct_of_tracked_time_named": round(100.0 * named_s / tracked, 1) if tracked else 0.0,
+        "readable_seconds": round(readable, 1),
+        "pct_of_readable_named": round(100.0 * named_s / readable, 1) if readable else None,
         "review_backlog": box_doc.get("review") or {},
     }
 

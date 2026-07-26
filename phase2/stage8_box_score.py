@@ -34,6 +34,7 @@ sys.path.insert(0, os.path.dirname(_HERE))                          # repo root 
 sys.path.insert(0, os.path.join(os.path.dirname(_HERE), "phase1"))  # zones
 sys.path.insert(0, os.path.join(os.path.dirname(_HERE), "spikes"))  # zones' court dims
 
+import roster
 import zones as Z
 from clip_config import ACTIVE_CLIP as CLIP
 
@@ -145,10 +146,25 @@ def build_box_score(merged_doc, registry, number_teams, fps, oncourt_doc,
                 "unpositioned_frames": unpositioned})
     players.sort(key=lambda r: -r["seconds_total"])
 
+    # READABLE player time: every track-frame that is on court and is not a
+    # referee the human flagged -- i.e. real player time that COULD carry a
+    # jersey number. This is the only honest denominator for "how much of the
+    # individual tracking do we actually have", and it belongs here, computed
+    # once from the same on-court data the box score is built from, so the app
+    # cannot invent a second, friendlier one. Measuring against
+    # named+unnamed-CONFIRMED instead reads 53.6% on HARD where the truth is
+    # 36.7%, because it silently drops every candidate/unknown frame -- which
+    # is exactly the player time we FAILED to identify.
+    refs = roster.ref_tracks()
+    readable = sum(1 for fr in oncourt_doc["frames"]
+                   for tid, rec in fr["tracks"].items()
+                   if rec["on"] and int(tid) not in refs)
+
     return {"clip": merged_doc.get("clip"),
             "note": "presence-seconds over this clip's tracked span -- "
                     "not full-game stats",
             "players": players,
+            "readable_seconds": round(readable / fps, 1),
             "unnamed_confirmed": {"identities": len(unnamed["identities"]),
                                   "seconds_total": unnamed["frames"] / fps},
             "review": review}

@@ -146,6 +146,7 @@ def _box_doc_with_unnamed():
     d = _box_doc()
     d["unnamed_confirmed"] = {"identities": 15, "seconds_total": 61.7}
     d["review"] = {"candidate_events": 7311, "unknown_events": 6169}
+    d["readable_seconds"] = 194.3          # on court, referees excluded
     return d
 
 
@@ -155,21 +156,24 @@ def test_unnamed_tracked_time_reaches_the_contract():
     assert t["unnamed_seconds"] == 61.7
     assert t["unnamed_identities"] == 15
     assert t["named_seconds"] == 15.1
-    # 15.1 named of 76.8 tracked -> the app must be able to say "19.7% named"
-    assert t["pct_of_tracked_time_named"] == 19.7
+    # Denominator is READABLE player time, not named+unnamed. Measuring against
+    # named+unnamed drops every candidate/unknown frame -- the very time we
+    # failed to identify -- and flatters HARD from 36.7% to 53.6%.
+    assert t["readable_seconds"] == 194.3
+    assert t["pct_of_readable_named"] == 7.8       # 15.1 / 194.3
     assert t["review_backlog"]["candidate_events"] == 7311
 
 
-def test_coverage_is_safe_when_every_player_is_named():
-    """No unnamed bucket at all -> 100% named, not a crash or a divide-by-zero."""
-    t = ms.tracking_coverage(_box_doc())
+def test_coverage_is_safe_when_every_readable_second_is_named():
+    """Every readable second carries a number -> 100%, no divide-by-zero."""
+    t = ms.tracking_coverage(dict(_box_doc(), readable_seconds=15.1))
     assert t["unnamed_seconds"] == 0.0 and t["unnamed_identities"] == 0
-    assert t["pct_of_tracked_time_named"] == 100.0
+    assert t["pct_of_readable_named"] == 100.0
 
 
 def test_coverage_is_safe_with_no_tracked_time_at_all():
     t = ms.tracking_coverage({"players": [], "unnamed_confirmed": {}})
-    assert t["pct_of_tracked_time_named"] == 0.0
+    assert t["pct_of_readable_named"] is None
 
 
 def test_ambiguous_identities_are_flagged_not_disguised_as_players():
