@@ -243,10 +243,9 @@ def main():
     qrows = []
     for q in queue_entries:
         key = (q["window"], q["identity_id"])
-        crops = "".join(
-            f'<img src="data:image/jpeg;base64,{_b64_jpg(jersey_crop(imgs[f], bb))}" '
-            f'title="frame {f}">'
-            for (f, bb) in qpicks.get(key, []) if f in imgs)
+        crops = "".join(_pair(imgs[f], bb, f)
+                        for (f, bb) in sorted(qpicks.get(key, []))
+                        if f in imgs)
         hyp = (f' &middot; position guess: #{q["hyp"]}'
                if q["hyp"] is not None else "")
         qrows.append(
