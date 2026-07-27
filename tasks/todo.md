@@ -83,6 +83,23 @@ TEST_LOG.md; this is the index, not a replacement for it.
       filterable from data the project already had: the per-clip
       `exclude_regions` rectangle and v3's Ref class. Not yet wired into the
       real tracker -- it lives in the probe. Cheap, isolated, worth doing.
+- [ ] **SCOREBOARD RULE (DJ, 2026-07-26): CONFIRM, NEVER DENY.** DJ observed
+      the broadcast scorebug FADES IN AND OUT on at least two clips. The rule
+      that makes this harmless instead of dangerous:
+        graphic visible + readable + score went up  -> a MAKE, trust it
+        graphic absent / faded / unreadable         -> UNKNOWN, abstain
+        "no score change seen"                      -> NEVER a miss
+      Absence must produce "I don't know", never a value. This is not a new
+      risk: TEST 14 already recorded that the matcher would have reported 4 of
+      TEST1's 5 shots as MISSES purely from having no data. The fade is a
+      second, more frequent cause of the same confident-wrong failure.
+      CONSEQUENCE FOR DEAD-BALL DETECTION (different from make/miss): make/
+      miss only needs the graphic at isolated moments, so a fade costs
+      coverage only. Dead-ball detection needs CONTINUOUS state, where
+      "frozen" and "absent" become indistinguishable -- so for the timeout
+      work, PLAYER CLUSTERING is primary and the game clock corroborates,
+      the reverse of the 2026-07-25 proposal. Fade rate being measured on
+      TEST4 via spikes/scoreboard_presence.py.
 - [ ] **Scoreboard -> which shot scored.** Coarse pass works; per-shot
       attribution does not. Dense sampling after each attempt is fooled by
       real player bodies walking through that screen corner for several
@@ -113,6 +130,51 @@ TEST_LOG.md; this is the index, not a replacement for it.
   is worse than a fragmented one. Nothing adopts on proxy metrics alone.
 - Nothing is adopted without a gate + DJ eyeball. Stock yolov8m is still
   the committed ball detector in run_clip.
+
+## DECIDED 2026-07-26 -- CV FLAGS, GEMINI ADJUDICATES (DJ's call, agreed)
+
+DO NOT LOSE THIS. DJ's proposal, from a parallel chat about the hybrid CV +
+Gemini vision architecture: CV emits a cheap "indicator" that SOMETHING
+changed, and Gemini looks at that moment and says WHAT it was. Applies first
+to dead-ball/timeout detection, and the same shape generalises.
+
+**Why it is the right split (agreed, with reasons, not just deference):**
+- Enumerating basketball's stoppage types in code is brittle -- timeout,
+  quarter break, injury, substitution, review, jump ball, technical. TEST 20
+  already hit this: the ONE error in an otherwise 151/155-correct timeline was
+  a scoreboard RESET being indistinguishable from a running clock. Naming that
+  case in code means naming all of them, forever, per venue.
+- A vision model can read scoreboards this project's detector cannot. THREE
+  styles seen so far (HARD broadcast bug, TEST4 LED gym board, Time_out.mp4
+  broadcast overlay) and v3's scoreboard classes are 100% blind to one of
+  them. Style-robustness is exactly a VLM strength and exactly our weakness.
+- Cost works ONLY because the CV filter is cheap and sparse: TEST 20's clock-
+  rhythm detector produced 3 transitions in 155s. A full game is perhaps
+  50-100 stoppages = 50-100 VLM calls, not 160,000 frames.
+
+**The indicator already exists and is style-independent.** TEST 20's clock-
+rhythm method needs no OCR and no per-gym model -- every basketball clock
+ticks once per second, so "is this patch changing at 1 Hz?" works on any
+scoreboard. It self-locates. That is the flag; Gemini is the adjudicator.
+
+**THE LINE THAT MUST NOT MOVE:** CV keeps the HARD NUMBERS -- ball position,
+trajectory, shot location, who was where. Those must be repeatable and
+gate-able, and this project's whole discipline (verified shots, ground truth,
+abstention) depends on them being measurable. Gemini gets SPARSE SEMANTIC
+JUDGEMENT: "what is happening at this moment", "is this a timeout", "is that
+a shot or a pass". A non-deterministic answer is fine for a handful of event
+labels; it is not fine for a shot chart.
+
+**The one real risk, stated up front:** Gemini's confidence is unearned until
+measured. Swapping a measurable CV error for an unmeasurable VLM error is not
+progress. Anything Gemini adjudicates needs the same treatment everything else
+here got -- DJ ground truth on real clips, a scored result, and abstention
+when unsure. Do not skip that because the answers sound fluent.
+
+**Natural extension, not yet decided:** the same flag-then-adjudicate shape
+fits the SHOT false positives. CV claims an attempt, the pose rule (TEST 16,
+9/9 on the holdout) scores it, and genuinely marginal cases go to Gemini
+rather than being guessed. Worth considering AFTER the pose rule is wired.
 
 ## PART B -- TEST 15-20 PLAN (DJ approved the direction 2026-07-25)
 
@@ -310,7 +372,126 @@ staged last -- and it is the ONLY thing that can validate whatever 16 finds.
 
 ---
 
-# INDIVIDUAL TRACKER -- coverage + a CORRECTNESS bug (current task, 2026-07-25)
+# ============================================================================
+# HANDOFF -- 2026-07-25 to 07-27. READ THIS FIRST.
+# ============================================================================
+
+## WHERE THINGS STAND
+TEST2 (Fairfield, a brand-new gym) now runs end-to-end and produced its first
+real box score. HARD and TEST1 both had real correctness bugs fixed. Nothing is
+blocked on code right now -- the next move is DJ marking two tracks as spliced
+and a re-run.
+
+Coverage, against DJ's REVISED metric ("80% of what is actually READABLE" --
+on court, referees excluded -- NOT 80% of the raw clip):
+    HARD   36.3%      TEST1  64.9%      TEST2  first run, see below
+DJ's target is 80%. 90% is ABOVE the physical ceiling (~91% generous) because
+players leave frame and substitute -- do not chase it.
+
+## WHAT WAS FIXED (all committed, suite 230 green)
+1. COURT: Fairfield's floor is 94 ft, not the assumed 84. The config had
+   dict(HS_COURT) copied from TEST1, so the engine squeezed a 94-ft court into
+   84 and dragged every mark ~10 ft out. TEST2 0.94 -> 0.29 ft, = TEST1's
+   glued 0.29. HARD measures 94 too; DJ chose to LEAVE HARD at 84 (test clip,
+   not worth re-verifying its results).
+2. spikes/court_detect.py -- the court is now MEASURED from the marks and
+   snapped to a real court (84/94 x 12/16 ft key), using the rulebook's exact
+   numbers rather than the fitted ones (free-fitting returns 82.6 for TEST1's
+   real 84.0). REFUSES when two courts are within 1.35x or nothing fits.
+   TEST2 uses "court": "auto".
+3. RENDERER: a homography is defined up to sign, and to_px read a negative
+   depth as "behind the camera", silently deleting the ENTIRE court from a
+   view. That was DJ's "missing lines". stage5 had a signfix; stage4 -- the
+   renderer every overlay actually goes through -- never got it. Fixed.
+4. IDENTITY (the big one): continuity may now only relink the SAME track id.
+   Different-id relinks overruled ByteTrack on ~150px of proximity and were
+   ~70% wrong, merging up to three girls into one identity. Wrong-player time
+   47.2s -> 0 on HARD, 14.5s -> 0 on TEST1. Coverage went UP too, because a bad
+   relink also BLOCKED DJ's own click from landing.
+5. Referees excluded from seeding (was landing in only 1 of 3 stages at first).
+6. Queue/OCR eligibility keyed on ever_unresolved, not final state (an identity
+   that died was invisible to both -- ~40% of HARD's player pool).
+7. QUEUE CLICKS RE-KEYED TO track_id. They were filed under identity_id, a
+   creation counter, so fix 4 silently re-pointed 11/15 HARD and 7/10 TEST1
+   clicks at DIFFERENT bodies. Recovered 8+5 from the backup; the rest were
+   made on merged chains and are unrecoverable by design (marked needs_review).
+8. Coverage denominator unified -- the app showed 53.6% for HARD where the
+   honest figure is 36.3%.
+9. REVIEW BUNDLE rebuilt: whole player + blown-up number, 6 cells in TIME
+   ORDER, frame numbers. Plus a BENCH button and a TWO PLAYERS (splice) button.
+10. Web app: 5 fixes (unnamed bucket surfaced, court from data, ambiguous rows,
+    AI moved below the numbers, live-vs-recovered shown).
+
+## MISTAKES I MADE -- calibrate trust accordingly
+- "Name the unnamed players -> +30 points": WRONG. Two thirds of that bucket is
+  referees. Would have credited officials as players.
+- "wrong-player time 0.0s": a TAUTOLOGY, not a measurement. After fix 4 every
+  identity sits on one track so the check cannot fire. identity_report.py now
+  declares this itself. WE CURRENTLY HAVE NO WORKING CORRECTNESS METRIC.
+- "same-id relinks 52/52 correct": vacuous, it compared a track to itself.
+- Warned DJ the queue clicks would break, then ran without a guard.
+- Patched Part 2 of the bundle by string replace without asserting; it silently
+  did not apply and I reported it done.
+LESSON: assert every patch matched, and never quote a metric without asking
+whether it CAN return a bad answer.
+
+## TEST2 STATE
+Config in clip_config.TEST2_CLIP. Roster user-confirmed: Fairfield (white/red)
+1/3/4/13/25 vs Milford (black/red) 1/4/13/23/44 -- THREE shared numbers
+(1, 4, 13), the hardest dual-roster case yet, kept deliberately because it will
+happen in production. Span 40..400 (12s of a 48s clip; keyframes 40 and 140
+were recovered from git, worth 0.10/0.19 ft). Caches built.
+FIRST BOX SCORE: 8 players named, unnamed bucket 0.0s, and the COLOUR TIEBREAK
+RESOLVED 6/6 ambiguous cases -- it correctly split the two different girls both
+wearing #1 onto separate lines. That was the main risk and it worked.
+OPEN: 3 clicks were REFUSED ("same number in two places") and #25/#23 show
+disputed seconds. Cause is almost certainly t8 and t137, which DJ confirmed BY
+EYE each follow two different girls. purity.py scores both "consistent".
+NEXT ACTION: DJ marks t8 + t137 with the new TWO PLAYERS button -> re-run.
+
+## THE BIGGEST GAP (DJ's own #1 want)
+DJ: "what they do with the ball in their hand is the biggest one." NOTHING IN
+THE SYSTEM LINKS THE BALL TO A PLAYER. Ball detection works, player tracking
+works, they are never joined. phase2/possessions.py is about which HALF of the
+court the bodies are on, not who holds the ball. So "drove left 70%" is NOT
+honestly producible -- position data can only say a player MOVED left.
+Building it = "which tracked player is nearest the ball each frame". No new
+model needed. This is the highest-value item left.
+
+## NEXT, IN ORDER (my recommendation)
+1. DJ marks t8/t137 spliced -> re-run TEST2 clean.
+2. BALL-TO-PLAYER POSSESSION. Unlocks the sentences the product sells.
+3. Demotion fix: 53.6s (27.6% of HARD's readable) is thrown away because a
+   CONFIRMED identity is demoted when ByteTrack drops its box for 1-2 frames.
+   Safe version (gap <= 2) measured at the noise floor, +2.6/+1.6. Bigger
+   version (gap <= 10 AND jump <= 3 ft) is +13.4 HARD / +16.1 TEST1 but wants
+   an eyeball pass over ~40 cases first.
+4. Sort the review queue by seconds-unlocked: the best 10 clicks are worth 54s
+   instead of 8s. One sort key.
+5. Hold-out label test -- withhold k labels, re-run, see if that player's time
+   gets credited to someone else. This is how we get a correctness metric that
+   CAN be non-zero again.
+6. Browser demo loop (upload -> click court -> click players -> stats) on a
+   SHORT clip.
+
+## FULL-GAME DEMO: NOT CLOSE, and DJ has been told
+Three things scale badly: CALIBRATION (8 marked frames bought 12s; a game is
+160x), COMPUTE (per-frame SIFT: 361 frames -> ~57,600), CLICKING (14 clicks per
+12s). Needs auto-calibration + a compute story, both real projects. The
+achievable near-term demo is the full loop in the browser on a short clip.
+
+## CONSTRAINTS / GOTCHAS
+- ONE CLIP PER PROCESS. clip_config.ACTIVE_CLIP binds at import.
+- Always .venv/Scripts/python.exe.
+- DJ is NOT technical. Plain English, no jargon dumps; keep detail in this file.
+- CORRECTNESS OUTRANKS COVERAGE. A number going DOWN after a fix is normal
+  here -- it usually means fiction was removed.
+- DJ's own labels are the ground truth everything is measured against.
+- Backups: phase2/out/_baseline_20260725/ (pre-identity-fix artifacts) and
+  *_decisions.backup-20260726-pre-rekey.json. Do not delete.
+- Run phase2/identity_report.py BEFORE and AFTER any identity change.
+
+# INDIVIDUAL TRACKER -- coverage + a CORRECTNESS bug (2026-07-25)
 
 DJ: "the individual tracker is by far and away the most valuable piece... I
 don't want a lost player as long as it's correct. The metric is 90%; for now
