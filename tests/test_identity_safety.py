@@ -19,6 +19,7 @@ you have broken the safety property, not the test.
 Run:  .venv/Scripts/python -m pytest tests/ -v
 """
 
+import json
 import os
 import sys
 from types import SimpleNamespace
@@ -353,3 +354,42 @@ def test_states_are_always_the_four_enum_members():
     for ident in m.all_identities():
         assert ident.state in (IdentityState.CONFIRMED, IdentityState.LOST,
                                IdentityState.CANDIDATE, IdentityState.UNKNOWN)
+
+
+# ---------------------------------------------------------------------------
+# 6. The COACH-DECLARED splice (2026-07-27). A track that follows two different
+#    girls can never carry a number: whichever one you pick, the other's play is
+#    credited to her. purity.py is supposed to catch this and does not on real
+#    footage -- TEST2 t8 and t137 both walk from a black jersey to a white one
+#    and purity scores them "consistent" -- so the coach's eye is a third
+#    signal, with the same consequence as an automatic splice verdict.
+# ---------------------------------------------------------------------------
+def test_a_spliced_track_can_never_carry_a_number(tmp_path, monkeypatch):
+    import roster
+    label_file = tmp_path / "X_decisions.json"
+    label_file.write_text(json.dumps({
+        "track_labels": {"7": "spliced", "9": 23, "5": "ref", "6": "bench"}}),
+        encoding="utf-8")
+    monkeypatch.setattr(roster, "DECISIONS_JSON", str(label_file))
+
+    # a non-number label never becomes a jersey hypothesis
+    got = roster.load_decisions(str(label_file), {23, 44})
+    assert got == {9: 23}, "only the real number survives as a hypothesis"
+
+    # and the coach's splice is quarantined exactly like an automatic one
+    assert roster.human_spliced_tracks() == {7}
+    assert roster.resolve_label(7, {7: 23}, {}, spliced={7}) == (None, "refused_spliced")
+    # an ordinary track is unaffected
+    assert roster.resolve_label(9, {9: 23}, {}, spliced={7}) == (23, "labeled")
+
+
+def test_ref_and_bench_are_excluded_but_splices_are_not_non_players(tmp_path, monkeypatch):
+    """Refs/bench are NOT players, so they leave the readable denominator.
+    A spliced track IS real player time we simply cannot attribute -- it must
+    stay countable, or the coverage number flatters itself by deleting the
+    footage it failed on."""
+    import roster
+    f = tmp_path / "X_decisions.json"
+    f.write_text(json.dumps({"track_labels": {"5": "ref", "6": "bench",
+                                              "7": "spliced"}}), encoding="utf-8")
+    assert roster.load_ref_tracks(str(f)) == {5, 6}, "spliced is not a non-player"

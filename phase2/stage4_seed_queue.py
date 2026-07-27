@@ -98,6 +98,7 @@ def main():
             on = onc.get(win, set())
             seeded, skipped = [], []
             refs = roster.ref_tracks()
+            refs = refs | roster._spliced()   # two-player tracks: never credited
             for t in tracks:
                 if t.track_id not in on:          # off-court -> NOT auto-trusted
                     skipped.append(t.track_id)

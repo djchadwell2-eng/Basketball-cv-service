@@ -84,6 +84,7 @@ def main():
             seen = set()
             on = onc.get(win, set())
             refs = roster.ref_tracks()  # officials never become players
+            refs = refs | roster._spliced()   # two-player tracks: never credited
             for t in tracks:
                 if t.track_id in on and t.track_id not in refs:
                     m.seed(t.track_id, roster_number=roster.seed_number_for(clip, t.track_id))

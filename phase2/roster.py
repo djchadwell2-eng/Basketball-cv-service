@@ -30,6 +30,18 @@ DECISIONS_JSON = os.path.join(_HERE, "out", f"{ACTIVE_CLIP.name}_decisions.json"
 # (see load_ref_tracks).
 NON_PLAYER_LABELS = ("ref", "bench")
 
+# "this one track is two different girls." The automatic purity check exists
+# for exactly this and misses it on real footage: TEST2 t8 and t137 both walk
+# from a black jersey to a white one and purity scores them "consistent". A
+# coach spots it in a second once the crops run in time order, so the coach's
+# eye becomes a third signal alongside purity and the identity state machine.
+# The consequence is the SAME as an automatic splice verdict -- the track can
+# never carry a number, because any single number would credit one girl for
+# the other's play. It costs the track's floor time; that is the correct
+# trade, and it is the one DJ asked for.
+SPLICED_LABEL = "spliced"
+_ALL_NON_NUMBER = NON_PLAYER_LABELS + (SPLICED_LABEL,)
+
 
 def load_decisions(path: str, roster_numbers: set) -> dict:
     """{track_id: number} from a decisions file. Missing file -> {}. Labels
@@ -40,7 +52,7 @@ def load_decisions(path: str, roster_numbers: set) -> dict:
     doc = json.load(open(path, encoding="utf-8"))
     out = {}
     for tid_s, n in doc.get("track_labels", {}).items():
-        if n is None or n in NON_PLAYER_LABELS:
+        if n is None or n in _ALL_NON_NUMBER:
             continue
         if not isinstance(n, int) or n not in roster_numbers:
             print(f"  WARNING: decisions label t{tid_s} -> {n!r} is OFF-ROSTER "
@@ -109,14 +121,26 @@ def _decisions() -> dict:
     return _decisions_cache
 
 
+def human_spliced_tracks() -> set:
+    """Tracks the COACH marked as two different players."""
+    if not os.path.exists(DECISIONS_JSON):
+        return set()
+    doc = json.load(open(DECISIONS_JSON, encoding="utf-8"))
+    return {int(tid) for tid, n in doc.get("track_labels", {}).items()
+            if n == SPLICED_LABEL}
+
+
 def _spliced() -> set:
     global _spliced_cache
     if _spliced_cache is None:
         import purity
-        _spliced_cache = purity.spliced_tracks(ACTIVE_CLIP)
+        auto = purity.spliced_tracks(ACTIVE_CLIP)
+        human = human_spliced_tracks()
+        _spliced_cache = auto | human
         if _spliced_cache:
-            print(f"  purity: {len(_spliced_cache)} SPLICED track(s) -- their "
-                  f"labels will be refused (wrong-player risk)")
+            print(f"  SPLICED: {len(_spliced_cache)} track(s) hold two different "
+                  f"players -- labels refused, time credited to nobody "
+                  f"({len(auto)} found by purity, {len(human)} marked by the coach)")
     return _spliced_cache
 
 

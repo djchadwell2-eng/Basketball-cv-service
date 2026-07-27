@@ -204,6 +204,7 @@ def main():
     # apart turns the second one into a bug signal instead of a chore.
     team_btns += ('<button data-n="ref" class="alt">REF / official</button>'
                   '<button data-n="bench" class="alt">ON THE BENCH / not in play</button>'
+                  '<button data-n="spliced" class="alt">TWO PLAYERS / this track switches</button>'
                   '<button data-n="" class="alt">unsure</button>')
 
     rows = []
