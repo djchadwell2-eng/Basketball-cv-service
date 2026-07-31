@@ -27,11 +27,26 @@ def main():
     t0 = time.time()
     print(f"[analyze_clip] STAGE start clip={clip}", flush=True)
 
+    # get_clip, NOT getattr(clip_config, f"{clip}_CLIP"): the attribute lookup
+    # only ever finds the hand-written baselines (TEST1/HARD/...), so a game set
+    # up in the browser -- which lives in clips/<NAME>.json -- could never be
+    # found and every web upload died here. get_clip checks both sources.
     import clip_config
-    config = getattr(clip_config, f"{clip}_CLIP", None)
+    config = clip_config.get_clip(clip)
     if config is None:
-        print(f"[analyze_clip] FAILED: no ClipConfig named {clip}_CLIP -- the clip "
-              f"must be set up first (Phase 7 L4).", flush=True)
+        import clip_registry
+        doc = clip_registry.load(clip)
+        if doc is None:
+            print(f"[analyze_clip] FAILED: no clip named {clip} -- not a built-in "
+                  f"and no clips/{clip}.json.", flush=True)
+        else:
+            # The clip EXISTS but is only half a config: the browser flow fills
+            # in the calibration half, and nothing has chosen what stretch of
+            # the game to analyse yet.
+            missing = [f for f in ("tracking_span_start", "tracking_span_len")
+                       if doc.get(f) is None]
+            print(f"[analyze_clip] FAILED: {clip} is set up but has no analysis span "
+                  f"yet (missing: {', '.join(missing) or 'roster'}).", flush=True)
         raise SystemExit(2)
 
     print("[analyze_clip] STAGE run_clip (calibration -> tracking -> team events "

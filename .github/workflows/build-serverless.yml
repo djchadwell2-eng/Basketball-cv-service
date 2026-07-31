@@ -6,7 +6,7 @@ name: Build RunPod Serverless image
 # see tasks/todo.md "CONNECT RUNPOD SERVERLESS TO THE WEB APP".
 on:
   push:
-    branches: [main]
+    branches: [main, "gpu-*"]
     paths:
       - Dockerfile
       - .dockerignore
@@ -34,9 +34,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Tagged with the COMMIT as well as :latest. RunPod caches by tag, so
+      # pushing a new :latest does not make a worker re-pull -- pointing the
+      # serverless template at an immutable per-commit tag is what actually
+      # deploys, and leaves no doubt about which code a job ran.
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          tags: ${{ env.IMAGE_NAME }}:latest
+          tags: |
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}

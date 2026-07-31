@@ -75,8 +75,74 @@ def run_analysis(clip_name: str) -> dict:
     return stats
 
 
+def speedtest(frames: int = 60) -> dict:
+    """How fast does THIS GPU run the detector? Measured, not assumed.
+
+    The whole GPU plan is sized off one number -- seconds per frame for
+    YOLOv8m@1280 -- and the local machine measures 1.44 s/frame with no CUDA at
+    all. Guessing the speedup would mean sizing chunking, cost and job length
+    off a number nobody checked, so the endpoint reports its own.
+
+    Deliberately NOT the pipeline: no caches, no calibration, just the
+    detection cost that dominates a full game.
+    """
+    import cv2
+    import torch
+    from ultralytics import YOLO
+
+    dev = {
+        "cuda_available": torch.cuda.is_available(),
+        "gpu": torch.cuda.get_device_name(0) if torch.cuda.is_available() else None,
+    }
+    video = os.path.join(VIDEO_DIR, BUNDLED_VIDEOS["TEST1"])
+    if not os.path.exists(video):
+        return {"error": f"no bundled video at {video}", **dev}
+
+    cap = cv2.VideoCapture(video)
+    imgs = []
+    while len(imgs) < frames:
+        ok, f = cap.read()
+        if not ok:
+            break
+        imgs.append(f)
+    cap.release()
+    if not imgs:
+        return {"error": "could not read frames", **dev}
+
+    model = YOLO(os.path.join(_ROOT, "yolov8m.pt"))
+    model.predict(imgs[0], imgsz=1280, classes=[0], verbose=False)   # warm up
+    t0 = time.time()
+    for f in imgs[1:]:
+        model.predict(f, imgsz=1280, classes=[0], verbose=False)
+    per = (time.time() - t0) / max(1, len(imgs) - 1)
+
+    full_game_frames = 171120                    # DJ's 95.1 min game at 30 fps
+    return {
+        **dev,
+        "frames_timed": len(imgs) - 1,
+        "seconds_per_frame": round(per, 4),
+        "frame_hw": [imgs[0].shape[0], imgs[0].shape[1]],
+        "laptop_seconds_per_frame": 1.44,        # measured on DJ's machine
+        "speedup_vs_laptop": round(1.44 / per, 1) if per else None,
+        "full_game_hours": round(full_game_frames * per / 3600, 2),
+    }
+
+
 def handler(job):
     job_input = job.get("input", {}) if isinstance(job, dict) else {}
+
+    # A measure-only job: answers "is the GPU fast enough to build on?" without
+    # needing a real clip, a video upload, or any caches.
+    if job_input.get("mode") == "speedtest":
+        t0 = time.time()
+        try:
+            out = speedtest(int(job_input.get("frames", 60)))
+        except Exception as e:
+            return {"ok": False, "mode": "speedtest", "error": str(e),
+                    "traceback": traceback.format_exc()}
+        return {"ok": "error" not in out, "mode": "speedtest",
+                "seconds": round(time.time() - t0, 1), **out}
+
     clip_name = job_input.get("clip", "TEST1")
     t0 = time.time()
     try:
