@@ -1,0 +1,42 @@
+name: Build RunPod Serverless image
+
+# Neither DJ's machine nor the RunPod pod has Docker installed, so GitHub's
+# own runners build the image instead and push it to this repo's GitHub
+# Container Registry package. RunPod then just pulls the finished image --
+# see tasks/todo.md "CONNECT RUNPOD SERVERLESS TO THE WEB APP".
+on:
+  push:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - serverless_handler.py
+      - requirements.txt
+      - "**.py"
+  workflow_dispatch: {}
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/basketball-cv-service
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ env.IMAGE_NAME }}:latest
