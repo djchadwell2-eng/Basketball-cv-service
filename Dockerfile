@@ -1,4 +1,5 @@
 # RunPod Serverless image -- Phase 1 proof (an already-set-up clip, TEST1).
+# Built by .github/workflows/build-serverless.yml -> ghcr.io.
 # Same torch/CUDA versions already proven on the training pod.
 FROM pytorch/pytorch:2.4.1-cuda12.4-cudnn9-runtime
 
