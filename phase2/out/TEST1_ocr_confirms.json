@@ -1,0 +1,1754 @@
+{
+  "clip": "TEST1",
+  "span_start": 120,
+  "span_len": 461,
+  "windows": "2 detected possessions",
+  "window_boundaries": [
+    120,
+    501
+  ],
+  "ocr_confirm_threshold": 0.85,
+  "seed_policy": "ROI-mask: on-court majority per (window, track)",
+  "attempt_policy": "best_crops_first_v2",
+  "off_court_candidates_excluded": 97,
+  "readability": {
+    "crops_attempted": 356,
+    "crops_any_read": 41,
+    "crops_confident_read": 23,
+    "candidates_attempted": 45,
+    "candidates_with_confident_read": 8
+  },
+  "review_queue_before": 46,
+  "review_queue_after": 41,
+  "outcomes": {
+    "agree": [
+      {
+        "window": 0,
+        "identity_id": 2,
+        "track_id": 3,
+        "position_hypothesis": 13,
+        "final_state": "confirmed",
+        "evidence": {
+          "reason": "OCR agrees with position",
+          "jersey": 13,
+          "confidence": 1.0
+        },
+        "read_number": 13,
+        "read_confidence": 0.998,
+        "read_frame": 154,
+        "read_bbox": [
+          853.9,
+          583.1,
+          973.1,
+          861.5
+        ]
+      },
+      {
+        "window": 0,
+        "identity_id": 5,
+        "track_id": 6,
+        "position_hypothesis": 5,
+        "final_state": "confirmed",
+        "evidence": {
+          "reason": "OCR agrees with position",
+          "jersey": 5,
+          "confidence": 1.0
+        },
+        "read_number": 5,
+        "read_confidence": 1.0,
+        "read_frame": 128,
+        "read_bbox": [
+          958.6,
+          388.6,
+          1060.4,
+          617.5
+        ]
+      },
+      {
+        "window": 0,
+        "identity_id": 39,
+        "track_id": 67,
+        "position_hypothesis": 32,
+        "final_state": "confirmed",
+        "evidence": {
+          "reason": "OCR agrees with position",
+          "jersey": 32,
+          "confidence": 0.88
+        },
+        "read_number": 32,
+        "read_confidence": 0.884,
+        "read_frame": 288,
+        "read_bbox": [
+          655.5,
+          229.0,
+          724.4,
+          428.4
+        ]
+      },
+      {
+        "window": 1,
+        "identity_id": 2,
+        "track_id": 15,
+        "position_hypothesis": 10,
+        "final_state": "confirmed",
+        "evidence": {
+          "reason": "OCR agrees with position",
+          "jersey": 10,
+          "confidence": 0.96
+        },
+        "read_number": 10,
+        "read_confidence": 0.957,
+        "read_frame": 513,
+        "read_bbox": [
+          1484.0,
+          471.5,
+          1573.2,
+          653.3
+        ]
+      },
+      {
+        "window": 1,
+        "identity_id": 3,
+        "track_id": 83,
+        "position_hypothesis": 24,
+        "final_state": "confirmed",
+        "evidence": {
+          "reason": "OCR agrees with position",
+          "jersey": 24,
+          "confidence": 1.0
+        },
+        "read_number": 24,
+        "read_confidence": 1.0,
+        "read_frame": 504,
+        "read_bbox": [
+          1219.3,
+          427.6,
+          1312.9,
+          585.1
+        ]
+      }
+    ],
+    "disagree": [
+      {
+        "window": 0,
+        "identity_id": 16,
+        "track_id": 17,
+        "position_hypothesis": 32,
+        "final_state": "unknown",
+        "evidence": {
+          "reason": "position/jersey disagreement -- possible swap",
+          "position_says": 32,
+          "ocr_read": 3,
+          "confidence": 0.94
+        },
+        "read_number": 3,
+        "read_confidence": 0.937,
+        "read_frame": 144,
+        "read_bbox": [
+          709.0,
+          252.6,
+          780.7,
+          454.1
+        ]
+      }
+    ],
+    "no_confident_read": [
+      {
+        "window": 0,
+        "identity_id": 0,
+        "track_id": 1,
+        "position_hypothesis": null,
+        "final_state": "unknown",
+        "evidence": {
+          "reason": "new track, not yet identified"
+        }
+      },
+      {
+        "window": 0,
+        "identity_id": 1,
+        "track_id": 2,
+        "position_hypothesis": 3,
+        "final_state": "candidate",
+        "evidence": {
+          "reason": "position/motion continuity relink",
+          "gap_frames": 2,
+          "distance_px": 23.0,
+          "distance_from_last_px": 19.3,
+          "predicted_center": [
+            412.9,
+            541.3
+          ],
+          "reappeared_center": [
+            430.2,
+            556.5
+          ],
+          "lost_after_frame": 474,
+          "reappeared_frame": 476
+        }
+      },
+      {
+        "window": 0,
+        "identity_id": 3,
+        "track_id": 4,
+        "position_hypothesis": null,
+        "final_state": "lost",
+        "evidence": {
+          "reason": "occlusion",
+          "lost_after_frame": 328,
+          "lost_track_id": 4
+        }
+      },
+      {
+        "window": 0,
+        "identity_id": 4,
+        "track_id": 5,
+        "position_hypothesis": 23,
+        "final_state": "lost",
+        "evidence": {
+          "reason": "occlusion",
+          "lost_after_frame": 286,
+          "lost_track_id": 5
+        }
+      },
+      {
+        "window": 0,
+        "identity_id": 6,
+        "track_id": 7,
+        "position_hypothesis": null,
+        "final_state": "unknown",
+        "evidence": {
+          "reason": "new track, not yet identified"
+        }
+      },
+      {
+        "window": 0,
+        "identity_id": 7,
+        "track_id": 8,
+        "position_hypothesis": 14,
+        "final_state": "lost",
+        "evidence": {
+          "reason": "occlusion",
+          "lost_after_frame": 272,
+          "lost_track_id": 8
+        }
+      },
+      {
+        "window": 0,
+        "identity_id": 8,
+        "track_id": 9,
+        "position_hypothesis": 24,
+        "final_state": "lost",
+        "evidence": {
+          "reason": "occlusion",
+          "lost_after_frame": 130,
+          "lost_track_id": 9
+        }
+      },
+      {
+        "window": 0,
+        "identity_id": 9,
+        "track_id": 10,
+        "position_hypothesis": 30,
+        "final_state": "candidate",
+        "evidence": {
+          "reason": "position/motion continuity relink",
+          "gap_frames": 3,
+          "distance_px": 13.7,
+          "distance_from_last_px": 11.4,
+          "predicted_center": [
+            1233.1,
+            300.9
+          ],
+          "reappeared_center": [
+            1246.8,
+            300.2
+          ],
+          "lost_after_frame": 497,
+          "reappeared_frame": 500
+        }
+      },
+      {
+        "window": 0,
+        "identity_id": 31,
+        "track_id": 36,
+        "position_hypothesis": null,
+        "final_state": "lost",
+        "evidence": {
+          "reason": "occlusion",
+          "lost_after_frame": 222,
+          "lost_track_id": 36
+        }
+      },
+      {
+        "window": 0,
+        "identity_id": 32,
+        "track_id": 38,
+        "position_hypothesis": null,
+        "final_state": "lost",
+        "evidence": {
+          "reason": "occlusion",
+          "lost_after_frame": 226,
+          "lost_track_id": 38
+        }
+      },
+      {
+        "window": 0,
+        "identity_id": 33,
+        "track_id": 42,
+        "position_hypothesis": 5,
+        "final_state": "candidate",
+        "evidence": {
+          "reason": "position/motion continuity relink",
+          "gap_frames": 2,
+          "distance_px": 31.3,
+          "distance_from_last_px": 42.3,
+          "predicted_center": [
+            598.1,
+            568.0
+          ],
+          "reappeared_center": [
+            604.2,
+            537.2
+          ],
+          "lost_after_frame": 324,
+          "reappeared_frame": 326
+        }
+      },
+      {
+        "window": 0,
+        "identity_id": 34,
+        "track_id": 48,
+        "position_hypothesis": null,
+        "final_state": "lost",
+        "evidence": {
+          "reason": "occlusion",
+          "lost_after_frame": 203,
+          "lost_track_id": 48
+        }
+      },
+      {
+        "window": 0,
+        "identity_id": 36,
+        "track_id": 50,
+        "position_hypothesis": null,
+        "final_state": "lost",
+        "evidence": {
+          "reason": "occlusion",
+          "lost_after_frame": 193,
+          "lost_track_id": 50
+        }
+      },
+      {
+        "window": 0,
+        "identity_id": 37,
+        "track_id": 53,
+        "position_hypothesis": null,
+        "final_state": "lost",
+        "evidence": {
+          "reason": "occlusion",
+          "lost_after_frame": 252,
+          "lost_track_id": 53
+        }
+      },
+      {
+        "window": 0,
+        "identity_id": 38,
+        "track_id": 56,
+        "position_hypothesis": null,
+        "final_state": "lost",
+        "evidence": {
+          "reason": "occlusion",
+          "lost_after_frame": 212,
+          "lost_track_id": 56
+        }
+      },
+      {
+        "window": 0,
+        "identity_id": 41,
+        "track_id": 80,
+        "position_hypothesis": null,
+        "final_state": "lost",
+        "evidence": {
+          "reason": "occlusion",
+          "lost_after_frame": 263,
+          "lost_track_id": 80
+        }
+      },
+      {
+        "window": 0,
+        "identity_id": 43,
+        "track_id": 84,
+        "position_hypothesis": null,
+        "final_state": "lost",
+        "evidence": {
+          "reason": "occlusion",
+          "lost_after_frame": 281,
+          "lost_track_id": 84
+        }
+      },
+      {
+        "window": 0,
+        "identity_id": 52,
+        "track_id": 294,
+        "position_hypothesis": null,
+        "final_state": "lost",
+        "evidence": {
+          "reason": "occlusion",
+          "lost_after_frame": 333,
+          "lost_track_id": 294
+        }
+      },
+      {
+        "window": 0,
+        "identity_id": 56,
+        "track_id": 372,
+        "position_hypothesis": null,
+        "final_state": "unknown",
+        "evidence": {
+          "reason": "new track, not yet identified"
+        }
+      },
+      {
+        "window": 0,
+        "identity_id": 59,
+        "track_id": 395,
+        "position_hypothesis": null,
+        "final_state": "unknown",
+        "evidence": {
+          "reason": "new track, not yet identified"
+        }
+      },
+      {
+        "window": 0,
+        "identity_id": 61,
+        "track_id": 432,
+        "position_hypothesis": null,
+        "final_state": "lost",
+        "evidence": {
+          "reason": "occlusion",
+          "lost_after_frame": 398,
+          "lost_track_id": 432
+        }
+      },
+      {
+        "window": 0,
+        "identity_id": 69,
+        "track_id": 467,
+        "position_hypothesis": null,
+        "final_state": "lost",
+        "evidence": {
+          "reason": "occlusion",
+          "lost_after_frame": 482,
+          "lost_track_id": 467
+        }
+      },
+      {
+        "window": 0,
+        "identity_id": 77,
+        "track_id": 622,
+        "position_hypothesis": null,
+        "final_state": "lost",
+        "evidence": {
+          "reason": "occlusion",
+          "lost_after_frame": 480,
+          "lost_track_id": 622
+        }
+      },
+      {
+        "window": 0,
+        "identity_id": 82,
+        "track_id": 688,
+        "position_hypothesis": null,
+        "final_state": "lost",
+        "evidence": {
+          "reason": "occlusion",
+          "lost_after_frame": 475,
+          "lost_track_id": 688
+        }
+      },
+      {
+        "window": 1,
+        "identity_id": 0,
+        "track_id": 1,
+        "position_hypothesis": null,
+        "final_state": "unknown",
+        "evidence": {
+          "reason": "new track, not yet identified"
+        }
+      },
+      {
+        "window": 1,
+        "identity_id": 1,
+        "track_id": 7,
+        "position_hypothesis": null,
+        "final_state": "lost",
+        "evidence": {
+          "reason": "occlusion",
+          "lost_after_frame": 577,
+          "lost_track_id": 7
+        }
+      },
+      {
+        "window": 1,
+        "identity_id": 6,
+        "track_id": 138,
+        "position_hypothesis": 44,
+        "final_state": "lost",
+        "evidence": {
+          "reason": "occlusion",
+          "lost_after_frame": 559,
+          "lost_track_id": 138
+        }
+      },
+      {
+        "window": 1,
+        "identity_id": 8,
+        "track_id": 372,
+        "position_hypothesis": null,
+        "final_state": "unknown",
+        "evidence": {
+          "reason": "new track, not yet identified"
+        }
+      },
+      {
+        "window": 1,
+        "identity_id": 17,
+        "track_id": 2,
+        "position_hypothesis": 3,
+        "final_state": "candidate",
+        "evidence": {
+          "reason": "position/motion continuity relink",
+          "gap_frames": 2,
+          "distance_px": 21.0,
+          "distance_from_last_px": 44.4,
+          "predicted_center": [
+            867.0,
+            510.3
+          ],
+          "reappeared_center": [
+            879.4,
+            493.4
+          ],
+          "lost_after_frame": 514,
+          "reappeared_frame": 516
+        }
+      },
+      {
+        "window": 1,
+        "identity_id": 18,
+        "track_id": 49,
+        "position_hypothesis": null,
+        "final_state": "lost",
+        "evidence": {
+          "reason": "occlusion",
+          "lost_after_frame": 504,
+          "lost_track_id": 49
+        }
+      },
+      {
+        "window": 1,
+        "identity_id": 24,
+        "track_id": 10,
+        "position_hypothesis": 30,
+        "final_state": "lost",
+        "evidence": {
+          "reason": "occlusion",
+          "lost_after_frame": 502,
+          "lost_track_id": 10
+        }
+      },
+      {
+        "window": 1,
+        "identity_id": 36,
+        "track_id": 875,
+        "position_hypothesis": null,
+        "final_state": "lost",
+        "evidence": {
+          "reason": "occlusion",
+          "lost_after_frame": 567,
+          "lost_track_id": 875
+        }
+      },
+      {
+        "window": 1,
+        "identity_id": 37,
+        "track_id": 879,
+        "position_hypothesis": null,
+        "final_state": "lost",
+        "evidence": {
+          "reason": "occlusion",
+          "lost_after_frame": 557,
+          "lost_track_id": 879
+        }
+      },
+      {
+        "window": 1,
+        "identity_id": 43,
+        "track_id": 952,
+        "position_hypothesis": null,
+        "final_state": "unknown",
+        "evidence": {
+          "reason": "new track, not yet identified"
+        }
+      },
+      {
+        "window": 1,
+        "identity_id": 44,
+        "track_id": 1026,
+        "position_hypothesis": null,
+        "final_state": "lost",
+        "evidence": {
+          "reason": "occlusion",
+          "lost_after_frame": 573,
+          "lost_track_id": 1026
+        }
+      },
+      {
+        "window": 1,
+        "identity_id": 49,
+        "track_id": 1106,
+        "position_hypothesis": null,
+        "final_state": "unknown",
+        "evidence": {
+          "reason": "new track, not yet identified"
+        }
+      },
+      {
+        "window": 1,
+        "identity_id": 53,
+        "track_id": 1230,
+        "position_hypothesis": null,
+        "final_state": "unknown",
+        "evidence": {
+          "reason": "new track, not yet identified"
+        }
+      },
+      {
+        "window": 1,
+        "identity_id": 58,
+        "track_id": 1280,
+        "position_hypothesis": null,
+        "final_state": "lost",
+        "evidence": {
+          "reason": "occlusion",
+          "lost_after_frame": 579,
+          "lost_track_id": 1280
+        }
+      }
+    ],
+    "no_position_hypothesis": [
+      {
+        "window": 0,
+        "identity_id": 35,
+        "track_id": 49,
+        "position_hypothesis": null,
+        "final_state": "candidate",
+        "evidence": {
+          "reason": "position/motion continuity relink",
+          "gap_frames": 4,
+          "distance_px": 21.0,
+          "distance_from_last_px": 20.9,
+          "predicted_center": [
+            814.1,
+            461.0
+          ],
+          "reappeared_center": [
+            832.4,
+            450.7
+          ],
+          "lost_after_frame": 473,
+          "reappeared_frame": 477
+        },
+        "read_number": 13,
+        "read_confidence": 0.951,
+        "read_frame": 318,
+        "read_bbox": [
+          1060.7,
+          427.6,
+          1189.2,
+          657.4
+        ]
+      },
+      {
+        "window": 0,
+        "identity_id": 44,
+        "track_id": 87,
+        "position_hypothesis": null,
+        "final_state": "lost",
+        "evidence": {
+          "reason": "occlusion",
+          "lost_after_frame": 338,
+          "lost_track_id": 87
+        },
+        "read_number": 14,
+        "read_confidence": 0.923,
+        "read_frame": 292,
+        "read_bbox": [
+          408.8,
+          305.0,
+          535.9,
+          499.3
+        ]
+      }
+    ]
+  },
+  "identities": [
+    {
+      "window": 0,
+      "identity_id": 0,
+      "track_id": 1,
+      "roster_number": null,
+      "final_state": "unknown"
+    },
+    {
+      "window": 0,
+      "identity_id": 1,
+      "track_id": 2,
+      "roster_number": 3,
+      "final_state": "candidate"
+    },
+    {
+      "window": 0,
+      "identity_id": 2,
+      "track_id": 3,
+      "roster_number": 13,
+      "final_state": "confirmed"
+    },
+    {
+      "window": 0,
+      "identity_id": 3,
+      "track_id": 4,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 4,
+      "track_id": 5,
+      "roster_number": 23,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 5,
+      "track_id": 6,
+      "roster_number": 5,
+      "final_state": "confirmed"
+    },
+    {
+      "window": 0,
+      "identity_id": 6,
+      "track_id": 7,
+      "roster_number": null,
+      "final_state": "unknown"
+    },
+    {
+      "window": 0,
+      "identity_id": 7,
+      "track_id": 8,
+      "roster_number": 14,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 8,
+      "track_id": 9,
+      "roster_number": 24,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 9,
+      "track_id": 10,
+      "roster_number": 30,
+      "final_state": "candidate"
+    },
+    {
+      "window": 0,
+      "identity_id": 10,
+      "track_id": 11,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 11,
+      "track_id": 12,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 12,
+      "track_id": 13,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 13,
+      "track_id": 14,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 14,
+      "track_id": 15,
+      "roster_number": 10,
+      "final_state": "confirmed"
+    },
+    {
+      "window": 0,
+      "identity_id": 15,
+      "track_id": 16,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 16,
+      "track_id": 17,
+      "roster_number": 32,
+      "final_state": "unknown"
+    },
+    {
+      "window": 0,
+      "identity_id": 17,
+      "track_id": 18,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 18,
+      "track_id": 19,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 19,
+      "track_id": 20,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 20,
+      "track_id": 21,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 21,
+      "track_id": 22,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 22,
+      "track_id": 23,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 23,
+      "track_id": 24,
+      "roster_number": null,
+      "final_state": "candidate"
+    },
+    {
+      "window": 0,
+      "identity_id": 24,
+      "track_id": 25,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 25,
+      "track_id": 26,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 26,
+      "track_id": 27,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 27,
+      "track_id": 28,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 28,
+      "track_id": 29,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 29,
+      "track_id": 30,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 30,
+      "track_id": 31,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 31,
+      "track_id": 36,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 32,
+      "track_id": 38,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 33,
+      "track_id": 42,
+      "roster_number": 5,
+      "final_state": "candidate"
+    },
+    {
+      "window": 0,
+      "identity_id": 34,
+      "track_id": 48,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 35,
+      "track_id": 49,
+      "roster_number": null,
+      "final_state": "candidate"
+    },
+    {
+      "window": 0,
+      "identity_id": 36,
+      "track_id": 50,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 37,
+      "track_id": 53,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 38,
+      "track_id": 56,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 39,
+      "track_id": 67,
+      "roster_number": 32,
+      "final_state": "confirmed"
+    },
+    {
+      "window": 0,
+      "identity_id": 40,
+      "track_id": 76,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 41,
+      "track_id": 80,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 42,
+      "track_id": 83,
+      "roster_number": 24,
+      "final_state": "confirmed"
+    },
+    {
+      "window": 0,
+      "identity_id": 43,
+      "track_id": 84,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 44,
+      "track_id": 87,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 45,
+      "track_id": 92,
+      "roster_number": 23,
+      "final_state": "confirmed"
+    },
+    {
+      "window": 0,
+      "identity_id": 46,
+      "track_id": 100,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 47,
+      "track_id": 101,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 48,
+      "track_id": 138,
+      "roster_number": 44,
+      "final_state": "confirmed"
+    },
+    {
+      "window": 0,
+      "identity_id": 49,
+      "track_id": 145,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 50,
+      "track_id": 156,
+      "roster_number": null,
+      "final_state": "candidate"
+    },
+    {
+      "window": 0,
+      "identity_id": 51,
+      "track_id": 254,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 52,
+      "track_id": 294,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 53,
+      "track_id": 350,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 54,
+      "track_id": 363,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 55,
+      "track_id": 367,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 56,
+      "track_id": 372,
+      "roster_number": null,
+      "final_state": "unknown"
+    },
+    {
+      "window": 0,
+      "identity_id": 57,
+      "track_id": 390,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 58,
+      "track_id": 391,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 59,
+      "track_id": 395,
+      "roster_number": null,
+      "final_state": "unknown"
+    },
+    {
+      "window": 0,
+      "identity_id": 60,
+      "track_id": 405,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 61,
+      "track_id": 432,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 62,
+      "track_id": 433,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 63,
+      "track_id": 436,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 64,
+      "track_id": 439,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 65,
+      "track_id": 446,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 66,
+      "track_id": 453,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 67,
+      "track_id": 456,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 68,
+      "track_id": 462,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 69,
+      "track_id": 467,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 70,
+      "track_id": 485,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 71,
+      "track_id": 506,
+      "roster_number": null,
+      "final_state": "candidate"
+    },
+    {
+      "window": 0,
+      "identity_id": 72,
+      "track_id": 510,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 73,
+      "track_id": 514,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 74,
+      "track_id": 522,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 75,
+      "track_id": 597,
+      "roster_number": null,
+      "final_state": "unknown"
+    },
+    {
+      "window": 0,
+      "identity_id": 76,
+      "track_id": 607,
+      "roster_number": null,
+      "final_state": "unknown"
+    },
+    {
+      "window": 0,
+      "identity_id": 77,
+      "track_id": 622,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 78,
+      "track_id": 645,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 79,
+      "track_id": 662,
+      "roster_number": null,
+      "final_state": "unknown"
+    },
+    {
+      "window": 0,
+      "identity_id": 80,
+      "track_id": 680,
+      "roster_number": null,
+      "final_state": "unknown"
+    },
+    {
+      "window": 0,
+      "identity_id": 81,
+      "track_id": 684,
+      "roster_number": null,
+      "final_state": "unknown"
+    },
+    {
+      "window": 0,
+      "identity_id": 82,
+      "track_id": 688,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 83,
+      "track_id": 716,
+      "roster_number": null,
+      "final_state": "unknown"
+    },
+    {
+      "window": 0,
+      "identity_id": 84,
+      "track_id": 721,
+      "roster_number": null,
+      "final_state": "unknown"
+    },
+    {
+      "window": 0,
+      "identity_id": 85,
+      "track_id": 733,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 86,
+      "track_id": 735,
+      "roster_number": null,
+      "final_state": "unknown"
+    },
+    {
+      "window": 0,
+      "identity_id": 87,
+      "track_id": 747,
+      "roster_number": null,
+      "final_state": "candidate"
+    },
+    {
+      "window": 0,
+      "identity_id": 88,
+      "track_id": 763,
+      "roster_number": null,
+      "final_state": "unknown"
+    },
+    {
+      "window": 0,
+      "identity_id": 89,
+      "track_id": 765,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 90,
+      "track_id": 788,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 0,
+      "identity_id": 91,
+      "track_id": 791,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 1,
+      "identity_id": 0,
+      "track_id": 1,
+      "roster_number": null,
+      "final_state": "unknown"
+    },
+    {
+      "window": 1,
+      "identity_id": 1,
+      "track_id": 7,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 1,
+      "identity_id": 2,
+      "track_id": 15,
+      "roster_number": 10,
+      "final_state": "confirmed"
+    },
+    {
+      "window": 1,
+      "identity_id": 3,
+      "track_id": 83,
+      "roster_number": 24,
+      "final_state": "confirmed"
+    },
+    {
+      "window": 1,
+      "identity_id": 4,
+      "track_id": 67,
+      "roster_number": 32,
+      "final_state": "confirmed"
+    },
+    {
+      "window": 1,
+      "identity_id": 5,
+      "track_id": 92,
+      "roster_number": 23,
+      "final_state": "confirmed"
+    },
+    {
+      "window": 1,
+      "identity_id": 6,
+      "track_id": 138,
+      "roster_number": 44,
+      "final_state": "lost"
+    },
+    {
+      "window": 1,
+      "identity_id": 7,
+      "track_id": 42,
+      "roster_number": 5,
+      "final_state": "confirmed"
+    },
+    {
+      "window": 1,
+      "identity_id": 8,
+      "track_id": 372,
+      "roster_number": null,
+      "final_state": "unknown"
+    },
+    {
+      "window": 1,
+      "identity_id": 9,
+      "track_id": 395,
+      "roster_number": null,
+      "final_state": "confirmed"
+    },
+    {
+      "window": 1,
+      "identity_id": 10,
+      "track_id": 156,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 1,
+      "identity_id": 11,
+      "track_id": 597,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 1,
+      "identity_id": 12,
+      "track_id": 607,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 1,
+      "identity_id": 13,
+      "track_id": 662,
+      "roster_number": null,
+      "final_state": "unknown"
+    },
+    {
+      "window": 1,
+      "identity_id": 14,
+      "track_id": 680,
+      "roster_number": null,
+      "final_state": "unknown"
+    },
+    {
+      "window": 1,
+      "identity_id": 15,
+      "track_id": 684,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 1,
+      "identity_id": 16,
+      "track_id": 24,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 1,
+      "identity_id": 17,
+      "track_id": 2,
+      "roster_number": 3,
+      "final_state": "candidate"
+    },
+    {
+      "window": 1,
+      "identity_id": 18,
+      "track_id": 49,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 1,
+      "identity_id": 19,
+      "track_id": 506,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 1,
+      "identity_id": 20,
+      "track_id": 716,
+      "roster_number": null,
+      "final_state": "candidate"
+    },
+    {
+      "window": 1,
+      "identity_id": 21,
+      "track_id": 721,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 1,
+      "identity_id": 22,
+      "track_id": 735,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 1,
+      "identity_id": 23,
+      "track_id": 763,
+      "roster_number": null,
+      "final_state": "unknown"
+    },
+    {
+      "window": 1,
+      "identity_id": 24,
+      "track_id": 10,
+      "roster_number": 30,
+      "final_state": "lost"
+    },
+    {
+      "window": 1,
+      "identity_id": 25,
+      "track_id": 791,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 1,
+      "identity_id": 26,
+      "track_id": 254,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 1,
+      "identity_id": 27,
+      "track_id": 747,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 1,
+      "identity_id": 28,
+      "track_id": 816,
+      "roster_number": null,
+      "final_state": "unknown"
+    },
+    {
+      "window": 1,
+      "identity_id": 29,
+      "track_id": 830,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 1,
+      "identity_id": 30,
+      "track_id": 831,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 1,
+      "identity_id": 31,
+      "track_id": 834,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 1,
+      "identity_id": 32,
+      "track_id": 843,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 1,
+      "identity_id": 33,
+      "track_id": 765,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 1,
+      "identity_id": 34,
+      "track_id": 861,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 1,
+      "identity_id": 35,
+      "track_id": 865,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 1,
+      "identity_id": 36,
+      "track_id": 875,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 1,
+      "identity_id": 37,
+      "track_id": 879,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 1,
+      "identity_id": 38,
+      "track_id": 889,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 1,
+      "identity_id": 39,
+      "track_id": 896,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 1,
+      "identity_id": 40,
+      "track_id": 927,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 1,
+      "identity_id": 41,
+      "track_id": 928,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 1,
+      "identity_id": 42,
+      "track_id": 934,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 1,
+      "identity_id": 43,
+      "track_id": 952,
+      "roster_number": null,
+      "final_state": "unknown"
+    },
+    {
+      "window": 1,
+      "identity_id": 44,
+      "track_id": 1026,
+      "roster_number": null,
+      "final_state": "lost"
+    },
+    {
+      "window": 1,
+      "identity_id": 45,
+      "track_id": 1027,
+      "roster_number": null,
+      "final_state": "unknown"
+    },
+    {
+      "window": 1,
+      "identity_id": 46,
+      "track_id": 1047,
+      "roster_number": null,
+      "final_state": "unknown"
+    },
+    {
+      "window": 1,
+      "identity_id": 47,
+      "track_id": 1056,
+      "roster_number": null,
+      "final_state": "unknown"
+    },
+    {
+      "window": 1,
+      "identity_id": 48,
+      "track_id": 1068,
+      "roster_number": null,
+      "final_state": "candidate"
+    },
+    {
+      "window": 1,
+      "identity_id": 49,
+      "track_id": 1106,
+      "roster_number": null,
+      "final_state": "unknown"
+    },
+    {
+      "window": 1,
+      "identity_id": 50,
+      "track_id": 1148,
+      "roster_number": null,
+      "final_state": "unknown"
+    },
+    {
+      "window": 1,
+      "identity_id": 51,
+      "track_id": 1207,
+      "roster_number": null,
+      "final_state": "unknown"
+    },
+    {
+      "window": 1,
+      "identity_id": 52,
+      "track_id": 1212,
+      "roster_number": null,
+      "final_state": "unknown"
+    },
+    {
+      "window": 1,
+      "identity_id": 53,
+      "track_id": 1230,
+      "roster_number": null,
+      "final_state": "unknown"
+    },
+    {
+      "window": 1,
+      "identity_id": 54,
+      "track_id": 1239,
+      "roster_number": null,
+      "final_state": "unknown"
+    },
+    {
+      "window": 1,
+      "identity_id": 55,
+      "track_id": 1256,
+      "roster_number": null,
+      "final_state": "unknown"
+    },
+    {
+      "window": 1,
+      "identity_id": 56,
+      "track_id": 1261,
+      "roster_number": null,
+      "final_state": "unknown"
+    },
+    {
+      "window": 1,
+      "identity_id": 57,
+      "track_id": 1270,
+      "roster_number": null,
+      "final_state": "unknown"
+    },
+    {
+      "window": 1,
+      "identity_id": 58,
+      "track_id": 1280,
+      "roster_number": null,
+      "final_state": "lost"
+    }
+  ]
+}

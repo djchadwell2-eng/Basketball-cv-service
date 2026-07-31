@@ -6,7 +6,7 @@ venv/
 .venv-boxmot/
 
 # Local-only diagnostic images/logs and harvested training frames (regenerable, not source code)
-spikes/out/
+spikes/out/*
 
 # Model weights (downloaded automatically by ultralytics on first run)
 *.pt
@@ -20,10 +20,10 @@ heatmaps/
 .DS_Store
 .vscode/
 .idea/
-phase1/out/
+phase1/out/*
 __pycache__/
 *.pyc
-phase2/out/
+phase2/out/*
 
 # Large derived overlay/diagnostic videos (exceed GitHub 100MB limit; regenerable)
 *.mp4
@@ -34,3 +34,15 @@ phase2/out/
 # Probe outputs (regenerable via spikes/reid_fragment_probe.py; verdict in DECISIONS §11)
 spikes/out/TEST1_tracks_botsort*.json
 yolov8x.pt
+
+# RunPod Serverless Phase 1 proof (tasks/todo.md): TEST1's caches + video +
+# the one weights file it needs, tracked so RunPod can build the image
+# straight from this GitHub repo (no Docker available locally or on the
+# training pod to build/push any other way).
+!spikes/out/TEST1_*.json
+!phase1/out/TEST1_*.json
+!phase1/out/TEST1_*.npz
+!phase2/out/TEST1_*.json
+!phase2/out/TEST1_*.csv
+!models/ball_finetuned_v3.pt
+!video_assets/Test1.mp4

@@ -12,22 +12,37 @@
       "start_frame": 164,
       "end_frame": 184,
       "shooter_status": "review_item",
-      "status": "location_unknown",
-      "reason": "track 14 classified OFF-court at frame 163 (trusting the oncourt classifier's own abstention)"
+      "status": "located",
+      "court_feet": [
+        6.7,
+        27.5
+      ],
+      "release_frame": 161,
+      "track_id": 38
     },
     {
       "start_frame": 236,
       "end_frame": 250,
       "shooter_status": "review_item",
-      "status": "location_unknown",
-      "reason": "track 14 classified OFF-court at frame 232 (trusting the oncourt classifier's own abstention)"
+      "status": "located",
+      "court_feet": [
+        5.7,
+        26.4
+      ],
+      "release_frame": 227,
+      "track_id": 49
     },
     {
       "start_frame": 581,
       "end_frame": 589,
-      "shooter_status": "attributed",
-      "status": "location_unknown",
-      "reason": "track 7 classified OFF-court at frame 571 (trusting the oncourt classifier's own abstention)"
+      "shooter_status": "review_item",
+      "status": "located",
+      "court_feet": [
+        82.8,
+        30.7
+      ],
+      "release_frame": 579,
+      "track_id": 1280
     }
   ]
 }

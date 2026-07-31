@@ -44,17 +44,17 @@
       "origin_dist": 91.5,
       "shooter": {
         "status": "review_item",
-        "track_id": 14,
-        "identity_id": 13,
+        "track_id": 38,
+        "identity_id": 32,
         "identity_state": "unknown",
         "release": {
           "status": "found",
-          "release_frame": 163,
-          "track_id": 14,
+          "release_frame": 161,
+          "track_id": 38,
           "dist_px": 0.0,
           "ball_xy": [
-            657.2,
-            209.6
+            666.5,
+            245.0
           ]
         }
       }
@@ -81,17 +81,17 @@
       "origin_dist": 27.6,
       "shooter": {
         "status": "review_item",
-        "track_id": 14,
-        "identity_id": 13,
-        "identity_state": "unknown",
+        "track_id": 49,
+        "identity_id": 35,
+        "identity_state": "candidate",
         "release": {
           "status": "found",
-          "release_frame": 232,
-          "track_id": 14,
+          "release_frame": 227,
+          "track_id": 49,
           "dist_px": 0.0,
           "ball_xy": [
-            597.6,
-            155.1
+            620.0,
+            234.6
           ]
         }
       }
@@ -171,18 +171,18 @@
       "shot_type": "layup",
       "origin_dist": 55.1,
       "shooter": {
-        "status": "attributed",
-        "track_id": 7,
-        "identity_id": 1,
-        "identity_state": "confirmed",
+        "status": "review_item",
+        "track_id": 1280,
+        "identity_id": 58,
+        "identity_state": "unknown",
         "release": {
           "status": "found",
-          "release_frame": 571,
-          "track_id": 7,
-          "dist_px": 15.0,
+          "release_frame": 579,
+          "track_id": 1280,
+          "dist_px": 104.5,
           "ball_xy": [
-            1453.7,
-            222.4
+            1383.5,
+            178.4
           ]
         }
       }

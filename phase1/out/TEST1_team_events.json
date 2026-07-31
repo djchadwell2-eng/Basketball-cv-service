@@ -1,0 +1,7962 @@
+{
+  "schema_version": "team_event.v1",
+  "clip": "TEST1",
+  "fps": 30.0,
+  "frames": [
+    {
+      "frame_index": 120,
+      "timestamp_s": 4.0,
+      "homography_confidence": {
+        "inliers": 8999,
+        "reproj_px": 0.0,
+        "state": "ok",
+        "nearest_keyframe": 120
+      },
+      "detections": [
+        {
+          "pixel": [
+            727.2,
+            418.4
+          ],
+          "court_feet": [
+            5.8,
+            30.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            65.9,
+            849.8
+          ],
+          "court_feet": [
+            6.1,
+            2.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            546.5,
+            545.4
+          ],
+          "court_feet": [
+            6.3,
+            20.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            690.3,
+            507.3
+          ],
+          "court_feet": [
+            8.4,
+            24.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            591.9,
+            606.5
+          ],
+          "court_feet": [
+            9.5,
+            17.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            432.7,
+            842.1
+          ],
+          "court_feet": [
+            12.8,
+            5.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            723.4,
+            626.0
+          ],
+          "court_feet": [
+            13.1,
+            17.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            502.1,
+            909.9
+          ],
+          "court_feet": [
+            15.6,
+            3.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            973.2,
+            643.2
+          ],
+          "court_feet": [
+            19.1,
+            19.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1357.7,
+            586.3
+          ],
+          "court_feet": [
+            26.8,
+            26.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1659.1,
+            363.5
+          ],
+          "court_feet": [
+            30.9,
+            47.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 130,
+      "timestamp_s": 4.333,
+      "homography_confidence": {
+        "inliers": 2608,
+        "reproj_px": 0.49,
+        "state": "ok",
+        "nearest_keyframe": 120
+      },
+      "detections": [
+        {
+          "pixel": [
+            68.2,
+            850.0
+          ],
+          "court_feet": [
+            6.1,
+            2.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            576.6,
+            534.8
+          ],
+          "court_feet": [
+            6.6,
+            21.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            731.4,
+            438.6
+          ],
+          "court_feet": [
+            6.8,
+            29.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            666.9,
+            517.2
+          ],
+          "court_feet": [
+            8.2,
+            23.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            597.3,
+            595.6
+          ],
+          "court_feet": [
+            9.3,
+            17.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            730.1,
+            633.9
+          ],
+          "court_feet": [
+            13.5,
+            17.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            515.5,
+            826.1
+          ],
+          "court_feet": [
+            14.0,
+            6.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            627.6,
+            910.1
+          ],
+          "court_feet": [
+            17.9,
+            4.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            551.9,
+            1045.5
+          ],
+          "court_feet": [
+            19.0,
+            0.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1016.2,
+            597.0
+          ],
+          "court_feet": [
+            19.0,
+            21.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1358.9,
+            574.2
+          ],
+          "court_feet": [
+            26.6,
+            26.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1658.9,
+            363.3
+          ],
+          "court_feet": [
+            30.9,
+            47.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 140,
+      "timestamp_s": 4.667,
+      "homography_confidence": {
+        "inliers": 2431,
+        "reproj_px": 0.52,
+        "state": "ok",
+        "nearest_keyframe": 120
+      },
+      "detections": [
+        {
+          "pixel": [
+            72.5,
+            850.5
+          ],
+          "court_feet": [
+            6.2,
+            2.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            726.6,
+            451.8
+          ],
+          "court_feet": [
+            7.2,
+            28.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            585.6,
+            577.9
+          ],
+          "court_feet": [
+            8.4,
+            18.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            657.7,
+            528.5
+          ],
+          "court_feet": [
+            8.4,
+            22.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            592.0,
+            804.3
+          ],
+          "court_feet": [
+            15.0,
+            8.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            823.4,
+            634.4
+          ],
+          "court_feet": [
+            15.6,
+            18.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            501.9,
+            1029.0
+          ],
+          "court_feet": [
+            17.9,
+            0.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1061.8,
+            563.3
+          ],
+          "court_feet": [
+            19.3,
+            24.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            745.8,
+            898.1
+          ],
+          "court_feet": [
+            19.8,
+            6.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1391.6,
+            533.9
+          ],
+          "court_feet": [
+            26.7,
+            29.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1659.2,
+            363.5
+          ],
+          "court_feet": [
+            30.9,
+            47.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 150,
+      "timestamp_s": 5.0,
+      "homography_confidence": {
+        "inliers": 2380,
+        "reproj_px": 0.54,
+        "state": "ok",
+        "nearest_keyframe": 120
+      },
+      "detections": [
+        {
+          "pixel": [
+            65.4,
+            851.0
+          ],
+          "court_feet": [
+            6.1,
+            2.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            543.8,
+            563.0
+          ],
+          "court_feet": [
+            6.9,
+            19.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            712.3,
+            451.9
+          ],
+          "court_feet": [
+            6.9,
+            28.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            761.3,
+            446.2
+          ],
+          "court_feet": [
+            7.9,
+            29.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            649.8,
+            544.9
+          ],
+          "court_feet": [
+            8.8,
+            21.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            613.2,
+            787.6
+          ],
+          "court_feet": [
+            15.0,
+            9.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            898.4,
+            588.3
+          ],
+          "court_feet": [
+            16.1,
+            21.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            460.6,
+            1036.1
+          ],
+          "court_feet": [
+            17.4,
+            -0.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1098.4,
+            550.7
+          ],
+          "court_feet": [
+            19.9,
+            25.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            855.4,
+            871.1
+          ],
+          "court_feet": [
+            21.3,
+            8.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1416.0,
+            521.7
+          ],
+          "court_feet": [
+            27.1,
+            31.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1659.0,
+            363.7
+          ],
+          "court_feet": [
+            30.9,
+            47.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 160,
+      "timestamp_s": 5.333,
+      "homography_confidence": {
+        "inliers": 1964,
+        "reproj_px": 0.55,
+        "state": "ok",
+        "nearest_keyframe": 120
+      },
+      "detections": [
+        {
+          "pixel": [
+            67.4,
+            851.6
+          ],
+          "court_feet": [
+            6.2,
+            2.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            507.2,
+            574.4
+          ],
+          "court_feet": [
+            6.4,
+            18.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            696.5,
+            455.3
+          ],
+          "court_feet": [
+            6.6,
+            27.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            762.2,
+            458.6
+          ],
+          "court_feet": [
+            8.5,
+            28.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            643.9,
+            544.6
+          ],
+          "court_feet": [
+            8.6,
+            21.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            631.8,
+            746.0
+          ],
+          "court_feet": [
+            14.4,
+            11.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            415.7,
+            1018.1
+          ],
+          "court_feet": [
+            16.3,
+            0.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            971.2,
+            554.0
+          ],
+          "court_feet": [
+            16.9,
+            24.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1115.8,
+            547.3
+          ],
+          "court_feet": [
+            20.2,
+            26.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            976.8,
+            854.4
+          ],
+          "court_feet": [
+            23.3,
+            9.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1427.1,
+            506.1
+          ],
+          "court_feet": [
+            27.1,
+            32.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1658.8,
+            363.9
+          ],
+          "court_feet": [
+            30.9,
+            47.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 170,
+      "timestamp_s": 5.667,
+      "homography_confidence": {
+        "inliers": 2183,
+        "reproj_px": 0.54,
+        "state": "ok",
+        "nearest_keyframe": 120
+      },
+      "detections": [
+        {
+          "pixel": [
+            647.2,
+            419.7
+          ],
+          "court_feet": [
+            3.7,
+            29.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            671.3,
+            426.4
+          ],
+          "court_feet": [
+            4.6,
+            29.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            481.3,
+            560.2
+          ],
+          "court_feet": [
+            5.3,
+            18.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            53.1,
+            851.1
+          ],
+          "court_feet": [
+            5.9,
+            2.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            726.0,
+            458.7
+          ],
+          "court_feet": [
+            7.5,
+            27.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            639.2,
+            536.8
+          ],
+          "court_feet": [
+            8.2,
+            21.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            633.9,
+            714.6
+          ],
+          "court_feet": [
+            13.6,
+            12.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            378.0,
+            1011.5
+          ],
+          "court_feet": [
+            15.5,
+            0.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1003.4,
+            512.6
+          ],
+          "court_feet": [
+            16.5,
+            27.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1106.6,
+            548.8
+          ],
+          "court_feet": [
+            20.0,
+            25.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1027.3,
+            815.1
+          ],
+          "court_feet": [
+            23.6,
+            11.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1431.0,
+            508.1
+          ],
+          "court_feet": [
+            27.2,
+            32.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1658.5,
+            363.8
+          ],
+          "court_feet": [
+            30.9,
+            47.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 180,
+      "timestamp_s": 6.0,
+      "homography_confidence": {
+        "inliers": 2670,
+        "reproj_px": 0.52,
+        "state": "ok",
+        "nearest_keyframe": 220
+      },
+      "detections": [
+        {
+          "pixel": [
+            631.2,
+            384.0
+          ],
+          "court_feet": [
+            1.5,
+            32.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            601.9,
+            470.0
+          ],
+          "court_feet": [
+            4.7,
+            25.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            487.3,
+            546.4
+          ],
+          "court_feet": [
+            4.9,
+            19.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            49.2,
+            850.9
+          ],
+          "court_feet": [
+            5.8,
+            2.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            719.2,
+            459.6
+          ],
+          "court_feet": [
+            7.4,
+            27.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            654.1,
+            553.9
+          ],
+          "court_feet": [
+            9.2,
+            20.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            614.9,
+            677.6
+          ],
+          "court_feet": [
+            12.2,
+            13.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            347.0,
+            1012.6
+          ],
+          "court_feet": [
+            15.0,
+            -0.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1033.3,
+            500.6
+          ],
+          "court_feet": [
+            16.9,
+            28.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1061.3,
+            559.0
+          ],
+          "court_feet": [
+            19.2,
+            24.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1079.6,
+            774.8
+          ],
+          "court_feet": [
+            24.0,
+            13.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1424.5,
+            512.0
+          ],
+          "court_feet": [
+            27.1,
+            31.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1659.0,
+            363.0
+          ],
+          "court_feet": [
+            30.9,
+            47.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 190,
+      "timestamp_s": 6.333,
+      "homography_confidence": {
+        "inliers": 3015,
+        "reproj_px": 0.48,
+        "state": "ok",
+        "nearest_keyframe": 220
+      },
+      "detections": [
+        {
+          "pixel": [
+            663.2,
+            395.0
+          ],
+          "court_feet": [
+            3.0,
+            31.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            617.0,
+            471.7
+          ],
+          "court_feet": [
+            5.1,
+            25.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            505.6,
+            542.2
+          ],
+          "court_feet": [
+            5.2,
+            19.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            47.6,
+            849.7
+          ],
+          "court_feet": [
+            5.7,
+            2.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            663.9,
+            469.0
+          ],
+          "court_feet": [
+            6.3,
+            26.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            698.6,
+            472.8
+          ],
+          "court_feet": [
+            7.3,
+            26.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            667.3,
+            565.2
+          ],
+          "court_feet": [
+            9.9,
+            20.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            614.7,
+            649.7
+          ],
+          "court_feet": [
+            11.4,
+            15.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            331.7,
+            993.2
+          ],
+          "court_feet": [
+            14.4,
+            0.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1046.4,
+            482.2
+          ],
+          "court_feet": [
+            16.7,
+            29.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1027.4,
+            571.3
+          ],
+          "court_feet": [
+            18.7,
+            23.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1086.9,
+            749.4
+          ],
+          "court_feet": [
+            23.7,
+            14.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1389.6,
+            515.1
+          ],
+          "court_feet": [
+            26.3,
+            31.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1659.1,
+            363.0
+          ],
+          "court_feet": [
+            30.9,
+            47.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 200,
+      "timestamp_s": 6.667,
+      "homography_confidence": {
+        "inliers": 3104,
+        "reproj_px": 0.44,
+        "state": "ok",
+        "nearest_keyframe": 220
+      },
+      "detections": [
+        {
+          "pixel": [
+            672.0,
+            400.9
+          ],
+          "court_feet": [
+            3.5,
+            31.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            505.3,
+            545.4
+          ],
+          "court_feet": [
+            5.3,
+            19.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            44.1,
+            850.0
+          ],
+          "court_feet": [
+            5.7,
+            2.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            636.0,
+            492.6
+          ],
+          "court_feet": [
+            6.5,
+            24.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            591.4,
+            645.0
+          ],
+          "court_feet": [
+            10.7,
+            15.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            688.6,
+            586.8
+          ],
+          "court_feet": [
+            11.1,
+            19.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            309.7,
+            993.4
+          ],
+          "court_feet": [
+            14.0,
+            -0.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1056.4,
+            471.4
+          ],
+          "court_feet": [
+            16.7,
+            30.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            986.7,
+            607.8
+          ],
+          "court_feet": [
+            18.6,
+            21.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1084.5,
+            740.5
+          ],
+          "court_feet": [
+            23.5,
+            15.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1356.1,
+            530.7
+          ],
+          "court_feet": [
+            25.7,
+            29.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1662.9,
+            363.1
+          ],
+          "court_feet": [
+            31.0,
+            47.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 210,
+      "timestamp_s": 7.0,
+      "homography_confidence": {
+        "inliers": 4114,
+        "reproj_px": 0.38,
+        "state": "ok",
+        "nearest_keyframe": 220
+      },
+      "detections": [
+        {
+          "pixel": [
+            501.6,
+            544.0
+          ],
+          "court_feet": [
+            5.1,
+            19.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            45.8,
+            850.3
+          ],
+          "court_feet": [
+            5.7,
+            2.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            662.5,
+            474.9
+          ],
+          "court_feet": [
+            6.5,
+            25.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            571.5,
+            651.0
+          ],
+          "court_feet": [
+            10.4,
+            14.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            716.0,
+            585.9
+          ],
+          "court_feet": [
+            11.7,
+            19.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            296.6,
+            988.4
+          ],
+          "court_feet": [
+            13.7,
+            0.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1077.9,
+            445.0
+          ],
+          "court_feet": [
+            16.5,
+            32.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            941.6,
+            608.6
+          ],
+          "court_feet": [
+            17.6,
+            20.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1096.9,
+            740.9
+          ],
+          "court_feet": [
+            23.7,
+            15.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1332.4,
+            545.9
+          ],
+          "court_feet": [
+            25.5,
+            28.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1662.7,
+            363.5
+          ],
+          "court_feet": [
+            31.0,
+            47.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 220,
+      "timestamp_s": 7.333,
+      "homography_confidence": {
+        "inliers": 9426,
+        "reproj_px": 0.0,
+        "state": "ok",
+        "nearest_keyframe": 220
+      },
+      "detections": [
+        {
+          "pixel": [
+            487.5,
+            547.6
+          ],
+          "court_feet": [
+            4.9,
+            19.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            48.9,
+            851.3
+          ],
+          "court_feet": [
+            5.8,
+            2.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            658.9,
+            463.3
+          ],
+          "court_feet": [
+            5.9,
+            26.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            560.3,
+            660.5
+          ],
+          "court_feet": [
+            10.5,
+            14.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            724.6,
+            625.8
+          ],
+          "court_feet": [
+            13.1,
+            17.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            296.7,
+            988.0
+          ],
+          "court_feet": [
+            13.7,
+            0.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1060.0,
+            439.9
+          ],
+          "court_feet": [
+            15.8,
+            33.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            910.5,
+            618.8
+          ],
+          "court_feet": [
+            17.2,
+            19.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1096.8,
+            740.6
+          ],
+          "court_feet": [
+            23.7,
+            15.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1330.5,
+            546.3
+          ],
+          "court_feet": [
+            25.4,
+            28.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1662.2,
+            363.5
+          ],
+          "court_feet": [
+            31.0,
+            47.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 230,
+      "timestamp_s": 7.667,
+      "homography_confidence": {
+        "inliers": 4031,
+        "reproj_px": 0.39,
+        "state": "ok",
+        "nearest_keyframe": 220
+      },
+      "detections": [
+        {
+          "pixel": [
+            487.8,
+            564.2
+          ],
+          "court_feet": [
+            5.6,
+            18.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            641.3,
+            466.4
+          ],
+          "court_feet": [
+            5.6,
+            26.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            48.5,
+            851.2
+          ],
+          "court_feet": [
+            5.8,
+            2.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            544.7,
+            610.9
+          ],
+          "court_feet": [
+            8.6,
+            16.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            716.3,
+            584.8
+          ],
+          "court_feet": [
+            11.7,
+            19.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            683.9,
+            630.8
+          ],
+          "court_feet": [
+            12.4,
+            16.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            297.0,
+            987.3
+          ],
+          "court_feet": [
+            13.7,
+            0.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1011.5,
+            444.4
+          ],
+          "court_feet": [
+            14.6,
+            32.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            899.4,
+            645.0
+          ],
+          "court_feet": [
+            17.6,
+            18.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1107.2,
+            738.9
+          ],
+          "court_feet": [
+            23.9,
+            15.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1348.8,
+            546.8
+          ],
+          "court_feet": [
+            25.9,
+            28.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1661.7,
+            363.7
+          ],
+          "court_feet": [
+            31.0,
+            47.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 240,
+      "timestamp_s": 8.0,
+      "homography_confidence": {
+        "inliers": 2405,
+        "reproj_px": 0.55,
+        "state": "ok",
+        "nearest_keyframe": 220
+      },
+      "detections": [
+        {
+          "pixel": [
+            514.1,
+            527.3
+          ],
+          "court_feet": [
+            4.8,
+            20.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            645.4,
+            447.2
+          ],
+          "court_feet": [
+            4.8,
+            27.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            690.2,
+            434.2
+          ],
+          "court_feet": [
+            5.5,
+            29.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            50.9,
+            851.1
+          ],
+          "court_feet": [
+            5.8,
+            2.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            549.5,
+            564.8
+          ],
+          "court_feet": [
+            7.1,
+            19.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            677.1,
+            486.9
+          ],
+          "court_feet": [
+            7.3,
+            25.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            678.6,
+            562.8
+          ],
+          "court_feet": [
+            10.1,
+            20.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            667.8,
+            650.7
+          ],
+          "court_feet": [
+            12.6,
+            15.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            297.8,
+            987.9
+          ],
+          "court_feet": [
+            13.7,
+            0.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1000.5,
+            450.8
+          ],
+          "court_feet": [
+            14.6,
+            31.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            891.1,
+            645.6
+          ],
+          "court_feet": [
+            17.4,
+            18.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1138.4,
+            738.7
+          ],
+          "court_feet": [
+            24.6,
+            15.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1368.1,
+            551.4
+          ],
+          "court_feet": [
+            26.4,
+            28.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1661.2,
+            363.7
+          ],
+          "court_feet": [
+            31.0,
+            47.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 250,
+      "timestamp_s": 8.333,
+      "homography_confidence": {
+        "inliers": 2517,
+        "reproj_px": 0.56,
+        "state": "ok",
+        "nearest_keyframe": 220
+      },
+      "detections": [
+        {
+          "pixel": [
+            626.1,
+            331.5
+          ],
+          "court_feet": [
+            -1.5,
+            37.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            655.5,
+            417.7
+          ],
+          "court_feet": [
+            3.8,
+            30.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            517.6,
+            535.6
+          ],
+          "court_feet": [
+            5.2,
+            20.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            46.8,
+            849.8
+          ],
+          "court_feet": [
+            5.7,
+            2.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            694.0,
+            443.7
+          ],
+          "court_feet": [
+            6.0,
+            28.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            654.5,
+            473.0
+          ],
+          "court_feet": [
+            6.2,
+            25.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            575.0,
+            551.1
+          ],
+          "court_feet": [
+            7.2,
+            20.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            660.8,
+            652.4
+          ],
+          "court_feet": [
+            12.5,
+            15.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            297.8,
+            988.1
+          ],
+          "court_feet": [
+            13.7,
+            0.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            985.6,
+            448.6
+          ],
+          "court_feet": [
+            14.1,
+            31.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            880.6,
+            656.3
+          ],
+          "court_feet": [
+            17.4,
+            17.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1158.5,
+            745.6
+          ],
+          "court_feet": [
+            25.1,
+            15.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1366.1,
+            551.3
+          ],
+          "court_feet": [
+            26.4,
+            28.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1661.1,
+            363.6
+          ],
+          "court_feet": [
+            31.0,
+            47.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 260,
+      "timestamp_s": 8.667,
+      "homography_confidence": {
+        "inliers": 2281,
+        "reproj_px": 0.52,
+        "state": "ok",
+        "nearest_keyframe": 220
+      },
+      "detections": [
+        {
+          "pixel": [
+            510.1,
+            526.2
+          ],
+          "court_feet": [
+            4.6,
+            20.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            45.8,
+            849.6
+          ],
+          "court_feet": [
+            5.7,
+            2.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            679.8,
+            454.1
+          ],
+          "court_feet": [
+            6.1,
+            27.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            574.2,
+            524.7
+          ],
+          "court_feet": [
+            6.2,
+            21.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            626.6,
+            577.9
+          ],
+          "court_feet": [
+            9.4,
+            19.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            679.0,
+            659.9
+          ],
+          "court_feet": [
+            13.1,
+            15.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            297.8,
+            988.2
+          ],
+          "court_feet": [
+            13.7,
+            0.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            991.9,
+            449.4
+          ],
+          "court_feet": [
+            14.3,
+            31.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            867.8,
+            660.2
+          ],
+          "court_feet": [
+            17.2,
+            17.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1211.6,
+            745.0
+          ],
+          "court_feet": [
+            26.2,
+            16.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1353.4,
+            556.5
+          ],
+          "court_feet": [
+            26.2,
+            27.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1665.3,
+            368.1
+          ],
+          "court_feet": [
+            31.2,
+            47.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 270,
+      "timestamp_s": 9.0,
+      "homography_confidence": {
+        "inliers": 1982,
+        "reproj_px": 0.57,
+        "state": "ok",
+        "nearest_keyframe": 220
+      },
+      "detections": [
+        {
+          "pixel": [
+            570.4,
+            434.8
+          ],
+          "court_feet": [
+            2.2,
+            27.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            497.5,
+            535.6
+          ],
+          "court_feet": [
+            4.7,
+            20.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            681.8,
+            432.6
+          ],
+          "court_feet": [
+            5.2,
+            29.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            51.8,
+            850.1
+          ],
+          "court_feet": [
+            5.8,
+            2.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            737.2,
+            456.7
+          ],
+          "court_feet": [
+            7.7,
+            28.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            582.1,
+            591.9
+          ],
+          "court_feet": [
+            8.8,
+            17.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            317.0,
+            1001.7
+          ],
+          "court_feet": [
+            14.3,
+            -0.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            741.5,
+            670.3
+          ],
+          "court_feet": [
+            14.7,
+            15.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1023.1,
+            443.7
+          ],
+          "court_feet": [
+            14.9,
+            32.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            847.6,
+            661.4
+          ],
+          "court_feet": [
+            16.8,
+            16.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1303.3,
+            556.8
+          ],
+          "court_feet": [
+            25.0,
+            27.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1214.9,
+            752.9
+          ],
+          "court_feet": [
+            26.3,
+            15.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1689.5,
+            372.1
+          ],
+          "court_feet": [
+            31.9,
+            47.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 280,
+      "timestamp_s": 9.333,
+      "homography_confidence": {
+        "inliers": 1493,
+        "reproj_px": 0.63,
+        "state": "ok",
+        "nearest_keyframe": 320
+      },
+      "detections": [
+        {
+          "pixel": [
+            568.6,
+            504.5
+          ],
+          "court_feet": [
+            5.2,
+            22.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            680.8,
+            433.6
+          ],
+          "court_feet": [
+            5.2,
+            29.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            521.3,
+            556.6
+          ],
+          "court_feet": [
+            6.1,
+            19.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            75.2,
+            850.1
+          ],
+          "court_feet": [
+            6.3,
+            2.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            539.6,
+            605.1
+          ],
+          "court_feet": [
+            8.3,
+            16.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            814.2,
+            492.1
+          ],
+          "court_feet": [
+            11.1,
+            26.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            342.2,
+            1010.6
+          ],
+          "court_feet": [
+            14.9,
+            -0.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1057.2,
+            433.7
+          ],
+          "court_feet": [
+            15.5,
+            33.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            808.2,
+            711.7
+          ],
+          "court_feet": [
+            17.2,
+            14.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            861.8,
+            668.5
+          ],
+          "court_feet": [
+            17.3,
+            16.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1243.7,
+            556.4
+          ],
+          "court_feet": [
+            23.5,
+            26.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1190.6,
+            752.6
+          ],
+          "court_feet": [
+            25.8,
+            15.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1741.4,
+            372.0
+          ],
+          "court_feet": [
+            33.5,
+            47.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 290,
+      "timestamp_s": 9.667,
+      "homography_confidence": {
+        "inliers": 1266,
+        "reproj_px": 0.58,
+        "state": "ok",
+        "nearest_keyframe": 320
+      },
+      "detections": [
+        {
+          "pixel": [
+            489.7,
+            493.0
+          ],
+          "court_feet": [
+            2.7,
+            22.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            694.6,
+            427.4
+          ],
+          "court_feet": [
+            5.3,
+            29.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            112.9,
+            849.7
+          ],
+          "court_feet": [
+            7.0,
+            2.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            576.3,
+            597.9
+          ],
+          "court_feet": [
+            8.9,
+            17.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            531.3,
+            656.8
+          ],
+          "court_feet": [
+            9.7,
+            14.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            937.2,
+            534.6
+          ],
+          "court_feet": [
+            15.5,
+            24.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            384.6,
+            1008.4
+          ],
+          "court_feet": [
+            15.6,
+            0.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1100.3,
+            432.8
+          ],
+          "court_feet": [
+            16.7,
+            34.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            869.6,
+            670.6
+          ],
+          "court_feet": [
+            17.5,
+            16.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            928.9,
+            718.0
+          ],
+          "court_feet": [
+            19.8,
+            14.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1179.0,
+            552.7
+          ],
+          "court_feet": [
+            21.9,
+            26.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1166.2,
+            745.0
+          ],
+          "court_feet": [
+            25.2,
+            15.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1817.8,
+            379.4
+          ],
+          "court_feet": [
+            35.8,
+            47.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 300,
+      "timestamp_s": 10.0,
+      "homography_confidence": {
+        "inliers": 1700,
+        "reproj_px": 0.59,
+        "state": "ok",
+        "nearest_keyframe": 320
+      },
+      "detections": [
+        {
+          "pixel": [
+            411.7,
+            484.4
+          ],
+          "court_feet": [
+            0.1,
+            22.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            704.2,
+            418.1
+          ],
+          "court_feet": [
+            5.0,
+            30.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            160.7,
+            851.3
+          ],
+          "court_feet": [
+            7.8,
+            2.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            646.5,
+            644.4
+          ],
+          "court_feet": [
+            11.9,
+            15.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            565.1,
+            720.9
+          ],
+          "court_feet": [
+            12.3,
+            11.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            439.6,
+            1012.8
+          ],
+          "court_feet": [
+            16.6,
+            0.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1147.1,
+            424.9
+          ],
+          "court_feet": [
+            17.8,
+            35.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            869.5,
+            694.8
+          ],
+          "court_feet": [
+            18.1,
+            15.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1053.6,
+            571.3
+          ],
+          "court_feet": [
+            19.4,
+            23.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1136.3,
+            564.0
+          ],
+          "court_feet": [
+            21.2,
+            25.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1070.0,
+            749.7
+          ],
+          "court_feet": [
+            23.5,
+            14.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1163.1,
+            711.2
+          ],
+          "court_feet": [
+            24.7,
+            17.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1877.8,
+            402.3
+          ],
+          "court_feet": [
+            38.1,
+            46.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 310,
+      "timestamp_s": 10.333,
+      "homography_confidence": {
+        "inliers": 2287,
+        "reproj_px": 0.55,
+        "state": "ok",
+        "nearest_keyframe": 320
+      },
+      "detections": [
+        {
+          "pixel": [
+            312.5,
+            491.3
+          ],
+          "court_feet": [
+            -0.8,
+            21.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            665.5,
+            402.0
+          ],
+          "court_feet": [
+            4.9,
+            31.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            163.5,
+            850.8
+          ],
+          "court_feet": [
+            8.9,
+            2.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            579.2,
+            765.9
+          ],
+          "court_feet": [
+            15.0,
+            9.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            674.5,
+            684.4
+          ],
+          "court_feet": [
+            15.0,
+            13.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            464.9,
+            1020.0
+          ],
+          "court_feet": [
+            18.2,
+            0.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            836.2,
+            692.0
+          ],
+          "court_feet": [
+            18.8,
+            15.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1129.3,
+            408.7
+          ],
+          "court_feet": [
+            18.9,
+            36.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1008.0,
+            533.6
+          ],
+          "court_feet": [
+            19.1,
+            25.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1139.0,
+            594.3
+          ],
+          "court_feet": [
+            23.7,
+            23.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1178.0,
+            584.9
+          ],
+          "court_feet": [
+            24.5,
+            24.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1148.9,
+            755.1
+          ],
+          "court_feet": [
+            26.7,
+            14.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1865.1,
+            399.6
+          ],
+          "court_feet": [
+            40.5,
+            46.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 320,
+      "timestamp_s": 10.667,
+      "homography_confidence": {
+        "inliers": 9453,
+        "reproj_px": 0.0,
+        "state": "ok",
+        "nearest_keyframe": 320
+      },
+      "detections": [
+        {
+          "pixel": [
+            154.5,
+            488.8
+          ],
+          "court_feet": [
+            -1.3,
+            21.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            470.4,
+            309.8
+          ],
+          "court_feet": [
+            -1.1,
+            39.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            532.3,
+            376.0
+          ],
+          "court_feet": [
+            4.5,
+            33.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            71.6,
+            850.0
+          ],
+          "court_feet": [
+            9.7,
+            3.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            821.0,
+            509.9
+          ],
+          "court_feet": [
+            17.9,
+            25.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            554.5,
+            802.4
+          ],
+          "court_feet": [
+            18.5,
+            8.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            378.7,
+            988.6
+          ],
+          "court_feet": [
+            18.6,
+            0.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            645.0,
+            732.3
+          ],
+          "court_feet": [
+            18.9,
+            11.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            708.5,
+            679.0
+          ],
+          "court_feet": [
+            19.2,
+            14.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1040.0,
+            387.5
+          ],
+          "court_feet": [
+            20.9,
+            37.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1099.2,
+            626.9
+          ],
+          "court_feet": [
+            27.5,
+            20.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1173.7,
+            568.9
+          ],
+          "court_feet": [
+            28.4,
+            24.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1159.3,
+            761.3
+          ],
+          "court_feet": [
+            30.6,
+            14.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1769.9,
+            379.8
+          ],
+          "court_feet": [
+            43.5,
+            45.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 330,
+      "timestamp_s": 11.0,
+      "homography_confidence": {
+        "inliers": 2144,
+        "reproj_px": 0.52,
+        "state": "ok",
+        "nearest_keyframe": 320
+      },
+      "detections": [
+        {
+          "pixel": [
+            25.8,
+            507.2
+          ],
+          "court_feet": [
+            -0.8,
+            20.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            380.9,
+            308.5
+          ],
+          "court_feet": [
+            0.1,
+            39.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            436.7,
+            371.7
+          ],
+          "court_feet": [
+            5.3,
+            34.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            15.5,
+            858.1
+          ],
+          "court_feet": [
+            11.0,
+            3.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            15.7,
+            967.8
+          ],
+          "court_feet": [
+            13.5,
+            0.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            660.1,
+            484.8
+          ],
+          "court_feet": [
+            16.4,
+            26.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            564.4,
+            674.0
+          ],
+          "court_feet": [
+            18.7,
+            14.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            362.2,
+            1027.4
+          ],
+          "court_feet": [
+            21.0,
+            0.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            581.6,
+            827.0
+          ],
+          "court_feet": [
+            22.1,
+            7.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            965.5,
+            374.5
+          ],
+          "court_feet": [
+            22.7,
+            38.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            679.7,
+            750.9
+          ],
+          "court_feet": [
+            22.9,
+            11.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1017.5,
+            560.2
+          ],
+          "court_feet": [
+            27.9,
+            23.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1205.2,
+            537.8
+          ],
+          "court_feet": [
+            32.6,
+            26.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1206.0,
+            743.5
+          ],
+          "court_feet": [
+            34.5,
+            15.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1681.6,
+            357.9
+          ],
+          "court_feet": [
+            46.0,
+            46.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 340,
+      "timestamp_s": 11.333,
+      "homography_confidence": {
+        "inliers": 1593,
+        "reproj_px": 0.63,
+        "state": "ok",
+        "nearest_keyframe": 320
+      },
+      "detections": [
+        {
+          "pixel": [
+            325.3,
+            313.1
+          ],
+          "court_feet": [
+            1.2,
+            40.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            8.4,
+            536.6
+          ],
+          "court_feet": [
+            2.0,
+            19.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            358.1,
+            378.8
+          ],
+          "court_feet": [
+            5.7,
+            33.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            549.0,
+            453.4
+          ],
+          "court_feet": [
+            14.7,
+            28.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            503.7,
+            693.4
+          ],
+          "court_feet": [
+            19.7,
+            13.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            335.7,
+            1021.6
+          ],
+          "court_feet": [
+            21.9,
+            0.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            943.9,
+            363.1
+          ],
+          "court_feet": [
+            25.0,
+            39.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            674.7,
+            838.8
+          ],
+          "court_feet": [
+            26.0,
+            7.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            742.5,
+            754.5
+          ],
+          "court_feet": [
+            26.4,
+            11.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            989.1,
+            496.8
+          ],
+          "court_feet": [
+            28.9,
+            28.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1252.9,
+            547.9
+          ],
+          "court_feet": [
+            36.9,
+            26.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1283.6,
+            735.8
+          ],
+          "court_feet": [
+            38.6,
+            15.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1646.1,
+            353.3
+          ],
+          "court_feet": [
+            48.9,
+            45.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 350,
+      "timestamp_s": 11.667,
+      "homography_confidence": {
+        "inliers": 1484,
+        "reproj_px": 0.68,
+        "state": "ok",
+        "nearest_keyframe": 320
+      },
+      "detections": [
+        {
+          "pixel": [
+            324.7,
+            311.9
+          ],
+          "court_feet": [
+            2.6,
+            41.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            295.2,
+            385.6
+          ],
+          "court_feet": [
+            5.4,
+            33.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            475.3,
+            444.6
+          ],
+          "court_feet": [
+            13.7,
+            29.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            488.6,
+            735.8
+          ],
+          "court_feet": [
+            21.4,
+            11.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            373.0,
+            1041.2
+          ],
+          "court_feet": [
+            23.8,
+            -0.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            958.8,
+            352.8
+          ],
+          "court_feet": [
+            27.5,
+            41.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            795.4,
+            702.4
+          ],
+          "court_feet": [
+            28.3,
+            14.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            960.6,
+            446.0
+          ],
+          "court_feet": [
+            29.2,
+            32.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            788.0,
+            829.6
+          ],
+          "court_feet": [
+            29.6,
+            8.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1313.9,
+            528.7
+          ],
+          "court_feet": [
+            40.6,
+            27.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1344.1,
+            721.2
+          ],
+          "court_feet": [
+            41.7,
+            15.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1634.7,
+            350.3
+          ],
+          "court_feet": [
+            51.6,
+            45.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 360,
+      "timestamp_s": 12.0,
+      "homography_confidence": {
+        "inliers": 1209,
+        "reproj_px": 0.68,
+        "state": "ok",
+        "nearest_keyframe": 320
+      },
+      "detections": [
+        {
+          "pixel": [
+            328.2,
+            320.4
+          ],
+          "court_feet": [
+            4.3,
+            41.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            241.0,
+            410.6
+          ],
+          "court_feet": [
+            5.6,
+            31.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            24.6,
+            607.1
+          ],
+          "court_feet": [
+            7.0,
+            16.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            432.7,
+            452.0
+          ],
+          "court_feet": [
+            13.7,
+            29.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            475.7,
+            750.1
+          ],
+          "court_feet": [
+            22.3,
+            10.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            434.5,
+            1038.5
+          ],
+          "court_feet": [
+            25.6,
+            -0.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            834.1,
+            659.2
+          ],
+          "court_feet": [
+            29.9,
+            16.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            950.2,
+            429.4
+          ],
+          "court_feet": [
+            30.3,
+            33.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1001.4,
+            346.8
+          ],
+          "court_feet": [
+            30.8,
+            42.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            899.7,
+            815.5
+          ],
+          "court_feet": [
+            33.0,
+            9.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1362.2,
+            504.4
+          ],
+          "court_feet": [
+            43.9,
+            29.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1417.3,
+            733.9
+          ],
+          "court_feet": [
+            44.9,
+            15.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1652.8,
+            351.9
+          ],
+          "court_feet": [
+            54.9,
+            45.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 370,
+      "timestamp_s": 12.333,
+      "homography_confidence": {
+        "inliers": 1080,
+        "reproj_px": 0.71,
+        "state": "ok",
+        "nearest_keyframe": 320
+      },
+      "detections": [
+        {
+          "pixel": [
+            360.1,
+            326.8
+          ],
+          "court_feet": [
+            5.7,
+            42.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            247.1,
+            439.4
+          ],
+          "court_feet": [
+            7.0,
+            29.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            39.9,
+            650.1
+          ],
+          "court_feet": [
+            8.8,
+            13.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            424.6,
+            463.3
+          ],
+          "court_feet": [
+            13.9,
+            28.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            73.3,
+            851.2
+          ],
+          "court_feet": [
+            15.1,
+            4.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            510.4,
+            785.5
+          ],
+          "court_feet": [
+            24.0,
+            9.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            482.1,
+            1040.9
+          ],
+          "court_feet": [
+            26.8,
+            -0.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            941.4,
+            415.4
+          ],
+          "court_feet": [
+            30.4,
+            35.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            863.6,
+            643.5
+          ],
+          "court_feet": [
+            31.0,
+            17.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1056.1,
+            353.1
+          ],
+          "court_feet": [
+            33.8,
+            42.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            977.4,
+            775.7
+          ],
+          "court_feet": [
+            35.1,
+            11.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1406.0,
+            481.3
+          ],
+          "court_feet": [
+            46.4,
+            31.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1490.7,
+            711.4
+          ],
+          "court_feet": [
+            47.7,
+            16.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1685.9,
+            356.6
+          ],
+          "court_feet": [
+            57.8,
+            45.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 380,
+      "timestamp_s": 12.667,
+      "homography_confidence": {
+        "inliers": 1709,
+        "reproj_px": 0.64,
+        "state": "ok",
+        "nearest_keyframe": 420
+      },
+      "detections": [
+        {
+          "pixel": [
+            419.5,
+            330.9
+          ],
+          "court_feet": [
+            7.3,
+            42.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            278.1,
+            446.9
+          ],
+          "court_feet": [
+            7.6,
+            29.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            129.0,
+            660.4
+          ],
+          "court_feet": [
+            10.9,
+            13.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            454.2,
+            478.7
+          ],
+          "court_feet": [
+            14.9,
+            27.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            160.5,
+            851.5
+          ],
+          "court_feet": [
+            16.7,
+            4.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            579.6,
+            806.9
+          ],
+          "court_feet": [
+            25.8,
+            7.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            555.7,
+            1010.1
+          ],
+          "court_feet": [
+            27.8,
+            0.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            951.8,
+            426.2
+          ],
+          "court_feet": [
+            30.9,
+            34.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            878.0,
+            653.0
+          ],
+          "court_feet": [
+            31.5,
+            16.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1043.9,
+            714.0
+          ],
+          "court_feet": [
+            36.4,
+            14.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1140.1,
+            359.8
+          ],
+          "court_feet": [
+            37.2,
+            43.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1436.4,
+            469.7
+          ],
+          "court_feet": [
+            48.0,
+            33.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1537.0,
+            739.3
+          ],
+          "court_feet": [
+            49.1,
+            14.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1743.8,
+            364.2
+          ],
+          "court_feet": [
+            60.9,
+            46.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 390,
+      "timestamp_s": 13.0,
+      "homography_confidence": {
+        "inliers": 1962,
+        "reproj_px": 0.62,
+        "state": "ok",
+        "nearest_keyframe": 420
+      },
+      "detections": [
+        {
+          "pixel": [
+            292.0,
+            493.1
+          ],
+          "court_feet": [
+            9.2,
+            25.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            480.4,
+            338.3
+          ],
+          "court_feet": [
+            9.2,
+            42.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            203.7,
+            693.2
+          ],
+          "court_feet": [
+            13.4,
+            11.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            479.1,
+            497.5
+          ],
+          "court_feet": [
+            15.8,
+            26.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            207.0,
+            852.5
+          ],
+          "court_feet": [
+            17.5,
+            4.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            673.0,
+            834.4
+          ],
+          "court_feet": [
+            28.3,
+            6.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            653.8,
+            974.3
+          ],
+          "court_feet": [
+            29.4,
+            1.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            950.3,
+            437.5
+          ],
+          "court_feet": [
+            31.0,
+            33.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            872.9,
+            658.7
+          ],
+          "court_feet": [
+            31.4,
+            16.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1086.5,
+            660.4
+          ],
+          "court_feet": [
+            37.4,
+            17.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1216.5,
+            364.5
+          ],
+          "court_feet": [
+            40.6,
+            43.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1454.8,
+            449.4
+          ],
+          "court_feet": [
+            49.4,
+            35.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1566.2,
+            759.9
+          ],
+          "court_feet": [
+            50.1,
+            13.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1772.5,
+            375.6
+          ],
+          "court_feet": [
+            62.8,
+            45.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 400,
+      "timestamp_s": 13.333,
+      "homography_confidence": {
+        "inliers": 2299,
+        "reproj_px": 0.6,
+        "state": "ok",
+        "nearest_keyframe": 420
+      },
+      "detections": [
+        {
+          "pixel": [
+            321.5,
+            520.6
+          ],
+          "court_feet": [
+            10.7,
+            23.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            526.7,
+            344.9
+          ],
+          "court_feet": [
+            10.8,
+            42.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            261.8,
+            700.5
+          ],
+          "court_feet": [
+            14.9,
+            11.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            495.8,
+            529.8
+          ],
+          "court_feet": [
+            16.9,
+            23.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            258.9,
+            852.2
+          ],
+          "court_feet": [
+            18.5,
+            4.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            270.0,
+            955.4
+          ],
+          "court_feet": [
+            20.7,
+            0.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            713.3,
+            968.0
+          ],
+          "court_feet": [
+            30.6,
+            1.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            778.2,
+            857.8
+          ],
+          "court_feet": [
+            31.0,
+            5.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            955.0,
+            474.9
+          ],
+          "court_feet": [
+            31.6,
+            30.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            887.3,
+            683.0
+          ],
+          "court_feet": [
+            32.0,
+            14.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1101.8,
+            623.5
+          ],
+          "court_feet": [
+            37.8,
+            19.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1274.1,
+            371.3
+          ],
+          "court_feet": [
+            43.2,
+            43.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1464.1,
+            443.8
+          ],
+          "court_feet": [
+            50.2,
+            36.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1567.9,
+            764.2
+          ],
+          "court_feet": [
+            50.5,
+            12.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1783.7,
+            380.2
+          ],
+          "court_feet": [
+            64.1,
+            45.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 410,
+      "timestamp_s": 13.667,
+      "homography_confidence": {
+        "inliers": 2646,
+        "reproj_px": 0.58,
+        "state": "ok",
+        "nearest_keyframe": 420
+      },
+      "detections": [
+        {
+          "pixel": [
+            563.7,
+            348.1
+          ],
+          "court_feet": [
+            12.2,
+            42.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            395.0,
+            545.5
+          ],
+          "court_feet": [
+            13.8,
+            21.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            303.9,
+            758.5
+          ],
+          "court_feet": [
+            17.3,
+            8.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            530.4,
+            577.6
+          ],
+          "court_feet": [
+            19.3,
+            19.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            326.9,
+            939.2
+          ],
+          "court_feet": [
+            21.6,
+            0.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            761.4,
+            968.9
+          ],
+          "court_feet": [
+            31.6,
+            1.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            954.5,
+            499.6
+          ],
+          "court_feet": [
+            31.9,
+            28.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            916.8,
+            726.1
+          ],
+          "court_feet": [
+            33.3,
+            12.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            889.0,
+            888.7
+          ],
+          "court_feet": [
+            33.9,
+            4.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1122.9,
+            618.5
+          ],
+          "court_feet": [
+            38.5,
+            19.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1325.4,
+            373.3
+          ],
+          "court_feet": [
+            45.6,
+            44.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1564.9,
+            782.4
+          ],
+          "court_feet": [
+            50.5,
+            11.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1483.9,
+            462.0
+          ],
+          "court_feet": [
+            51.1,
+            34.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1818.2,
+            386.2
+          ],
+          "court_feet": [
+            65.9,
+            45.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 420,
+      "timestamp_s": 14.0,
+      "homography_confidence": {
+        "inliers": 11080,
+        "reproj_px": 0.0,
+        "state": "ok",
+        "nearest_keyframe": 420
+      },
+      "detections": [
+        {
+          "pixel": [
+            601.8,
+            353.2
+          ],
+          "court_feet": [
+            13.9,
+            42.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            507.1,
+            522.0
+          ],
+          "court_feet": [
+            16.7,
+            24.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            318.2,
+            755.7
+          ],
+          "court_feet": [
+            17.5,
+            8.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            539.6,
+            623.7
+          ],
+          "court_feet": [
+            20.6,
+            16.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            375.5,
+            976.4
+          ],
+          "court_feet": [
+            23.2,
+            -0.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            835.3,
+            971.4
+          ],
+          "court_feet": [
+            33.3,
+            1.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1002.6,
+            530.4
+          ],
+          "court_feet": [
+            34.0,
+            25.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            962.4,
+            732.2
+          ],
+          "court_feet": [
+            34.6,
+            12.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1009.6,
+            907.0
+          ],
+          "court_feet": [
+            36.8,
+            4.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1195.0,
+            610.5
+          ],
+          "court_feet": [
+            40.7,
+            20.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1387.0,
+            382.4
+          ],
+          "court_feet": [
+            48.3,
+            43.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1507.8,
+            841.8
+          ],
+          "court_feet": [
+            48.8,
+            8.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1527.5,
+            465.7
+          ],
+          "court_feet": [
+            52.8,
+            34.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1831.7,
+            393.1
+          ],
+          "court_feet": [
+            66.5,
+            44.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 430,
+      "timestamp_s": 14.333,
+      "homography_confidence": {
+        "inliers": 4088,
+        "reproj_px": 0.49,
+        "state": "ok",
+        "nearest_keyframe": 420
+      },
+      "detections": [
+        {
+          "pixel": [
+            625.0,
+            355.1
+          ],
+          "court_feet": [
+            15.0,
+            42.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            336.2,
+            732.0
+          ],
+          "court_feet": [
+            17.4,
+            9.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            533.6,
+            639.7
+          ],
+          "court_feet": [
+            20.8,
+            15.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            641.2,
+            546.0
+          ],
+          "court_feet": [
+            22.0,
+            22.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            409.1,
+            973.3
+          ],
+          "court_feet": [
+            23.9,
+            -0.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            895.2,
+            975.8
+          ],
+          "court_feet": [
+            34.6,
+            1.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            957.4,
+            780.6
+          ],
+          "court_feet": [
+            34.8,
+            9.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1076.6,
+            581.7
+          ],
+          "court_feet": [
+            36.9,
+            22.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1148.5,
+            949.2
+          ],
+          "court_feet": [
+            40.1,
+            3.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1237.3,
+            610.8
+          ],
+          "court_feet": [
+            42.1,
+            20.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1477.8,
+            851.2
+          ],
+          "court_feet": [
+            48.0,
+            8.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1424.6,
+            382.5
+          ],
+          "court_feet": [
+            49.9,
+            43.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1574.0,
+            491.6
+          ],
+          "court_feet": [
+            54.2,
+            32.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1875.7,
+            394.5
+          ],
+          "court_feet": [
+            68.4,
+            45.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 440,
+      "timestamp_s": 14.667,
+      "homography_confidence": {
+        "inliers": 3070,
+        "reproj_px": 0.56,
+        "state": "ok",
+        "nearest_keyframe": 420
+      },
+      "detections": [
+        {
+          "pixel": [
+            657.5,
+            354.7
+          ],
+          "court_feet": [
+            16.7,
+            42.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            369.1,
+            731.9
+          ],
+          "court_feet": [
+            18.5,
+            9.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            495.6,
+            625.8
+          ],
+          "court_feet": [
+            19.5,
+            16.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            453.0,
+            970.3
+          ],
+          "court_feet": [
+            24.9,
+            0.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            764.1,
+            529.4
+          ],
+          "court_feet": [
+            26.0,
+            24.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            959.0,
+            780.2
+          ],
+          "court_feet": [
+            35.0,
+            9.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            931.2,
+            980.6
+          ],
+          "court_feet": [
+            35.6,
+            1.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1118.7,
+            600.1
+          ],
+          "court_feet": [
+            38.6,
+            20.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1284.4,
+            958.5
+          ],
+          "court_feet": [
+            43.3,
+            3.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1273.0,
+            602.5
+          ],
+          "court_feet": [
+            43.4,
+            21.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1504.2,
+            847.2
+          ],
+          "court_feet": [
+            48.9,
+            8.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1433.6,
+            381.9
+          ],
+          "court_feet": [
+            50.6,
+            44.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1621.2,
+            500.6
+          ],
+          "court_feet": [
+            56.0,
+            31.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1890.7,
+            397.0
+          ],
+          "court_feet": [
+            69.3,
+            44.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1908.5,
+            396.3
+          ],
+          "court_feet": [
+            70.1,
+            44.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 450,
+      "timestamp_s": 15.0,
+      "homography_confidence": {
+        "inliers": 2535,
+        "reproj_px": 0.6,
+        "state": "ok",
+        "nearest_keyframe": 420
+      },
+      "detections": [
+        {
+          "pixel": [
+            608.0,
+            354.6
+          ],
+          "court_feet": [
+            16.7,
+            43.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            430.7,
+            604.0
+          ],
+          "court_feet": [
+            18.4,
+            18.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            337.0,
+            737.5
+          ],
+          "court_feet": [
+            18.9,
+            9.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            429.7,
+            975.3
+          ],
+          "court_feet": [
+            25.4,
+            0.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            823.2,
+            538.3
+          ],
+          "court_feet": [
+            29.9,
+            24.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            907.3,
+            723.1
+          ],
+          "court_feet": [
+            34.5,
+            12.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            952.5,
+            979.9
+          ],
+          "court_feet": [
+            37.0,
+            1.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1070.1,
+            591.0
+          ],
+          "court_feet": [
+            38.5,
+            21.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1278.1,
+            607.3
+          ],
+          "court_feet": [
+            45.1,
+            20.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1338.9,
+            954.2
+          ],
+          "court_feet": [
+            45.6,
+            3.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1521.0,
+            841.5
+          ],
+          "court_feet": [
+            50.5,
+            8.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1379.2,
+            375.4
+          ],
+          "court_feet": [
+            50.6,
+            44.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1577.0,
+            500.9
+          ],
+          "court_feet": [
+            56.3,
+            30.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1875.6,
+            396.9
+          ],
+          "court_feet": [
+            70.9,
+            43.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 460,
+      "timestamp_s": 15.333,
+      "homography_confidence": {
+        "inliers": 2156,
+        "reproj_px": 0.65,
+        "state": "ok",
+        "nearest_keyframe": 420
+      },
+      "detections": [
+        {
+          "pixel": [
+            526.0,
+            359.4
+          ],
+          "court_feet": [
+            16.2,
+            42.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            392.4,
+            633.8
+          ],
+          "court_feet": [
+            19.8,
+            16.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            158.1,
+            972.1
+          ],
+          "court_feet": [
+            20.5,
+            0.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            365.3,
+            738.9
+          ],
+          "court_feet": [
+            21.4,
+            10.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            398.9,
+            1012.7
+          ],
+          "court_feet": [
+            26.4,
+            -0.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            801.0,
+            542.5
+          ],
+          "court_feet": [
+            31.4,
+            24.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            908.5,
+            702.8
+          ],
+          "court_feet": [
+            36.2,
+            13.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            946.9,
+            526.1
+          ],
+          "court_feet": [
+            36.3,
+            26.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            946.9,
+            569.7
+          ],
+          "court_feet": [
+            36.6,
+            22.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            950.3,
+            978.4
+          ],
+          "court_feet": [
+            38.3,
+            1.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1273.6,
+            625.0
+          ],
+          "court_feet": [
+            47.0,
+            19.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1355.0,
+            949.6
+          ],
+          "court_feet": [
+            47.4,
+            2.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1320.6,
+            374.3
+          ],
+          "court_feet": [
+            51.3,
+            43.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1525.9,
+            825.1
+          ],
+          "court_feet": [
+            52.4,
+            8.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1511.7,
+            489.1
+          ],
+          "court_feet": [
+            56.8,
+            30.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1827.2,
+            385.1
+          ],
+          "court_feet": [
+            72.7,
+            43.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 470,
+      "timestamp_s": 15.667,
+      "homography_confidence": {
+        "inliers": 2322,
+        "reproj_px": 0.61,
+        "state": "ok",
+        "nearest_keyframe": 500
+      },
+      "detections": [
+        {
+          "pixel": [
+            462.3,
+            365.1
+          ],
+          "court_feet": [
+            16.2,
+            43.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            157.5,
+            972.6
+          ],
+          "court_feet": [
+            21.7,
+            0.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            412.7,
+            638.7
+          ],
+          "court_feet": [
+            22.3,
+            17.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            423.4,
+            747.6
+          ],
+          "court_feet": [
+            24.6,
+            10.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            359.9,
+            1022.2
+          ],
+          "court_feet": [
+            26.8,
+            -0.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            766.8,
+            542.3
+          ],
+          "court_feet": [
+            32.3,
+            24.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            860.2,
+            556.5
+          ],
+          "court_feet": [
+            35.7,
+            23.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            872.6,
+            495.6
+          ],
+          "court_feet": [
+            35.7,
+            28.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            950.1,
+            663.7
+          ],
+          "court_feet": [
+            39.0,
+            15.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            933.8,
+            975.8
+          ],
+          "court_feet": [
+            39.1,
+            1.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1240.8,
+            624.1
+          ],
+          "court_feet": [
+            48.0,
+            18.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1320.6,
+            876.9
+          ],
+          "court_feet": [
+            48.4,
+            5.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1298.1,
+            368.3
+          ],
+          "court_feet": [
+            53.5,
+            43.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1575.1,
+            809.9
+          ],
+          "court_feet": [
+            55.5,
+            8.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1415.6,
+            452.5
+          ],
+          "court_feet": [
+            56.6,
+            33.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1766.1,
+            379.5
+          ],
+          "court_feet": [
+            73.6,
+            42.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 480,
+      "timestamp_s": 16.0,
+      "homography_confidence": {
+        "inliers": 2485,
+        "reproj_px": 0.61,
+        "state": "ok",
+        "nearest_keyframe": 500
+      },
+      "detections": [
+        {
+          "pixel": [
+            404.6,
+            374.1
+          ],
+          "court_feet": [
+            16.9,
+            43.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            456.5,
+            632.8
+          ],
+          "court_feet": [
+            25.5,
+            18.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            288.4,
+            1036.1
+          ],
+          "court_feet": [
+            26.6,
+            -0.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            487.3,
+            758.3
+          ],
+          "court_feet": [
+            28.2,
+            10.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            712.8,
+            557.1
+          ],
+          "court_feet": [
+            32.9,
+            23.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            807.1,
+            560.0
+          ],
+          "court_feet": [
+            36.1,
+            23.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            926.4,
+            972.4
+          ],
+          "court_feet": [
+            40.3,
+            1.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1014.9,
+            653.8
+          ],
+          "court_feet": [
+            42.9,
+            16.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1271.6,
+            867.5
+          ],
+          "court_feet": [
+            48.8,
+            5.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1214.4,
+            620.9
+          ],
+          "court_feet": [
+            49.4,
+            18.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1261.6,
+            362.2
+          ],
+          "court_feet": [
+            55.3,
+            44.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1512.0,
+            788.1
+          ],
+          "court_feet": [
+            55.9,
+            8.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1333.1,
+            433.1
+          ],
+          "court_feet": [
+            56.6,
+            35.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1725.9,
+            375.6
+          ],
+          "court_feet": [
+            75.5,
+            42.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 490,
+      "timestamp_s": 16.333,
+      "homography_confidence": {
+        "inliers": 4000,
+        "reproj_px": 0.51,
+        "state": "ok",
+        "nearest_keyframe": 500
+      },
+      "detections": [
+        {
+          "pixel": [
+            351.3,
+            381.6
+          ],
+          "court_feet": [
+            17.3,
+            43.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            538.9,
+            618.2
+          ],
+          "court_feet": [
+            29.6,
+            19.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            573.1,
+            779.3
+          ],
+          "court_feet": [
+            32.1,
+            9.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            718.4,
+            501.6
+          ],
+          "court_feet": [
+            34.5,
+            28.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            777.9,
+            578.4
+          ],
+          "court_feet": [
+            37.1,
+            22.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            907.6,
+            974.3
+          ],
+          "court_feet": [
+            41.0,
+            1.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1066.9,
+            652.7
+          ],
+          "court_feet": [
+            46.2,
+            16.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1277.6,
+            838.0
+          ],
+          "court_feet": [
+            50.5,
+            6.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1204.3,
+            619.0
+          ],
+          "court_feet": [
+            50.8,
+            18.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1478.3,
+            771.4
+          ],
+          "court_feet": [
+            56.6,
+            9.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1248.4,
+            358.6
+          ],
+          "court_feet": [
+            57.5,
+            44.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1299.1,
+            411.2
+          ],
+          "court_feet": [
+            58.2,
+            37.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1691.0,
+            372.9
+          ],
+          "court_feet": [
+            76.8,
+            41.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 500,
+      "timestamp_s": 16.667,
+      "homography_confidence": {
+        "inliers": 12684,
+        "reproj_px": 0.0,
+        "state": "ok",
+        "nearest_keyframe": 500
+      },
+      "detections": [
+        {
+          "pixel": [
+            344.0,
+            378.9
+          ],
+          "court_feet": [
+            19.1,
+            44.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            642.8,
+            595.4
+          ],
+          "court_feet": [
+            34.3,
+            21.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            689.4,
+            768.6
+          ],
+          "court_feet": [
+            36.5,
+            10.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            784.4,
+            486.8
+          ],
+          "court_feet": [
+            38.8,
+            30.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            810.2,
+            536.6
+          ],
+          "court_feet": [
+            39.8,
+            25.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            926.6,
+            982.5
+          ],
+          "court_feet": [
+            42.4,
+            0.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1141.1,
+            653.8
+          ],
+          "court_feet": [
+            49.9,
+            16.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1295.7,
+            832.8
+          ],
+          "court_feet": [
+            52.2,
+            6.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1224.3,
+            603.4
+          ],
+          "court_feet": [
+            53.3,
+            19.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1263.4,
+            403.0
+          ],
+          "court_feet": [
+            59.1,
+            38.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1481.9,
+            708.0
+          ],
+          "court_feet": [
+            59.2,
+            11.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1249.1,
+            355.9
+          ],
+          "court_feet": [
+            60.0,
+            44.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1659.9,
+            369.4
+          ],
+          "court_feet": [
+            78.0,
+            41.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 510,
+      "timestamp_s": 17.0,
+      "homography_confidence": {
+        "inliers": 4278,
+        "reproj_px": 0.47,
+        "state": "ok",
+        "nearest_keyframe": 500
+      },
+      "detections": [
+        {
+          "pixel": [
+            378.1,
+            380.9
+          ],
+          "court_feet": [
+            21.8,
+            44.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            778.5,
+            567.3
+          ],
+          "court_feet": [
+            39.6,
+            23.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            819.9,
+            761.4
+          ],
+          "court_feet": [
+            40.7,
+            10.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            900.5,
+            537.8
+          ],
+          "court_feet": [
+            43.9,
+            25.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1010.1,
+            972.8
+          ],
+          "court_feet": [
+            44.8,
+            1.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1236.5,
+            626.9
+          ],
+          "court_feet": [
+            54.1,
+            17.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1372.9,
+            816.5
+          ],
+          "court_feet": [
+            55.0,
+            6.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1329.4,
+            564.8
+          ],
+          "court_feet": [
+            58.3,
+            21.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1517.0,
+            656.4
+          ],
+          "court_feet": [
+            62.1,
+            14.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1300.8,
+            391.6
+          ],
+          "court_feet": [
+            62.2,
+            39.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1681.5,
+            374.1
+          ],
+          "court_feet": [
+            79.8,
+            39.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 520,
+      "timestamp_s": 17.333,
+      "homography_confidence": {
+        "inliers": 3411,
+        "reproj_px": 0.53,
+        "state": "ok",
+        "nearest_keyframe": 500
+      },
+      "detections": [
+        {
+          "pixel": [
+            462.3,
+            367.7
+          ],
+          "court_feet": [
+            25.2,
+            45.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            918.8,
+            546.7
+          ],
+          "court_feet": [
+            44.5,
+            24.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            962.1,
+            740.6
+          ],
+          "court_feet": [
+            44.7,
+            11.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1127.6,
+            963.8
+          ],
+          "court_feet": [
+            47.5,
+            1.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1013.4,
+            498.8
+          ],
+          "court_feet": [
+            48.3,
+            28.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1068.0,
+            456.1
+          ],
+          "court_feet": [
+            51.0,
+            32.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1364.2,
+            609.0
+          ],
+          "court_feet": [
+            58.5,
+            18.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1509.0,
+            813.7
+          ],
+          "court_feet": [
+            58.6,
+            6.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1434.6,
+            549.5
+          ],
+          "court_feet": [
+            62.3,
+            22.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1338.4,
+            392.6
+          ],
+          "court_feet": [
+            63.8,
+            38.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1579.6,
+            608.2
+          ],
+          "court_feet": [
+            65.4,
+            17.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1719.7,
+            381.1
+          ],
+          "court_feet": [
+            81.0,
+            38.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 530,
+      "timestamp_s": 17.667,
+      "homography_confidence": {
+        "inliers": 2925,
+        "reproj_px": 0.54,
+        "state": "ok",
+        "nearest_keyframe": 500
+      },
+      "detections": [
+        {
+          "pixel": [
+            557.1,
+            359.8
+          ],
+          "court_feet": [
+            29.4,
+            46.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1084.4,
+            724.7
+          ],
+          "court_feet": [
+            48.3,
+            11.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1057.8,
+            530.5
+          ],
+          "court_feet": [
+            49.5,
+            25.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1286.1,
+            956.0
+          ],
+          "court_feet": [
+            51.2,
+            1.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1150.8,
+            476.5
+          ],
+          "court_feet": [
+            53.8,
+            30.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1219.2,
+            457.0
+          ],
+          "court_feet": [
+            56.9,
+            31.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1640.9,
+            794.8
+          ],
+          "court_feet": [
+            62.4,
+            6.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1492.9,
+            614.4
+          ],
+          "court_feet": [
+            62.5,
+            17.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1403.5,
+            414.5
+          ],
+          "court_feet": [
+            65.7,
+            35.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1562.6,
+            551.2
+          ],
+          "court_feet": [
+            66.7,
+            22.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1620.8,
+            563.2
+          ],
+          "court_feet": [
+            68.3,
+            20.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1449.3,
+            343.0
+          ],
+          "court_feet": [
+            71.1,
+            45.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1757.7,
+            387.6
+          ],
+          "court_feet": [
+            82.3,
+            37.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 540,
+      "timestamp_s": 18.0,
+      "homography_confidence": {
+        "inliers": 2519,
+        "reproj_px": 0.62,
+        "state": "ok",
+        "nearest_keyframe": 500
+      },
+      "detections": [
+        {
+          "pixel": [
+            663.8,
+            351.8
+          ],
+          "court_feet": [
+            34.4,
+            47.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1188.0,
+            697.1
+          ],
+          "court_feet": [
+            51.6,
+            13.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1187.5,
+            532.7
+          ],
+          "court_feet": [
+            54.2,
+            24.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1444.0,
+            947.1
+          ],
+          "court_feet": [
+            55.0,
+            1.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1294.8,
+            498.2
+          ],
+          "court_feet": [
+            58.8,
+            27.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1374.7,
+            464.1
+          ],
+          "court_feet": [
+            62.9,
+            30.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1745.7,
+            784.5
+          ],
+          "court_feet": [
+            65.5,
+            7.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1632.8,
+            628.7
+          ],
+          "court_feet": [
+            66.6,
+            16.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1475.1,
+            435.1
+          ],
+          "court_feet": [
+            68.0,
+            33.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1669.5,
+            511.8
+          ],
+          "court_feet": [
+            72.1,
+            24.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1492.3,
+            306.3
+          ],
+          "court_feet": [
+            75.5,
+            50.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1811.0,
+            388.3
+          ],
+          "court_feet": [
+            84.7,
+            37.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 550,
+      "timestamp_s": 18.333,
+      "homography_confidence": {
+        "inliers": 1964,
+        "reproj_px": 0.59,
+        "state": "ok",
+        "nearest_keyframe": 580
+      },
+      "detections": [
+        {
+          "pixel": [
+            723.1,
+            351.9
+          ],
+          "court_feet": [
+            39.4,
+            47.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1228.6,
+            665.6
+          ],
+          "court_feet": [
+            54.6,
+            14.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1559.5,
+            963.8
+          ],
+          "court_feet": [
+            58.3,
+            -0.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1287.0,
+            558.2
+          ],
+          "court_feet": [
+            58.7,
+            21.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1381.1,
+            483.3
+          ],
+          "court_feet": [
+            64.3,
+            28.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1785.2,
+            765.9
+          ],
+          "court_feet": [
+            68.2,
+            7.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1493.5,
+            454.1
+          ],
+          "court_feet": [
+            69.7,
+            30.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1720.1,
+            636.2
+          ],
+          "court_feet": [
+            70.5,
+            14.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1521.2,
+            410.5
+          ],
+          "court_feet": [
+            73.0,
+            35.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1672.5,
+            529.6
+          ],
+          "court_feet": [
+            73.1,
+            22.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1650.0,
+            487.7
+          ],
+          "court_feet": [
+            74.2,
+            26.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1470.3,
+            338.6
+          ],
+          "court_feet": [
+            74.8,
+            45.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1789.2,
+            402.1
+          ],
+          "court_feet": [
+            84.8,
+            34.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 560,
+      "timestamp_s": 18.667,
+      "homography_confidence": {
+        "inliers": 2795,
+        "reproj_px": 0.58,
+        "state": "ok",
+        "nearest_keyframe": 580
+      },
+      "detections": [
+        {
+          "pixel": [
+            695.5,
+            358.2
+          ],
+          "court_feet": [
+            44.5,
+            47.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1189.6,
+            642.0
+          ],
+          "court_feet": [
+            57.7,
+            15.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1264.0,
+            569.5
+          ],
+          "court_feet": [
+            62.0,
+            20.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1573.7,
+            912.6
+          ],
+          "court_feet": [
+            62.2,
+            0.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1362.0,
+            485.4
+          ],
+          "court_feet": [
+            68.5,
+            26.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1704.9,
+            736.2
+          ],
+          "court_feet": [
+            70.2,
+            7.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1643.6,
+            615.8
+          ],
+          "court_feet": [
+            72.8,
+            14.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1434.8,
+            442.8
+          ],
+          "court_feet": [
+            73.3,
+            30.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1598.3,
+            537.6
+          ],
+          "court_feet": [
+            74.7,
+            20.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1530.0,
+            471.3
+          ],
+          "court_feet": [
+            75.5,
+            26.8
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1357.9,
+            332.3
+          ],
+          "court_feet": [
+            76.5,
+            45.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1649.9,
+            391.7
+          ],
+          "court_feet": [
+            85.5,
+            34.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 570,
+      "timestamp_s": 19.0,
+      "homography_confidence": {
+        "inliers": 3961,
+        "reproj_px": 0.52,
+        "state": "ok",
+        "nearest_keyframe": 580
+      },
+      "detections": [
+        {
+          "pixel": [
+            155.2,
+            971.9
+          ],
+          "court_feet": [
+            33.3,
+            6.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            603.1,
+            374.3
+          ],
+          "court_feet": [
+            48.8,
+            48.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1085.4,
+            626.3
+          ],
+          "court_feet": [
+            60.2,
+            16.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1520.1,
+            906.2
+          ],
+          "court_feet": [
+            64.5,
+            -0.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1214.5,
+            606.5
+          ],
+          "court_feet": [
+            64.8,
+            17.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1534.4,
+            718.4
+          ],
+          "court_feet": [
+            70.4,
+            7.3
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1306.2,
+            492.2
+          ],
+          "court_feet": [
+            72.5,
+            25.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1444.1,
+            528.6
+          ],
+          "court_feet": [
+            75.6,
+            20.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1526.8,
+            562.3
+          ],
+          "court_feet": [
+            76.7,
+            16.9
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1193.8,
+            337.6
+          ],
+          "court_feet": [
+            77.0,
+            45.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1418.6,
+            446.9
+          ],
+          "court_feet": [
+            79.3,
+            28.2
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1331.7,
+            383.2
+          ],
+          "court_feet": [
+            79.9,
+            36.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    },
+    {
+      "frame_index": 580,
+      "timestamp_s": 19.333,
+      "homography_confidence": {
+        "inliers": 13003,
+        "reproj_px": 0.0,
+        "state": "ok",
+        "nearest_keyframe": 580
+      },
+      "detections": [
+        {
+          "pixel": [
+            156.0,
+            971.8
+          ],
+          "court_feet": [
+            36.3,
+            8.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            548.3,
+            380.2
+          ],
+          "court_feet": [
+            52.1,
+            48.6
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1044.2,
+            613.8
+          ],
+          "court_feet": [
+            62.7,
+            18.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1514.5,
+            892.0
+          ],
+          "court_feet": [
+            66.9,
+            -0.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1223.0,
+            629.9
+          ],
+          "court_feet": [
+            67.5,
+            15.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1422.0,
+            719.5
+          ],
+          "court_feet": [
+            69.9,
+            7.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1311.3,
+            487.9
+          ],
+          "court_feet": [
+            76.7,
+            24.7
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1351.7,
+            511.0
+          ],
+          "court_feet": [
+            76.9,
+            22.1
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1088.5,
+            342.5
+          ],
+          "court_feet": [
+            77.0,
+            45.0
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1258.8,
+            437.1
+          ],
+          "court_feet": [
+            77.8,
+            30.4
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        },
+        {
+          "pixel": [
+            1436.3,
+            542.1
+          ],
+          "court_feet": [
+            78.0,
+            18.5
+          ],
+          "identity_state": "unknown",
+          "team": "unknown"
+        }
+      ],
+      "schema_version": "team_event.v1"
+    }
+  ]
+}

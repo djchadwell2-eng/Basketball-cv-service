@@ -1,0 +1,26 @@
+{
+  "clip": "TEST1",
+  "marks": [
+    120,
+    470,
+    580
+  ],
+  "pairs": [
+    {
+      "a": 120,
+      "b": 470,
+      "gap": 350,
+      "ratio": 0.694,
+      "weak": false
+    },
+    {
+      "a": 470,
+      "b": 580,
+      "gap": 110,
+      "ratio": 0.823,
+      "weak": false
+    }
+  ],
+  "estimated_clicks": 30,
+  "weak_pairs": 0
+}

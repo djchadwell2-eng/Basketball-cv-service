@@ -1,0 +1,11 @@
+number,team,seconds_total,seconds_live,seconds_retro,disputed_seconds,windows_present,top_zone
+23,Milford (white/red),15.17,15.17,0.00,0.00,2,PERIMETER
+10,Milford (white/red),14.50,13.93,0.57,0.00,2,PERIMETER
+30,Little Miami (green/yellow),12.57,7.87,4.70,0.00,2,PERIMETER
+32,Little Miami (green/yellow),12.07,3.57,8.50,0.00,2,PAINT
+24,Little Miami (green/yellow),10.87,9.63,1.23,0.00,2,PERIMETER
+3,Milford (white/red),8.77,6.60,2.17,0.00,2,PERIMETER
+44,Milford (white/red),7.83,7.83,0.00,0.00,2,PERIMETER
+13,Milford (white/red),6.40,6.30,0.10,0.00,1,LEFT_WING
+14,Little Miami (green/yellow),4.90,4.90,0.00,0.00,1,LEFT_CORNER
+5,Little Miami (green/yellow),4.63,4.30,0.33,0.03,2,TOP_OF_KEY

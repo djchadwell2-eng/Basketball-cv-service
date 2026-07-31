@@ -1,0 +1,595 @@
+{
+  "clip": "TEST1",
+  "span_start": 120,
+  "span_len": 461,
+  "window_seconds": 2.0,
+  "ocr_confirm_threshold": 0.85,
+  "seed_policy": "ROI-mask: on-court majority per (window, track)",
+  "off_court_candidates_excluded": 27,
+  "readability": {
+    "crops_attempted": 232,
+    "crops_any_read": 19,
+    "crops_confident_read": 13,
+    "candidates_attempted": 24,
+    "candidates_with_confident_read": 3
+  },
+  "review_queue_before": 28,
+  "review_queue_after": 27,
+  "outcomes": {
+    "agree": [
+      {
+        "window": 0,
+        "identity_id": 5,
+        "track_id": 6,
+        "position_hypothesis": 5,
+        "final_state": "confirmed",
+        "evidence": {
+          "reason": "OCR agrees with position",
+          "jersey": 5,
+          "confidence": 1.0
+        },
+        "read_number": 5,
+        "read_confidence": 1.0,
+        "read_frame": 128,
+        "read_bbox": [
+          958.6,
+          388.6,
+          1060.4,
+          617.5
+        ]
+      }
+    ],
+    "disagree": [],
+    "no_confident_read": [
+      {
+        "window": 0,
+        "identity_id": 8,
+        "track_id": 36,
+        "position_hypothesis": null,
+        "final_state": "candidate",
+        "evidence": {
+          "reason": "position/motion continuity relink",
+          "gap_frames": 13,
+          "distance_px": 100.6,
+          "distance_from_last_px": 178.1,
+          "predicted_center": [
+            644.6,
+            407.5
+          ],
+          "reappeared_center": [
+            708.0,
+            329.4
+          ],
+          "lost_after_frame": 130,
+          "reappeared_frame": 143
+        }
+      },
+      {
+        "window": 0,
+        "identity_id": 16,
+        "track_id": 38,
+        "position_hypothesis": 13,
+        "final_state": "candidate",
+        "evidence": {
+          "reason": "position/motion continuity relink",
+          "gap_frames": 6,
+          "distance_px": 87.0,
+          "distance_from_last_px": 42.5,
+          "predicted_center": [
+            802.6,
+            347.1
+          ],
+          "reappeared_center": [
+            715.8,
+            353.0
+          ],
+          "lost_after_frame": 145,
+          "reappeared_frame": 151
+        }
+      },
+      {
+        "window": 1,
+        "identity_id": 29,
+        "track_id": 53,
+        "position_hypothesis": null,
+        "final_state": "candidate",
+        "evidence": {
+          "reason": "position/motion continuity relink",
+          "gap_frames": 14,
+          "distance_px": 58.7,
+          "distance_from_last_px": 57.4,
+          "predicted_center": [
+            689.1,
+            528.0
+          ],
+          "reappeared_center": [
+            720.3,
+            478.3
+          ],
+          "lost_after_frame": 212,
+          "reappeared_frame": 226
+        }
+      },
+      {
+        "window": 1,
+        "identity_id": 32,
+        "track_id": 49,
+        "position_hypothesis": null,
+        "final_state": "candidate",
+        "evidence": {
+          "reason": "position/motion continuity relink",
+          "gap_frames": 2,
+          "distance_px": 6.5,
+          "distance_from_last_px": 9.4,
+          "predicted_center": [
+            642.8,
+            347.5
+          ],
+          "reappeared_center": [
+            649.2,
+            346.2
+          ],
+          "lost_after_frame": 225,
+          "reappeared_frame": 227
+        }
+      },
+      {
+        "window": 1,
+        "identity_id": 35,
+        "track_id": 67,
+        "position_hypothesis": null,
+        "final_state": "candidate",
+        "evidence": {
+          "reason": "position/motion continuity relink",
+          "gap_frames": 8,
+          "distance_px": 3.6,
+          "distance_from_last_px": 3.6,
+          "predicted_center": [
+            688.2,
+            328.7
+          ],
+          "reappeared_center": [
+            685.0,
+            327.0
+          ],
+          "lost_after_frame": 229,
+          "reappeared_frame": 237
+        }
+      },
+      {
+        "window": 2,
+        "identity_id": 25,
+        "track_id": 42,
+        "position_hypothesis": null,
+        "final_state": "candidate",
+        "evidence": {
+          "reason": "position/motion continuity relink",
+          "gap_frames": 3,
+          "distance_px": 15.0,
+          "distance_from_last_px": 13.5,
+          "predicted_center": [
+            865.2,
+            550.0
+          ],
+          "reappeared_center": [
+            850.2,
+            549.2
+          ],
+          "lost_after_frame": 282,
+          "reappeared_frame": 285
+        }
+      },
+      {
+        "window": 2,
+        "identity_id": 26,
+        "track_id": 83,
+        "position_hypothesis": null,
+        "final_state": "candidate",
+        "evidence": {
+          "reason": "position/motion continuity relink",
+          "gap_frames": 6,
+          "distance_px": 72.3,
+          "distance_from_last_px": 63.8,
+          "predicted_center": [
+            640.7,
+            400.7
+          ],
+          "reappeared_center": [
+            626.2,
+            471.6
+          ],
+          "lost_after_frame": 252,
+          "reappeared_frame": 258
+        }
+      },
+      {
+        "window": 2,
+        "identity_id": 28,
+        "track_id": 49,
+        "position_hypothesis": null,
+        "final_state": "candidate",
+        "evidence": {
+          "reason": "position/motion continuity relink",
+          "gap_frames": 2,
+          "distance_px": 24.4,
+          "distance_from_last_px": 41.3,
+          "predicted_center": [
+            858.6,
+            399.0
+          ],
+          "reappeared_center": [
+            883.0,
+            398.5
+          ],
+          "lost_after_frame": 283,
+          "reappeared_frame": 285
+        }
+      },
+      {
+        "window": 2,
+        "identity_id": 29,
+        "track_id": 67,
+        "position_hypothesis": null,
+        "final_state": "candidate",
+        "evidence": {
+          "reason": "position/motion continuity relink",
+          "gap_frames": 1,
+          "distance_px": 59.4,
+          "distance_from_last_px": 57.6,
+          "predicted_center": [
+            678.2,
+            274.9
+          ],
+          "reappeared_center": [
+            680.3,
+            334.2
+          ],
+          "lost_after_frame": 263,
+          "reappeared_frame": 264
+        }
+      },
+      {
+        "window": 2,
+        "identity_id": 33,
+        "track_id": 87,
+        "position_hypothesis": null,
+        "final_state": "candidate",
+        "evidence": {
+          "reason": "position/motion continuity relink",
+          "gap_frames": 11,
+          "distance_px": 17.3,
+          "distance_from_last_px": 47.3,
+          "predicted_center": [
+            540.8,
+            366.3
+          ],
+          "reappeared_center": [
+            523.5,
+            365.6
+          ],
+          "lost_after_frame": 272,
+          "reappeared_frame": 283
+        }
+      },
+      {
+        "window": 3,
+        "identity_id": 1,
+        "track_id": 2,
+        "position_hypothesis": null,
+        "final_state": "candidate",
+        "evidence": {
+          "reason": "position/motion continuity relink",
+          "gap_frames": 3,
+          "distance_px": 17.9,
+          "distance_from_last_px": 36.9,
+          "predicted_center": [
+            1085.7,
+            455.2
+          ],
+          "reappeared_center": [
+            1073.8,
+            441.8
+          ],
+          "lost_after_frame": 303,
+          "reappeared_frame": 306
+        }
+      },
+      {
+        "window": 3,
+        "identity_id": 2,
+        "track_id": 138,
+        "position_hypothesis": null,
+        "final_state": "candidate",
+        "evidence": {
+          "reason": "position/motion continuity relink",
+          "gap_frames": 2,
+          "distance_px": 55.2,
+          "distance_from_last_px": 71.8,
+          "predicted_center": [
+            1162.3,
+            484.5
+          ],
+          "reappeared_center": [
+            1169.9,
+            429.8
+          ],
+          "lost_after_frame": 312,
+          "reappeared_frame": 314
+        }
+      },
+      {
+        "window": 3,
+        "identity_id": 5,
+        "track_id": 10,
+        "position_hypothesis": null,
+        "final_state": "candidate",
+        "evidence": {
+          "reason": "position/motion continuity relink",
+          "gap_frames": 2,
+          "distance_px": 2.6,
+          "distance_from_last_px": 8.0,
+          "predicted_center": [
+            1002.0,
+            283.5
+          ],
+          "reappeared_center": [
+            1000.1,
+            281.8
+          ],
+          "lost_after_frame": 357,
+          "reappeared_frame": 359
+        }
+      },
+      {
+        "window": 3,
+        "identity_id": 23,
+        "track_id": 395,
+        "position_hypothesis": null,
+        "final_state": "candidate",
+        "evidence": {
+          "reason": "position/motion continuity relink",
+          "gap_frames": 19,
+          "distance_px": 30.9,
+          "distance_from_last_px": 94.8,
+          "predicted_center": [
+            10.9,
+            503.7
+          ],
+          "reappeared_center": [
+            15.6,
+            534.3
+          ],
+          "lost_after_frame": 338,
+          "reappeared_frame": 357
+        }
+      },
+      {
+        "window": 4,
+        "identity_id": 26,
+        "track_id": 467,
+        "position_hypothesis": null,
+        "final_state": "candidate",
+        "evidence": {
+          "reason": "position/motion continuity relink",
+          "gap_frames": 1,
+          "distance_px": 52.2,
+          "distance_from_last_px": 53.8,
+          "predicted_center": [
+            251.1,
+            819.4
+          ],
+          "reappeared_center": [
+            263.4,
+            870.2
+          ],
+          "lost_after_frame": 398,
+          "reappeared_frame": 399
+        }
+      },
+      {
+        "window": 5,
+        "identity_id": 7,
+        "track_id": 49,
+        "position_hypothesis": null,
+        "final_state": "candidate",
+        "evidence": {
+          "reason": "position/motion continuity relink",
+          "gap_frames": 4,
+          "distance_px": 21.0,
+          "distance_from_last_px": 20.9,
+          "predicted_center": [
+            814.1,
+            461.0
+          ],
+          "reappeared_center": [
+            832.4,
+            450.7
+          ],
+          "lost_after_frame": 473,
+          "reappeared_frame": 477
+        }
+      },
+      {
+        "window": 5,
+        "identity_id": 10,
+        "track_id": 2,
+        "position_hypothesis": null,
+        "final_state": "candidate",
+        "evidence": {
+          "reason": "position/motion continuity relink",
+          "gap_frames": 1,
+          "distance_px": 33.2,
+          "distance_from_last_px": 24.4,
+          "predicted_center": [
+            444.9,
+            526.8
+          ],
+          "reappeared_center": [
+            430.2,
+            556.5
+          ],
+          "lost_after_frame": 475,
+          "reappeared_frame": 476
+        }
+      },
+      {
+        "window": 6,
+        "identity_id": 11,
+        "track_id": 879,
+        "position_hypothesis": null,
+        "final_state": "candidate",
+        "evidence": {
+          "reason": "position/motion continuity relink",
+          "gap_frames": 21,
+          "distance_px": 90.6,
+          "distance_from_last_px": 151.2,
+          "predicted_center": [
+            1311.5,
+            283.9
+          ],
+          "reappeared_center": [
+            1401.6,
+            292.8
+          ],
+          "lost_after_frame": 502,
+          "reappeared_frame": 523
+        }
+      },
+      {
+        "window": 6,
+        "identity_id": 25,
+        "track_id": 2,
+        "position_hypothesis": null,
+        "final_state": "candidate",
+        "evidence": {
+          "reason": "position/motion continuity relink",
+          "gap_frames": 2,
+          "distance_px": 21.0,
+          "distance_from_last_px": 44.4,
+          "predicted_center": [
+            867.0,
+            510.3
+          ],
+          "reappeared_center": [
+            879.4,
+            493.4
+          ],
+          "lost_after_frame": 514,
+          "reappeared_frame": 516
+        }
+      },
+      {
+        "window": 7,
+        "identity_id": 4,
+        "track_id": 1230,
+        "position_hypothesis": null,
+        "final_state": "candidate",
+        "evidence": {
+          "reason": "position/motion continuity relink",
+          "gap_frames": 1,
+          "distance_px": 33.3,
+          "distance_from_last_px": 32.6,
+          "predicted_center": [
+            1300.5,
+            333.4
+          ],
+          "reappeared_center": [
+            1301.3,
+            366.7
+          ],
+          "lost_after_frame": 573,
+          "reappeared_frame": 574
+        }
+      },
+      {
+        "window": 7,
+        "identity_id": 24,
+        "track_id": 952,
+        "position_hypothesis": null,
+        "final_state": "candidate",
+        "evidence": {
+          "reason": "position/motion continuity relink",
+          "gap_frames": 4,
+          "distance_px": 35.3,
+          "distance_from_last_px": 14.3,
+          "predicted_center": [
+            1502.4,
+            241.4
+          ],
+          "reappeared_center": [
+            1493.3,
+            275.5
+          ],
+          "lost_after_frame": 541,
+          "reappeared_frame": 545
+        }
+      }
+    ],
+    "no_position_hypothesis": [
+      {
+        "window": 3,
+        "identity_id": 25,
+        "track_id": 42,
+        "position_hypothesis": null,
+        "final_state": "candidate",
+        "evidence": {
+          "reason": "position/motion continuity relink",
+          "gap_frames": 2,
+          "distance_px": 31.3,
+          "distance_from_last_px": 42.3,
+          "predicted_center": [
+            598.1,
+            568.0
+          ],
+          "reappeared_center": [
+            604.2,
+            537.2
+          ],
+          "lost_after_frame": 324,
+          "reappeared_frame": 326
+        },
+        "read_number": 5,
+        "read_confidence": 1.0,
+        "read_frame": 310,
+        "read_bbox": [
+          794.9,
+          460.0,
+          880.7,
+          690.9
+        ]
+      },
+      {
+        "window": 7,
+        "identity_id": 30,
+        "track_id": 83,
+        "position_hypothesis": null,
+        "final_state": "candidate",
+        "evidence": {
+          "reason": "position/motion continuity relink",
+          "gap_frames": 2,
+          "distance_px": 8.5,
+          "distance_from_last_px": 9.3,
+          "predicted_center": [
+            1673.3,
+            467.1
+          ],
+          "reappeared_center": [
+            1665.7,
+            463.2
+          ],
+          "lost_after_frame": 552,
+          "reappeared_frame": 554
+        },
+        "read_number": 24,
+        "read_confidence": 0.993,
+        "read_frame": 562,
+        "read_bbox": [
+          1531.2,
+          379.9,
+          1602.3,
+          535.3
+        ]
+      }
+    ]
+  }
+}

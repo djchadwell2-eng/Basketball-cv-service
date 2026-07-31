@@ -1,0 +1,98 @@
+{
+  "clip": "TEST1",
+  "track_labels": {
+    "1": "ref",
+    "2": 3,
+    "3": 13,
+    "4": "ref",
+    "5": 23,
+    "6": 5,
+    "7": "ref",
+    "8": 14,
+    "9": 24,
+    "10": 30,
+    "15": 10,
+    "17": 32,
+    "42": 5,
+    "49": null,
+    "67": 32,
+    "83": 24,
+    "92": 23,
+    "138": 44,
+    "372": "ref",
+    "395": null,
+    "14": "ref"
+  },
+  "queue_resolutions": [
+    {
+      "window": 0,
+      "identity_id": 32,
+      "number": 24,
+      "needs_review": "clicked on an identity that spanned 4 different tracks [48, 53, 56, 83] -- which player was meant cannot be recovered; re-click this one"
+    },
+    {
+      "window": 0,
+      "identity_id": 40,
+      "number": 14,
+      "needs_review": "clicked on an identity that spanned 3 different tracks [8, 87, 395] -- which player was meant cannot be recovered; re-click this one"
+    },
+    {
+      "window": 0,
+      "identity_id": 1,
+      "number": 3,
+      "needs_review": "clicked on an identity that spanned 2 different tracks [2, 688] -- which player was meant cannot be recovered; re-click this one"
+    },
+    {
+      "window": 0,
+      "identity_id": 34,
+      "number": 13,
+      "track_id": 49,
+      "rekeyed_from_identity_id": 34
+    },
+    {
+      "window": 0,
+      "identity_id": 47,
+      "number": "reject",
+      "track_id": 372,
+      "rekeyed_from_identity_id": 47
+    },
+    {
+      "window": 0,
+      "identity_id": 9,
+      "number": 30,
+      "track_id": 10,
+      "rekeyed_from_identity_id": 9
+    },
+    {
+      "window": 1,
+      "identity_id": 17,
+      "number": 3,
+      "track_id": 2,
+      "rekeyed_from_identity_id": 17
+    },
+    {
+      "window": 1,
+      "identity_id": 24,
+      "number": 32,
+      "needs_review": "clicked on an identity that spanned 3 different tracks [10, 879, 952] -- which player was meant cannot be recovered; re-click this one"
+    },
+    {
+      "window": 1,
+      "identity_id": 6,
+      "number": 44,
+      "needs_review": "clicked on an identity that spanned 3 different tracks [138, 1026, 1230] -- which player was meant cannot be recovered; re-click this one"
+    },
+    {
+      "window": 1,
+      "identity_id": 43,
+      "number": "reject",
+      "track_id": 1106,
+      "rekeyed_from_identity_id": 43
+    }
+  ],
+  "window_boundaries": [
+    120,
+    501
+  ],
+  "resolution_key": "track_id"
+}

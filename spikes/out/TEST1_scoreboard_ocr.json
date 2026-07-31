@@ -1,0 +1,31 @@
+{
+  "clip": "TEST1",
+  "sample_stride": 15,
+  "n_readings": 2,
+  "events": [
+    {
+      "frame": 810,
+      "t_sec": 27.0,
+      "from": [
+        0,
+        2
+      ],
+      "to": [
+        2,
+        2
+      ]
+    }
+  ],
+  "readings": [
+    [
+      675,
+      0,
+      2
+    ],
+    [
+      810,
+      2,
+      2
+    ]
+  ]
+}

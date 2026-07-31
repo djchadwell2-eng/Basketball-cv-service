@@ -1,0 +1,26 @@
+.git
+.venv
+.venv-boxmot
+__pycache__
+*.pyc
+node_modules
+
+# Keep only TEST1's already-built caches, not every clip's debug overlays
+# (spikes/out alone is 3.7GB across all clips -- the pipeline only reads
+# specific JSON files, never the .mp4/.jpg diagnostic artifacts).
+spikes/out/*
+!spikes/out/TEST1_*.json
+phase1/out/*
+!phase1/out/TEST1_*.json
+!phase1/out/TEST1_*.npz
+phase2/out/*
+!phase2/out/TEST1_*.json
+!phase2/out/TEST1_*.csv
+
+# Only the currently-used ball weights, not every experiment checkpoint
+models/*
+!models/ball_finetuned_v3.pt
+
+# Only the clip video this proof actually runs
+video_assets/*
+!video_assets/Test1.mp4

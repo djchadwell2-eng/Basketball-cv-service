@@ -1,0 +1,204 @@
+{
+  "clip": "TEST1",
+  "span_start": 120,
+  "span_len": 461,
+  "threshold": 0.85,
+  "tracks": {
+    "1": {
+      "verdict": "no_evidence",
+      "numbers": {},
+      "attempts": 6
+    },
+    "2": {
+      "verdict": "no_evidence",
+      "numbers": {},
+      "attempts": 6
+    },
+    "3": {
+      "verdict": "consistent",
+      "numbers": {
+        "13": {
+          "reads": 2,
+          "first_frame": 152,
+          "last_frame": 184,
+          "max_conf": 0.9927004073253504
+        }
+      },
+      "attempts": 6
+    },
+    "4": {
+      "verdict": "no_evidence",
+      "numbers": {},
+      "attempts": 7
+    },
+    "5": {
+      "verdict": "no_evidence",
+      "numbers": {},
+      "attempts": 7
+    },
+    "6": {
+      "verdict": "consistent",
+      "numbers": {
+        "5": {
+          "reads": 1,
+          "first_frame": 129,
+          "last_frame": 129,
+          "max_conf": 0.9999940395444042
+        }
+      },
+      "attempts": 7
+    },
+    "7": {
+      "verdict": "no_evidence",
+      "numbers": {},
+      "attempts": 7
+    },
+    "8": {
+      "verdict": "consistent",
+      "numbers": {
+        "14": {
+          "reads": 1,
+          "first_frame": 175,
+          "last_frame": 175,
+          "max_conf": 0.9764478875943952
+        }
+      },
+      "attempts": 7
+    },
+    "9": {
+      "verdict": "no_evidence",
+      "numbers": {},
+      "attempts": 4
+    },
+    "10": {
+      "verdict": "no_evidence",
+      "numbers": {},
+      "attempts": 7
+    },
+    "14": {
+      "verdict": "no_evidence",
+      "numbers": {},
+      "attempts": 7
+    },
+    "15": {
+      "verdict": "consistent",
+      "numbers": {
+        "10": {
+          "reads": 1,
+          "first_frame": 219,
+          "last_frame": 219,
+          "max_conf": 0.9195588317856491
+        }
+      },
+      "attempts": 7
+    },
+    "17": {
+      "verdict": "consistent",
+      "numbers": {
+        "3": {
+          "reads": 1,
+          "first_frame": 144,
+          "last_frame": 144,
+          "max_conf": 0.9370692250711308
+        }
+      },
+      "attempts": 5
+    },
+    "36": {
+      "verdict": "no_evidence",
+      "numbers": {},
+      "attempts": 6
+    },
+    "38": {
+      "verdict": "no_evidence",
+      "numbers": {},
+      "attempts": 6
+    },
+    "42": {
+      "verdict": "consistent",
+      "numbers": {
+        "5": {
+          "reads": 1,
+          "first_frame": 312,
+          "last_frame": 312,
+          "max_conf": 0.9999763966999495
+        }
+      },
+      "attempts": 7
+    },
+    "49": {
+      "verdict": "consistent",
+      "numbers": {
+        "13": {
+          "reads": 1,
+          "first_frame": 318,
+          "last_frame": 318,
+          "max_conf": 0.9513595029498901
+        }
+      },
+      "attempts": 7
+    },
+    "53": {
+      "verdict": "no_evidence",
+      "numbers": {},
+      "attempts": 5
+    },
+    "67": {
+      "verdict": "no_evidence",
+      "numbers": {},
+      "attempts": 5
+    },
+    "83": {
+      "verdict": "consistent",
+      "numbers": {
+        "24": {
+          "reads": 2,
+          "first_frame": 555,
+          "last_frame": 579,
+          "max_conf": 0.9436650068567491
+        }
+      },
+      "attempts": 7
+    },
+    "87": {
+      "verdict": "no_evidence",
+      "numbers": {},
+      "attempts": 5
+    },
+    "92": {
+      "verdict": "no_evidence",
+      "numbers": {},
+      "attempts": 7
+    },
+    "138": {
+      "verdict": "no_evidence",
+      "numbers": {},
+      "attempts": 7
+    },
+    "372": {
+      "verdict": "no_evidence",
+      "numbers": {},
+      "attempts": 7
+    },
+    "395": {
+      "verdict": "no_evidence",
+      "numbers": {},
+      "attempts": 7
+    },
+    "467": {
+      "verdict": "no_evidence",
+      "numbers": {},
+      "attempts": 6
+    },
+    "622": {
+      "verdict": "no_evidence",
+      "numbers": {},
+      "attempts": 5
+    },
+    "875": {
+      "verdict": "no_evidence",
+      "numbers": {},
+      "attempts": 6
+    }
+  }
+}

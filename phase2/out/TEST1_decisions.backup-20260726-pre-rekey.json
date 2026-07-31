@@ -1,0 +1,38 @@
+{
+  "clip": "TEST1",
+  "track_labels": {
+    "1": "ref",
+    "2": 3,
+    "3": 13,
+    "4": "ref",
+    "5": 23,
+    "6": 5,
+    "7": "ref",
+    "8": 14,
+    "9": 24,
+    "10": 30,
+    "15": 10,
+    "17": 32,
+    "42": 5,
+    "49": null,
+    "67": 32,
+    "83": 24,
+    "92": 23,
+    "138": 44,
+    "372": "ref",
+    "395": null
+  },
+  "queue_resolutions": [
+    {"window": 0, "identity_id": 32, "number": 24},
+    {"window": 0, "identity_id": 40, "number": 14},
+    {"window": 0, "identity_id": 1, "number": 3},
+    {"window": 0, "identity_id": 34, "number": 13},
+    {"window": 0, "identity_id": 47, "number": "reject"},
+    {"window": 0, "identity_id": 9, "number": 30},
+    {"window": 1, "identity_id": 17, "number": 3},
+    {"window": 1, "identity_id": 24, "number": 32},
+    {"window": 1, "identity_id": 6, "number": 44},
+    {"window": 1, "identity_id": 43, "number": "reject"}
+  ],
+  "window_boundaries": [120, 501]
+}

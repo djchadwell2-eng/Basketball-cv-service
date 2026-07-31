@@ -1,0 +1,228 @@
+{
+  "clip": "TEST1",
+  "conf_floor": 0.1,
+  "params": {
+    "HOLD_GATE_BODY_FRAC": 0.3,
+    "MARGIN_BODY_FRAC": 0.15,
+    "MIN_TOUCH_FRAMES": 6,
+    "MAX_GAP_FRAMES": 8
+  },
+  "touches": [
+    {
+      "track_id": 49,
+      "start_frame": 207,
+      "end_frame": 260,
+      "held_frames": 7,
+      "span_frames": 54,
+      "observed_seconds": 0.23,
+      "inferred_seconds": 1.57,
+      "total_seconds": 1.8,
+      "identity": {
+        "identity_key": [
+          0,
+          35
+        ],
+        "identity_keys": [
+          [
+            0,
+            35
+          ]
+        ],
+        "jersey_number": null,
+        "states": {
+          "candidate": 7
+        },
+        "frames_with_identity": 7,
+        "frames_credited": 7,
+        "status": "review_item",
+        "reason": "identity split across 1 identity/identities, states {'candidate': 7}, 7/7 credited frames carry identity data"
+      },
+      "court_feet_start": [
+        6.7,
+        25.7
+      ],
+      "court_feet_end": [
+        5.9,
+        27.5
+      ],
+      "on_court": true
+    },
+    {
+      "track_id": 67,
+      "start_frame": 345,
+      "end_frame": 399,
+      "held_frames": 53,
+      "span_frames": 55,
+      "observed_seconds": 1.77,
+      "inferred_seconds": 0.07,
+      "total_seconds": 1.83,
+      "identity": {
+        "identity_key": [
+          0,
+          39
+        ],
+        "identity_keys": [
+          [
+            0,
+            39
+          ]
+        ],
+        "jersey_number": 32,
+        "states": {
+          "confirmed_retroactive": 53
+        },
+        "frames_with_identity": 53,
+        "frames_credited": 53,
+        "status": "review_item",
+        "reason": "identity split across 1 identity/identities, states {'confirmed_retroactive': 53}, 53/53 credited frames carry identity data"
+      },
+      "court_feet_start": [
+        5.6,
+        33.7
+      ],
+      "court_feet_end": [
+        10.5,
+        23.6
+      ],
+      "on_court": true
+    },
+    {
+      "track_id": 395,
+      "start_frame": 408,
+      "end_frame": 438,
+      "held_frames": 30,
+      "span_frames": 31,
+      "observed_seconds": 1.0,
+      "inferred_seconds": 0.03,
+      "total_seconds": 1.03,
+      "identity": {
+        "identity_key": [
+          0,
+          59
+        ],
+        "identity_keys": [
+          [
+            0,
+            59
+          ]
+        ],
+        "jersey_number": null,
+        "states": {
+          "unknown": 30
+        },
+        "frames_with_identity": 30,
+        "frames_credited": 30,
+        "status": "review_item",
+        "reason": "identity split across 1 identity/identities, states {'unknown': 30}, 30/30 credited frames carry identity data"
+      },
+      "court_feet_start": [
+        17.0,
+        8.6
+      ],
+      "court_feet_end": [
+        17.9,
+        9.6
+      ],
+      "on_court": true
+    },
+    {
+      "track_id": 67,
+      "start_frame": 453,
+      "end_frame": 516,
+      "held_frames": 23,
+      "span_frames": 64,
+      "observed_seconds": 0.77,
+      "inferred_seconds": 1.37,
+      "total_seconds": 2.13,
+      "identity": {
+        "identity_key": null,
+        "identity_keys": [
+          [
+            0,
+            39
+          ],
+          [
+            1,
+            4
+          ]
+        ],
+        "jersey_number": 32,
+        "states": {
+          "confirmed_retroactive": 16,
+          "confirmed": 7
+        },
+        "frames_with_identity": 23,
+        "frames_credited": 23,
+        "status": "review_item",
+        "reason": "identity split across 2 identity/identities, states {'confirmed_retroactive': 16, 'confirmed': 7}, 23/23 credited frames carry identity data"
+      },
+      "court_feet_start": [
+        30.3,
+        24.5
+      ],
+      "court_feet_end": [
+        46.2,
+        28.5
+      ],
+      "on_court": true
+    },
+    {
+      "track_id": 875,
+      "start_frame": 520,
+      "end_frame": 553,
+      "held_frames": 14,
+      "span_frames": 34,
+      "observed_seconds": 0.47,
+      "inferred_seconds": 0.67,
+      "total_seconds": 1.13,
+      "identity": {
+        "identity_key": [
+          1,
+          36
+        ],
+        "identity_keys": [
+          [
+            1,
+            36
+          ]
+        ],
+        "jersey_number": null,
+        "states": {
+          "unknown": 14
+        },
+        "frames_with_identity": 14,
+        "frames_credited": 14,
+        "status": "review_item",
+        "reason": "identity split across 1 identity/identities, states {'unknown': 14}, 14/14 credited frames carry identity data"
+      },
+      "court_feet_start": [
+        50.9,
+        32.4
+      ],
+      "court_feet_end": [
+        71.5,
+        29.3
+      ],
+      "on_court": true
+    }
+  ],
+  "frame_reasons": {
+    "no_ball": 220,
+    "held": 155,
+    "contested": 31,
+    "too_far": 55
+  },
+  "overlap_frames": 461,
+  "overlap_span": [
+    120,
+    580
+  ],
+  "excluded_tracks": [
+    1,
+    4,
+    7,
+    14,
+    372
+  ],
+  "fps": 30.0
+}

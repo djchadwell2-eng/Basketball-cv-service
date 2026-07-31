@@ -1,0 +1,334 @@
+{
+  "clip": "TEST1",
+  "windows": "2 detected possessions",
+  "window_boundaries": [
+    120,
+    501
+  ],
+  "seed_policy": "ROI-mask: on-court majority per (window, track)",
+  "off_court_excluded": 97,
+  "items": [
+    {
+      "window": 0,
+      "frame": 126,
+      "track": 9,
+      "state": "lost",
+      "why": "unknown: occlusion"
+    },
+    {
+      "window": 0,
+      "frame": 141,
+      "track": 17,
+      "state": "lost",
+      "why": "unknown: occlusion"
+    },
+    {
+      "window": 0,
+      "frame": 175,
+      "track": 6,
+      "state": "lost",
+      "why": "unknown: occlusion"
+    },
+    {
+      "window": 0,
+      "frame": 193,
+      "track": 36,
+      "state": "lost",
+      "why": "unknown: occlusion"
+    },
+    {
+      "window": 0,
+      "frame": 193,
+      "track": 50,
+      "state": "lost",
+      "why": "unknown: occlusion"
+    },
+    {
+      "window": 0,
+      "frame": 199,
+      "track": 48,
+      "state": "lost",
+      "why": "unknown: occlusion"
+    },
+    {
+      "window": 0,
+      "frame": 212,
+      "track": 38,
+      "state": "lost",
+      "why": "unknown: occlusion"
+    },
+    {
+      "window": 0,
+      "frame": 212,
+      "track": 56,
+      "state": "lost",
+      "why": "unknown: occlusion"
+    },
+    {
+      "window": 0,
+      "frame": 248,
+      "track": 53,
+      "state": "lost",
+      "why": "unknown: occlusion"
+    },
+    {
+      "window": 0,
+      "frame": 258,
+      "track": 80,
+      "state": "lost",
+      "why": "unknown: occlusion"
+    },
+    {
+      "window": 0,
+      "frame": 264,
+      "track": 67,
+      "state": "candidate",
+      "why": "candidate: reappeared after 10f occlusion, 5.7px from motion prediction -- NOT second-signal-verified"
+    },
+    {
+      "window": 0,
+      "frame": 266,
+      "track": 8,
+      "state": "lost",
+      "why": "unknown: occlusion"
+    },
+    {
+      "window": 0,
+      "frame": 277,
+      "track": 84,
+      "state": "lost",
+      "why": "unknown: occlusion"
+    },
+    {
+      "window": 0,
+      "frame": 281,
+      "track": 5,
+      "state": "lost",
+      "why": "unknown: occlusion"
+    },
+    {
+      "window": 0,
+      "frame": 307,
+      "track": 3,
+      "state": "lost",
+      "why": "unknown: occlusion"
+    },
+    {
+      "window": 0,
+      "frame": 324,
+      "track": 4,
+      "state": "lost",
+      "why": "unknown: occlusion"
+    },
+    {
+      "window": 0,
+      "frame": 326,
+      "track": 42,
+      "state": "candidate",
+      "why": "candidate: reappeared after 2f occlusion, 31.3px from motion prediction -- NOT second-signal-verified"
+    },
+    {
+      "window": 0,
+      "frame": 332,
+      "track": 294,
+      "state": "lost",
+      "why": "unknown: occlusion"
+    },
+    {
+      "window": 0,
+      "frame": 333,
+      "track": 87,
+      "state": "lost",
+      "why": "unknown: occlusion"
+    },
+    {
+      "window": 0,
+      "frame": 394,
+      "track": 432,
+      "state": "lost",
+      "why": "unknown: occlusion"
+    },
+    {
+      "window": 0,
+      "frame": 473,
+      "track": 622,
+      "state": "lost",
+      "why": "unknown: occlusion"
+    },
+    {
+      "window": 0,
+      "frame": 475,
+      "track": 688,
+      "state": "lost",
+      "why": "unknown: occlusion"
+    },
+    {
+      "window": 0,
+      "frame": 476,
+      "track": 2,
+      "state": "candidate",
+      "why": "candidate: reappeared after 2f occlusion, 23.0px from motion prediction -- NOT second-signal-verified"
+    },
+    {
+      "window": 0,
+      "frame": 477,
+      "track": 49,
+      "state": "candidate",
+      "why": "candidate: reappeared after 4f occlusion, 21.0px from motion prediction -- NOT second-signal-verified"
+    },
+    {
+      "window": 0,
+      "frame": 478,
+      "track": 467,
+      "state": "lost",
+      "why": "unknown: occlusion"
+    },
+    {
+      "window": 0,
+      "frame": 496,
+      "track": 1,
+      "state": "unknown",
+      "why": "unknown: new track, not yet identified"
+    },
+    {
+      "window": 0,
+      "frame": 496,
+      "track": 7,
+      "state": "unknown",
+      "why": "unknown: new track, not yet identified"
+    },
+    {
+      "window": 0,
+      "frame": 496,
+      "track": 372,
+      "state": "unknown",
+      "why": "unknown: new track, not yet identified"
+    },
+    {
+      "window": 0,
+      "frame": 496,
+      "track": 395,
+      "state": "unknown",
+      "why": "unknown: new track, not yet identified"
+    },
+    {
+      "window": 0,
+      "frame": 500,
+      "track": 10,
+      "state": "candidate",
+      "why": "candidate: reappeared after 3f occlusion, 13.7px from motion prediction -- NOT second-signal-verified"
+    },
+    {
+      "window": 1,
+      "frame": 501,
+      "track": 10,
+      "state": "lost",
+      "why": "unknown: occlusion"
+    },
+    {
+      "window": 1,
+      "frame": 501,
+      "track": 49,
+      "state": "lost",
+      "why": "unknown: occlusion"
+    },
+    {
+      "window": 1,
+      "frame": 516,
+      "track": 2,
+      "state": "candidate",
+      "why": "candidate: reappeared after 2f occlusion, 21.0px from motion prediction -- NOT second-signal-verified"
+    },
+    {
+      "window": 1,
+      "frame": 539,
+      "track": 879,
+      "state": "lost",
+      "why": "unknown: occlusion"
+    },
+    {
+      "window": 1,
+      "frame": 547,
+      "track": 138,
+      "state": "lost",
+      "why": "unknown: occlusion"
+    },
+    {
+      "window": 1,
+      "frame": 552,
+      "track": 15,
+      "state": "lost",
+      "why": "unknown: occlusion"
+    },
+    {
+      "window": 1,
+      "frame": 554,
+      "track": 83,
+      "state": "candidate",
+      "why": "candidate: reappeared after 2f occlusion, 8.5px from motion prediction -- NOT second-signal-verified"
+    },
+    {
+      "window": 1,
+      "frame": 563,
+      "track": 875,
+      "state": "lost",
+      "why": "unknown: occlusion"
+    },
+    {
+      "window": 1,
+      "frame": 569,
+      "track": 1026,
+      "state": "lost",
+      "why": "unknown: occlusion"
+    },
+    {
+      "window": 1,
+      "frame": 572,
+      "track": 7,
+      "state": "lost",
+      "why": "unknown: occlusion"
+    },
+    {
+      "window": 1,
+      "frame": 576,
+      "track": 1,
+      "state": "unknown",
+      "why": "unknown: new track, not yet identified"
+    },
+    {
+      "window": 1,
+      "frame": 576,
+      "track": 372,
+      "state": "unknown",
+      "why": "unknown: new track, not yet identified"
+    },
+    {
+      "window": 1,
+      "frame": 576,
+      "track": 952,
+      "state": "unknown",
+      "why": "unknown: new track, not yet identified"
+    },
+    {
+      "window": 1,
+      "frame": 576,
+      "track": 1106,
+      "state": "unknown",
+      "why": "unknown: new track, not yet identified"
+    },
+    {
+      "window": 1,
+      "frame": 576,
+      "track": 1230,
+      "state": "unknown",
+      "why": "unknown: new track, not yet identified"
+    },
+    {
+      "window": 1,
+      "frame": 579,
+      "track": 1280,
+      "state": "lost",
+      "why": "unknown: occlusion"
+    }
+  ]
+}
