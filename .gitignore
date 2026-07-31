@@ -44,5 +44,6 @@ yolov8x.pt
 !phase1/out/TEST1_*.npz
 !phase2/out/TEST1_*.json
 !phase2/out/TEST1_*.csv
+!models/ball_finetuned_v2.pt
 !models/ball_finetuned_v3.pt
 !video_assets/Test1.mp4

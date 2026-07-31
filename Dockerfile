@@ -16,6 +16,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt runpod
 
+# Bake EasyOCR's models in at build time (phase2/ocr_reader.py: en, CPU) --
+# without this it silently downloads them from the internet on every cold
+# start, which is slow and a bad fit for a job meant to finish in minutes.
+RUN python -c "import easyocr; easyocr.Reader(['en'], gpu=False, verbose=False)"
+
 # .dockerignore trims this down to code + TEST1's caches + its video, not
 # every clip's multi-GB debug overlays.
 COPY . .

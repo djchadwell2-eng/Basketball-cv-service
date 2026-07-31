@@ -17,8 +17,10 @@ phase2/out/*
 !phase2/out/TEST1_*.json
 !phase2/out/TEST1_*.csv
 
-# Only the currently-used ball weights, not every experiment checkpoint
+# TEST1_CLIP.ball_weights_path defaults to v2 (clip_config.py); v3 is also
+# kept since it's this project's best model. Not every experiment checkpoint.
 models/*
+!models/ball_finetuned_v2.pt
 !models/ball_finetuned_v3.pt
 
 # Only the clip video this proof actually runs
