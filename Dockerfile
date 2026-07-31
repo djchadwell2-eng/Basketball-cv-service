@@ -5,9 +5,12 @@ FROM pytorch/pytorch:2.4.1-cuda12.4-cudnn9-runtime
 
 WORKDIR /app
 
-# opencv-python/easyocr need these at runtime even headless
+# opencv-python/easyocr need these at runtime even headless; openssh-server
+# is for debug Pod deploys only (see docker-entrypoint.sh) -- the base image
+# has no SSH access at all otherwise, unlike RunPod's own official templates.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libgl1 libglib2.0-0 \
+    libgl1 libglib2.0-0 openssh-server \
+    && mkdir -p /var/run/sshd \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
@@ -17,4 +20,8 @@ RUN pip install --no-cache-dir -r requirements.txt runpod
 # every clip's multi-GB debug overlays.
 COPY . .
 
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+
+ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["python", "-u", "serverless_handler.py"]
