@@ -50,6 +50,24 @@ def _patch_video_path(clip_name):
 
 
 VOLUME_ROOT = os.environ.get("RUNPOD_VOLUME_ROOT", "/runpod-volume")
+PROGRESS_DIR = os.path.join(VOLUME_ROOT, "progress")
+
+
+def progress(clip: str, line: str) -> None:
+    """Say where the job is up to, on the SHARED VOLUME.
+
+    A serverless worker's stdout goes to the RunPod console, which the app
+    cannot read -- so a long job looks identical to a hung one from here. The
+    volume is visible to any other job, so a one-line-per-stage file is the
+    only progress a caller can actually see. It also survives the worker.
+    """
+    print(f"[serverless_handler] {line}", flush=True)
+    try:
+        os.makedirs(PROGRESS_DIR, exist_ok=True)
+        with open(os.path.join(PROGRESS_DIR, f"{clip}.log"), "a", encoding="utf-8") as fh:
+            fh.write(f"{time.strftime('%H:%M:%S')} {line}\n")
+    except OSError:
+        pass                        # progress must never break the analysis
 
 
 def _install_uploaded_clip(clip_name: str, doc: dict, span=None) -> None:
@@ -114,19 +132,27 @@ def _build_caches(config) -> None:
     the part the GPU exists for (1.44 s/frame on DJ's laptop, 0.011 here)."""
     import cache_tracks
     import cache_oncourt
+    import torch
+
+    progress(config.name, f"device: cuda={torch.cuda.is_available()} "
+                          f"{torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU ONLY'}")
 
     if not os.path.exists(config.tracks_cache_path):
-        print("[serverless_handler] STAGE tracking (building tracks cache) ...", flush=True)
+        progress(config.name, f"STAGE tracking {config.tracking_span_len} frames ...")
+        t = time.time()
         cache_tracks.cache(config)
+        progress(config.name, f"STAGE tracking done in {time.time() - t:.0f}s")
     else:
-        print("[serverless_handler] tracks cache present -- reusing", flush=True)
+        progress(config.name, "tracks cache present -- reusing")
 
     oncourt_path = os.path.join(_ROOT, "phase2", "out", f"{config.name}_oncourt.json")
     if not os.path.exists(oncourt_path):
-        print("[serverless_handler] STAGE on-court cache ...", flush=True)
+        progress(config.name, "STAGE on-court cache ...")
+        t = time.time()
         cache_oncourt.cache(config)
+        progress(config.name, f"STAGE on-court done in {time.time() - t:.0f}s")
     else:
-        print("[serverless_handler] on-court cache present -- reusing", flush=True)
+        progress(config.name, "on-court cache present -- reusing")
 
 
 def run_analysis(clip_name: str, doc: dict | None = None, span=None) -> dict:
@@ -147,11 +173,13 @@ def run_analysis(clip_name: str, doc: dict | None = None, span=None) -> dict:
     if doc:
         _build_caches(config)
 
-    print(f"[serverless_handler] STAGE run_clip (full pipeline) clip={clip_name}", flush=True)
+    progress(clip_name, "STAGE run_clip (calibration -> events -> identity -> box score)")
+    t = time.time()
     import run_clip
     run_clip.run(config)
+    progress(clip_name, f"STAGE run_clip done in {time.time() - t:.0f}s")
 
-    print("[serverless_handler] STAGE measured_stats bundle", flush=True)
+    progress(clip_name, "STAGE measured_stats bundle")
     import measured_stats
     stats = measured_stats.generate(clip_name)
 
@@ -235,6 +263,19 @@ def handler(job):
 
     # A look at the mounted volume: proves the film landed where the job will
     # expect it, without spending GPU minutes to find out.
+    # Read a running job's progress file. Cheap, no GPU work -- but it needs a
+    # SECOND worker slot, since the job it is reporting on is holding the first.
+    if job_input.get("mode") == "progress":
+        clip = job_input.get("clip", "")
+        p = os.path.join(PROGRESS_DIR, f"{clip}.log")
+        try:
+            with open(p, encoding="utf-8") as fh:
+                lines = fh.read().splitlines()
+        except OSError:
+            lines = []
+        return {"ok": True, "mode": "progress", "clip": clip,
+                "exists": os.path.exists(p), "lines": lines[-40:]}
+
     if job_input.get("mode") == "volume":
         root = VOLUME_ROOT
         out = {"mounted": os.path.isdir(root), "root": root, "entries": []}
