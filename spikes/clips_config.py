@@ -308,7 +308,338 @@ CLIPS = {
             ],
         },
     },
+    # FULL GAME -- the first REAL full-length clip. 171,120 frames / 95.1 min.
+    # Keyframes are NOT on a fixed interval: they are the views
+    # spikes/full_game_views.py measured as covering 99% of the game (the first
+    # alone covers 50%). The 10 other candidates it found were the pre-game
+    # introductions with the house lights OFF -- unlit floor, no basketball --
+    # deliberately excluded rather than clicked. See TEST_LOG TESTs 33-35.
+    # Court is "auto": the floor is SOLVED from these marks by court_detect, never
+    # assumed. A first pass with 25 marks (free-throw lines + centre only) gave a
+    # good 0.32 ft fit but could NOT tell an 84 ft floor from a 94 ft one, because
+    # nothing was marked at a BASELINE to anchor the length. court_detect refused
+    # rather than guess. This is the second pass, with baselines.
+    "FULL_GAME": {
+        "video_path": r"c:\Users\djcha\New folder\basketball-cv-service\Full_Game.mp4",
+        "keyframes": [200, 16000, 65800, 79200, 169000],
+        "reference_pos": None,
+        "exclude_regions": [(0.0, 830.0, 330.0, 1080.0)],   # bottom-left scorebug
+        "court": "auto",
+        "stills": [200, 16000, 65800],
+        "landmarks": {
+            200: [
+                ('L_FT_near', 444.6, 469.3),
+                ('L_FT_far', 335.9, 606.4),
+                ('center_near', 1036.2, 325.6),
+                ('center_logo', 1046.2, 529.5),
+                ('center_far', 1059.6, 1015.8),
+                ('R_FT_near', 1656.3, 484.3),
+                ('R_FT_far', 1781.6, 626.4),
+                ('LB_side_near', 185.5, 320.6),
+                ('RB_side_near', 1918.7, 335.6),
+                ('circle_left', 879.1, 531.1),
+                ('circle_right', 1213.4, 534.5),
+                ('circle_bottom', 1041.2, 476),
+                ('circle_top', 1047.9, 616.4),
+                ('L_arc_top', 559.9, 531.1),
+                ('R_arc_top', 1540.9, 549.5),
+            ],
+            16000: [
+                ('L_FT_near', 1069.6, 471),
+                ('L_FT_far', 910.9, 628.1),
+                ('center_logo', 1893.6, 680.4),
+                ('L_lane_base_near', 531.5, 395.8),
+                ('L_lane_base_far', 305.8, 522.8),
+                ('LB_side_near', 788.9, 248.7),
+                ('circle_left', 1639.6, 637),
+                ('circle_bottom', 1900.3, 593.5),
+                ('circle_top', 1880.2, 799.1),
+                ('L_arc_top', 1201.7, 578.5),
+            ],
+            65800: [
+                ('R_FT_near', 783.8, 490),
+                ('R_FT_far', 961, 637.1),
+                ('R_lane_base_near', 1307, 401.3),
+                ('R_lane_base_far', 1540.9, 518.3),
+                ('RB_side_near', 1037.9, 264.3),
+                ('circle_right', 224, 672.1),
+                ('circle_top', 0, 832.5),
+                ('R_arc_top', 651.8, 588.5),
+            ],
+            79200: [
+                ('L_FT_near', 528.1, 457.6),
+                ('L_FT_far', 419.5, 596.3),
+                ('center_near', 1118.1, 328.9),
+                ('center_logo', 1124.8, 532.8),
+                ('center_far', 1126.5, 1037.5),
+                ('R_FT_near', 1748.2, 501.1),
+                ('R_FT_far', 1876.9, 649.8),
+                ('L_lane_base_near', 73.5, 451.5),
+                ('LB_side_near', 280.8, 312.7),
+                ('circle_left', 954.3, 536.7),
+                ('circle_right', 1293.6, 543.4),
+                ('circle_bottom', 1121.4, 481.5),
+                ('circle_top', 1124.8, 620.3),
+                ('L_arc_top', 640.1, 530),
+                ('R_arc_top', 1622.8, 556.8),
+            ],
+            169000: [
+                ('L_FT_near', 628.4, 459.3),
+                ('L_FT_far', 518.1, 586.3),
+                ('center_near', 1223.4, 335.6),
+                ('center_logo', 1220.1, 544.5),
+                ('center_far', 1216.7, 1037.5),
+                ('R_FT_near', 1870.2, 522.8),
+                ('L_lane_base_near', 188.9, 436.4),
+                ('L_lane_base_far', 8.4, 555.1),
+                ('LB_side_near', 391.1, 304.4),
+                ('circle_left', 1047.9, 545.1),
+                ('circle_right', 1395.5, 560.1),
+                ('circle_bottom', 1220.1, 489.9),
+                ('circle_top', 1218.4, 632),
+                ('L_arc_top', 738.7, 523.3),
+                ('R_arc_top', 1736.5, 581.8),
+            ],
+        },
+    },
+    # Verified-chain frame set (spikes/verify_chain_fullres.py, 2026-07-30):
+    # every adjacent pair holds ratio >= 0.6 at full resolution, scorebug masked.
+    # DJ's clicks from spikes/out/FULLGAME_chain_landmarks.json. Kept SEPARATE
+    # from "FULL_GAME" (the old, broken 5-frame coverage set) so neither
+    # overwrites the other.
+    "FULL_GAME_CHAIN": {
+        "video_path": r"c:\Users\djcha\New folder\basketball-cv-service\Full_Game.mp4",
+        "keyframes": [600, 127200, 151200, 171000],
+        "reference_pos": None,
+        "exclude_regions": [(0.0, 830.0, 330.0, 1080.0)],   # bottom-left scorebug
+        "court": "auto",
+        "stills": [600, 127200, 151200, 171000],
+        "landmarks": {
+            600: [
+                ('center_logo', 1044.6, 531.7),
+                ('center_near', 1037.9, 327.8),
+                ('center_far', 1057.9, 1003),
+                ('L_FT_near', 444.6, 469.8),
+                ('L_FT_far', 334.3, 605.2),
+                ('R_FT_near', 1654.6, 483.2),
+                ('R_FT_far', 1778.3, 626.9),
+                ('LB_side_near', 185.5, 321.1),
+                ('circle_left', 879.1, 535),
+                ('circle_right', 1215, 538.4),
+                ('circle_bottom', 1042.9, 476.5),
+                ('circle_top', 1047.9, 616.9),
+                ('L_arc_top', 563.2, 526.7),
+                ('R_arc_top', 1534.3, 543.4),
+            ],
+            127200: [
+                ('center_logo', 879.1, 538.4),
+                ('center_near', 862.4, 327.8),
+                ('center_far', 919.2, 1013),
+                ('L_FT_near', 255.7, 494.9),
+                ('L_FT_far', 143.7, 642),
+                ('R_FT_near', 1467.4, 463.2),
+                ('R_FT_far', 1591.1, 595.2),
+                ('RB_side_near', 1704.7, 312.7),
+                ('circle_left', 715.3, 548.4),
+                ('circle_right', 1046.2, 536.7),
+                ('circle_bottom', 874.1, 478.2),
+                ('circle_top', 885.8, 618.6),
+                ('L_arc_top', 382.7, 556.8),
+                ('R_arc_top', 1358.8, 526.7),
+            ],
+            151200: [
+                ('L_lane_base_near', 147.1, 439.8),
+                ('center_logo', 1193.3, 548.4),
+                ('center_near', 1195, 331.1),
+                ('center_far', 1193.3, 1049.8),
+                ('L_FT_near', 595, 456.5),
+                ('L_FT_far', 484.7, 590.2),
+                ('R_FT_near', 1845.1, 516.6),
+                ('LB_side_near', 351, 302.7),
+                ('circle_left', 1024.5, 545.1),
+                ('circle_right', 1370.5, 556.8),
+                ('circle_bottom', 1195, 484.9),
+                ('circle_top', 1195, 630.3),
+                ('L_arc_top', 707, 526.7),
+                ('R_arc_top', 1714.8, 571.8),
+            ],
+            171000: [
+                ('L_lane_base_near', 287.5, 429.7),
+                ('L_lane_base_far', 115.3, 533.4),
+                ('center_logo', 1305.3, 566.8),
+                ('center_near', 1317, 347.8),
+                ('center_far', 1300.3, 1049.8),
+                ('L_FT_near', 713.6, 458.1),
+                ('L_FT_far', 603.3, 583.5),
+                ('LB_side_near', 484.7, 302.7),
+                ('circle_left', 1134.8, 548.4),
+                ('circle_right', 1487.5, 578.5),
+                ('circle_bottom', 1307, 501.6),
+                ('circle_top', 1301.9, 645.3),
+                ('L_arc_top', 825.6, 526.7),
+                ('R_arc_top', 1840.1, 603.6),
+            ],
+        },
+    },
+    # SECOND GYM -- the multi-gym test. 120-min game, 7 marked frames, 92 clicks
+    # (DJ, 2026-07-30). Chain verified at FULL resolution with the graphic masked
+    # before any clicking was requested (spikes/out/FULL_GAME2_chain_verify_fullres
+    # .json -- every link >= 0.6). Two of those frames (190500, 208500) came from
+    # spikes/bridge_gap_fullres.py after the planner's 165000->208800 link failed
+    # the real gate at 0.590; a hand-guessed midpoint was worse on both sides.
+    "FULL_GAME2": {
+        "video_path": r"c:\Users\djcha\New folder\basketball-cv-service\Full_Game2.mp4",
+        "keyframes": [0, 5400, 150000, 165000, 190500, 208500, 215400],
+        "reference_pos": None,
+        "exclude_regions": [(0.0, 870.0, 340.0, 1080.0)],   # bottom-left player overlay
+        "court": "auto",
+        "stills": [0, 5400, 150000, 165000, 190500, 208500, 215400],
+        "landmarks": {
+            0: [
+                ('R_lane_base_near', 1574.4, 424.7),
+                ('R_lane_base_far', 1783.3, 498.3),
+                ('center_logo', 461.3, 588.5),
+                ('center_near', 456.3, 406.3),
+                ('center_far', 461.3, 1059.5),
+                ('R_FT_near', 1185, 461.2),
+                ('R_FT_far', 1338.7, 553.1),
+                ('RB_side_near', 1345.4, 342.5),
+                ('circle_left', 252.4, 604.9),
+                ('circle_right', 656.8, 569.8),
+                ('circle_bottom', 457.9, 524.7),
+                ('circle_top', 466.3, 658.4),
+                ('R_arc_top', 1104.7, 514.6),
+            ],
+            5400: [
+                ('R_lane_base_near', 1612.8, 422),
+                ('R_lane_base_far', 1821.7, 500.6),
+                ('center_logo', 556.5, 575.8),
+                ('center_near', 551.5, 393.6),
+                ('center_far', 548.2, 1002),
+                ('R_FT_near', 1258.5, 453.8),
+                ('R_FT_far', 1378.8, 542.4),
+                ('RB_side_near', 1410.6, 350.2),
+                ('circle_left', 344.3, 609.2),
+                ('circle_right', 738.7, 554.1),
+                ('circle_bottom', 554.9, 512.3),
+                ('circle_top', 559.9, 634.3),
+                ('R_arc_top', 1163.2, 507.3),
+            ],
+            150000: [
+                ('R_lane_base_near', 1766.6, 420.4),
+                ('center_logo', 656.8, 557.4),
+                ('center_near', 658.5, 380.3),
+                ('center_far', 650.1, 1018.7),
+                ('R_FT_near', 1370.5, 458.8),
+                ('R_FT_far', 1524.2, 550.7),
+                ('RB_side_near', 1547.6, 340.2),
+                ('circle_left', 468, 569.1),
+                ('circle_right', 835.7, 540.7),
+                ('circle_bottom', 656.8, 502.3),
+                ('circle_top', 653.5, 624.3),
+                ('R_arc_top', 1281.9, 512.3),
+            ],
+            165000: [
+                # L_lane_base_far + LB_side_near re-clicked by DJ 2026-07-30 after
+                # this landmark showed 1.28 ft error. DJ confirmed the ORIGINAL
+                # click was correct ("that click was perfectly fine") -- and the
+                # full frame backs him up. The error is GEOMETRIC, not a mis-click:
+                # this point sits at x=229 of 1920 (frame edge) at the most distant,
+                # most oblique part of the court, where px->ft scaling is worst, and
+                # it is the ONLY landmark clicked in a single frame, so nothing
+                # averages its error down. Do not "fix" this by deleting the click.
+                ('L_lane_base_near', 436.2, 428.7),
+                ('L_lane_base_far', 229, 498.3),
+                ('center_logo', 1539.3, 617.6),
+                ('center_near', 1577.7, 428.7),
+                ('center_far', 1439, 1078.2),
+                ('L_FT_near', 820.6, 476.2),
+                ('L_FT_far', 653.5, 558.1),
+                ('LB_side_near', 678.6, 356.2),
+                ('circle_left', 1340.4, 584.8),
+                ('circle_right', 1751.5, 631.6),
+                ('circle_bottom', 1554.3, 551.4),
+                ('circle_top', 1525.9, 686.8),
+                ('L_arc_top', 889.1, 531.4),
+            ],
+            190500: [
+                ('center_logo', 1088, 538.4),
+                ('center_near', 1106.4, 376.3),
+                ('center_far', 1024.5, 1011.4),
+                ('L_FT_near', 381.1, 471.5),
+                ('L_FT_far', 202.2, 575.1),
+                ('R_FT_near', 1873.5, 511.6),
+                ('LB_side_near', 217.3, 356.2),
+                ('circle_left', 915.9, 535),
+                ('circle_right', 1265.2, 546.7),
+                ('circle_bottom', 1093, 489.9),
+                ('circle_top', 1079.7, 603.6),
+                ('L_arc_top', 459.6, 520),
+                ('R_arc_top', 1761.6, 553.4),
+            ],
+            208500: [
+                ('L_lane_base_near', 30.1, 449.8),
+                ('center_logo', 1148.2, 546.7),
+                ('center_near', 1168.2, 381.3),
+                ('center_far', 1093, 1004.7),
+                ('L_FT_near', 454.6, 466.5),
+                ('L_FT_far', 289.1, 565.1),
+                ('LB_side_near', 297.5, 357.9),
+                ('circle_left', 979.4, 536.7),
+                ('circle_right', 1327, 555.1),
+                ('circle_bottom', 1153.2, 494.9),
+                ('circle_top', 1139.8, 610.2),
+                ('L_arc_top', 533.1, 516.6),
+                ('R_arc_top', 1846.8, 578.5),
+            ],
+            215400: [
+                ('R_lane_base_near', 1434, 429.7),
+                ('R_lane_base_far', 1637.9, 496.6),
+                ('center_logo', 312.5, 620.3),
+                ('center_near', 304.2, 431.4),
+                ('R_FT_near', 1059.6, 471.5),
+                ('R_FT_far', 1213.4, 558.4),
+                ('RB_side_near', 1228.4, 342.8),
+                ('circle_left', 91.9, 652),
+                ('circle_right', 516.4, 591.9),
+                ('circle_bottom', 310.9, 561.8),
+                ('circle_top', 317.5, 693.8),
+                ('R_arc_top', 987.7, 530),
+            ],
+        },
+    },
 }
+
+# --- Clips created through the WEB APP -------------------------------------
+# Games set up in the browser live as JSON in clips/ (see clip_registry.py) so
+# a coach never has to edit Python. They are merged in here as ordinary CLIPS
+# entries, which is what makes them first-class to every stage.
+#
+# Hand-written entries above WIN on a name collision: they are the validated
+# baselines this engine was proven against, and a stray uploaded clip that
+# happened to be named "HARD" must never silently redefine them.
+def _merge_registry_clips():
+    try:
+        import sys as _sys
+        import os as _os
+        _r = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+        if _r not in _sys.path:
+            _sys.path.insert(0, _r)
+        import clip_registry
+    except ImportError:
+        return
+    for _name, _doc in clip_registry.load_all().items():
+        if _name in CLIPS or not clip_registry.has_calibration(_doc):
+            continue
+        try:
+            CLIPS[_name] = clip_registry.to_calibration_entry(_doc)
+        except (KeyError, TypeError, ValueError):
+            # A half-written clip is expected mid-setup -- skip it rather than
+            # break config loading for every other clip.
+            continue
+
+
+_merge_registry_clips()
 
 # Which clip the stages operate on. Set to "HARD" for the regression check.
 ACTIVE = "TEST1"

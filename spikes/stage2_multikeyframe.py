@@ -94,23 +94,25 @@ COURT_LEN, COURT_WID = 94.0, 50.0   # for the ideal-court reference drawing
 
 # ==============================================================================
 def extract_frames(video_path, indices):
-    """Frame-accurate single-pass read of the requested indices (sorted)."""
+    """Frame-accurate read of the requested indices.
+
+    SEEKS, then VERIFIES it landed on the exact frame, falling back to a
+    sequential scan for any frame it missed (../fast_frames.py). It used to
+    ALWAYS scan sequentially from frame 0 -- correct, but on a 171k-frame game
+    that is minutes per call, and the calibration calls it twice.
+
+    Measured 2026-07-31 on both full games: seeking is 5.4x faster, hits the
+    exact frame every time, and returns PIXEL-IDENTICAL frames. The old comment
+    here warned that H.264 seeks "can be frame-inaccurate"; that was never
+    measured and is false for this footage. The verify-and-fall-back keeps the
+    guarantee for any file where it is not.
+    """
     need = sorted(set(indices))
-    cap = cv2.VideoCapture(video_path)
-    if not cap.isOpened():
-        raise RuntimeError(f"Could not open video: {video_path}")
-    frames, it = {}, iter(need)
-    nxt, idx = next(it, None), 0
-    while nxt is not None:
-        if not cap.grab():
-            break
-        if idx == nxt:
-            ok, fr = cap.retrieve()
-            if ok:
-                frames[idx] = fr
-            nxt = next(it, None)
-        idx += 1
-    cap.release()
+    _root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if _root not in sys.path:
+        sys.path.insert(0, _root)
+    import fast_frames
+    frames = fast_frames.read_frames(video_path, need, verify=True)
     missing = [i for i in need if i not in frames]
     if missing:
         raise RuntimeError(f"Could not read frames {missing} from {video_path}")
@@ -170,6 +172,20 @@ def adjacent_homographies(frames, keyframes, regions):
             print(f"  *** WEAK PAIR FLAG: {a_idx}->{b_idx} inlier ratio {ratio:.3f} "
                   f"< {WEAK_INLIER_RATIO} -- these keyframes are too far apart; "
                   f"consider adding an intermediate keyframe between them. ***")
+
+    # A None homography means the pair could not be related AT ALL -- not merely
+    # weakly. It used to be passed on regardless, and the chain then carried the
+    # None into the optimiser, which died deep inside with
+    # "'NoneType' object is not subscriptable" -- a stack trace that says
+    # nothing about the actual problem. Fail HERE, naming the two frames, so the
+    # caller can tell someone which part of the game does not connect.
+    dead = [(s["a"], s["b"], s["matches"]) for s, H in zip(stats, fwd) if H is None]
+    if dead:
+        pairs = "; ".join(f"{a} and {b} (only {m} matching points)" for a, b, m in dead)
+        raise ValueError(
+            f"NO_OVERLAP: these frames show too little of the same court to be "
+            f"connected: {pairs}. The camera was pointing somewhere different, or "
+            f"the view is obscured. A frame BETWEEN them is needed to bridge the gap.")
     return fwd, stats, weak
 
 

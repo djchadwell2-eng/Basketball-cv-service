@@ -228,6 +228,72 @@ TEST2_CLIP = ClipConfig(
     },
 )
 
+# --- Clips created through the WEB APP --------------------------------------
+# A game set up in the browser is ONE JSON document (clips/<NAME>.json, see
+# clip_registry.py) carrying both its calibration and its roster. Here we build
+# a real ClipConfig from the pipeline half, so an uploaded game is as ordinary
+# as TEST1 to everything downstream.
+#
+# A registry clip is only built once it has a ROSTER and a TRACKING SPAN --
+# validate() would reject it otherwise, and failing at import time would break
+# every unrelated clip. Mid-setup incompleteness is the normal state, not an
+# error, so an unfinished clip is simply not offered yet.
+def _registry_clips() -> dict:
+    try:
+        import clip_registry
+    except ImportError:
+        return {}
+    out = {}
+    for name, doc in clip_registry.load_all().items():
+        if not clip_registry.has_roster(doc) or not doc.get("tracking_span_len"):
+            continue
+        try:
+            teams = tuple(
+                Team(t["name"], t.get("jersey_color", ""), frozenset(t["numbers"]))
+                for t in doc["teams"] if t.get("numbers"))
+            hoops = doc.get("hoop_anchors")
+            if hoops:
+                hoops = {k: (v[0], tuple(v[1])) for k, v in hoops.items()}
+            out[name] = ClipConfig(
+                name=name,
+                video_path=doc["video_path"],
+                event_frames=range(doc["tracking_span_start"],
+                                   doc["tracking_span_start"] + doc["tracking_span_len"],
+                                   max(1, doc["tracking_span_len"] // 40)),
+                render_sample_frames=range(doc["tracking_span_start"],
+                                           doc["tracking_span_start"] + doc["tracking_span_len"],
+                                           max(1, doc["tracking_span_len"] // 12)),
+                tracking_span_start=doc["tracking_span_start"],
+                tracking_span_len=doc["tracking_span_len"],
+                teams=teams,
+                seed_labels={int(k): v for k, v in (doc.get("seed_labels") or {}).items()},
+                accumulation_window_seconds=doc.get("accumulation_window_seconds", 2.0),
+                tracks_cache_path=_cache(name),
+                ball_span_start=doc.get("ball_span_start", 0),
+                ball_span_len=doc.get("ball_span_len", 0),
+                hoop_anchors=hoops,
+            )
+        except (KeyError, TypeError, ValueError):
+            continue
+    return out
+
+
+REGISTRY_CLIPS = _registry_clips()
+
+
+def get_clip(name: str):
+    """A ClipConfig by name -- hand-written first, then registry (web app).
+
+    Hand-written wins on a collision for the same reason spikes/clips_config
+    does it: those are the validated baselines and must not be redefinable by
+    an uploaded file.
+    """
+    builtin = globals().get(f"{name}_CLIP")
+    if builtin is not None:
+        return builtin
+    return REGISTRY_CLIPS.get(name)
+
+
 # The clip the stage scripts operate on when run standalone. The combined entry
 # point (run_clip.py) sets this (and spikes/clips_config.ACTIVE) per run.
 ACTIVE_CLIP = TEST1_CLIP

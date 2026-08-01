@@ -144,11 +144,15 @@ def run(config):
         _section("PHASE 5 -- ball trajectory (physics-gated arcs)")
         arcs_json = bs.stage_ball_trajectory(config, det_json)
         _section("PHASE 5 -- shot attempts")
-        sa_json = bs.stage_shot_attempts(config, arcs_json, hoop_json)
+        sa_json = bs.stage_shot_attempts(config, arcs_json, hoop_json, det_json)
         _section("PHASE 5 -- shot locations + chart")
         loc_json = bs.stage_shot_location(config, sa_json)
         _section("PHASE 5 -- shot outcomes (candidate labels, review-first)")
         outc_json = bs.stage_shot_outcome(config, sa_json, arcs_json, hoop_json, det_json)
+        # Prints its own full summary; nothing downstream consumes it yet, so
+        # the path is deliberately not captured.
+        _section("PHASE 5 -- ball touches (who has the ball; NOT possessions)")
+        bs.stage_ball_touches(config, det_json)
     else:
         _section("PHASE 5 -- ball/shot layer")
         print(f"[run_clip] ball layer not configured for {config.name} "

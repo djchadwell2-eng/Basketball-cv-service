@@ -202,3 +202,74 @@ def test_court_length_flows_into_the_contract_and_zones():
     assert out94["meta"]["court"]["length_ft"] == 94.0
     # the SAME shot is a three on one floor and further out on the other
     assert out84["shots"][0]["dist_ft"] != out94["shots"][0]["dist_ft"]
+
+
+# --------------------------------------------------- ball touches (2026-07-29)
+# A TOUCH is one player holding the ball until she gives it up -- NOT a
+# possession. These pin the two honesty rules the app must not lose: seen and
+# filled-in seconds stay separate, and a clip with no ball layer says so.
+
+def _touch_doc():
+    return {"touches": [
+        {"start_frame": 345, "end_frame": 399, "track_id": 67,
+         "observed_seconds": 1.8, "inferred_seconds": 0.1, "total_seconds": 1.9,
+         "court_feet_start": [6.0, 34.0], "on_court": True,
+         "identity": {"jersey_number": 32, "status": "review_item"}},
+        {"start_frame": 408, "end_frame": 438, "track_id": 395,
+         "observed_seconds": 1.0, "inferred_seconds": 0.0, "total_seconds": 1.0,
+         "court_feet_start": [78.0, 25.0], "on_court": True,
+         "identity": {"jersey_number": None, "status": "no_identity_data"}},
+    ]}
+
+
+def test_touches_reach_the_contract_with_seen_and_filled_kept_apart():
+    out = ms.build_measured_stats("X", _box_doc(), _loc_doc(), _att_doc(),
+                                  touch_doc=_touch_doc())
+    assert out["meta"]["touches_available"] is True
+    assert len(out["touches"]) == 2
+    t = out["touches"][0]
+    assert t["observed_seconds"] == 1.8
+    assert t["inferred_seconds"] == 0.1
+    assert t["jersey_number"] == 32
+    assert t["identity_status"] == "review_item"     # never silently "confirmed"
+
+
+def test_touch_summary_reports_the_inferred_share():
+    out = ms.build_measured_stats("X", _box_doc(), _loc_doc(), _att_doc(),
+                                  touch_doc=_touch_doc())
+    s = out["touch_summary"]
+    assert s["n_touches"] == 2
+    assert s["n_nameable"] == 1                      # only one has a jersey
+    assert s["observed_seconds"] == 2.8
+    assert s["inferred_seconds"] == 0.1
+    assert s["pct_inferred"] == 3                    # rounded whole percent
+
+
+def test_a_touch_gets_a_court_zone_the_same_way_a_shot_does():
+    out = ms.build_measured_stats("X", _box_doc(), _loc_doc(), _att_doc(),
+                                  touch_doc=_touch_doc())
+    # (6,34) is near the left rim -> paint; (78,25) is at the far rim -> paint
+    assert out["touches"][0]["zone"] in ms._ZONES
+    assert out["touches"][1]["zone"] == "paint"
+
+
+def test_a_clip_with_no_ball_layer_says_so_instead_of_showing_zero_touches():
+    # an empty list must not read as "she never had the ball" -- the flag is
+    # what stops the UI inventing an absence it never measured.
+    out = ms.build_measured_stats("X", _box_doc(), _loc_doc(), _att_doc())
+    assert out["meta"]["touches_available"] is False
+    assert out["touches"] == []
+    assert out["touch_summary"] is None
+    assert "has not been run" in out["meta"]["touch_note"]
+
+
+def test_a_touch_with_no_court_position_is_not_given_a_guessed_one():
+    doc = {"touches": [{"start_frame": 1, "end_frame": 9, "track_id": 5,
+                        "observed_seconds": 0.3, "inferred_seconds": 0.0,
+                        "total_seconds": 0.3, "court_feet_start": None,
+                        "on_court": False, "identity": {"jersey_number": None,
+                                                        "status": "no_identity_data"}}]}
+    out = ms.build_measured_stats("X", _box_doc(), _loc_doc(), _att_doc(),
+                                  touch_doc=doc)
+    t = out["touches"][0]
+    assert t["court_x"] is None and t["zone"] is None

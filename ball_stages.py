@@ -211,20 +211,43 @@ def stage_ball_trajectory(config, det_json):
     return out_json
 
 
-def stage_shot_attempts(config, arcs_json, hoop_json):
+def stage_shot_attempts(config, arcs_json, hoop_json, det_json):
     """Shot-attempt classification (both hoops) + shooter attribution via
     release back-extrapolation and the identity join -- the spike main's
     logic with explicit paths. Attempts outside the tracks-cache span stay
-    honest no_identity_data review items, never guessed."""
+    honest no_identity_data review items, never guessed.
+
+    PLAYER-SIGNAL FILTER (TEST 16/19, TEST_LOG.md): a claimed shot that
+    physics alone cannot separate from a caught rebound or a pass -- does
+    the ball spend the 0.5s after arrival in a HAND or at the RIM? Passed
+    its first real holdout (TEST 19, 4/4 false positives correctly
+    rejected). Downgrades a verdict, never deletes it -- same
+    abstention-first rule as the rest of this file."""
     arcs_doc = _load(arcs_json)
     hoop_doc = _load(hoop_json)
+    det_doc = _load(det_json)
     tracks_doc = _load(config.tracks_cache_path)
     events_doc = _load(os.path.join(_ROOT, "phase2", "out",
                                     f"{config.name}_player_events_merged.json"))
 
     hoop_at_far = _hoop_lookup(hoop_doc, "hoop_far_px")
     hoop_at_near = _hoop_lookup(hoop_doc, "hoop_near_px")
-    tracks_by_frame = {fr["frame_index"]: fr["tracks"] for fr in tracks_doc["frames"]}
+    # REFEREES CANNOT SHOOT. find_release credits whichever tracked body sits
+    # nearest the back-extrapolated release point, and it never had a ref
+    # filter -- so an official standing under the rim was being named as the
+    # SHOOTER (measured 2026-07-27: TEST1's t14 claimed two verified shots).
+    # A body parked under the basket is permanently "near" every shot, which
+    # makes this the worst possible candidate pool to leave unfiltered. Same
+    # human labels the seeding and touch layers already use.
+    from roster import load_ref_tracks
+    non_players = load_ref_tracks(os.path.join(_ROOT, "phase2", "out",
+                                               f"{config.name}_decisions.json"))
+    tracks_by_frame = {fr["frame_index"]: [t for t in fr["tracks"]
+                                           if t["track_id"] not in non_players]
+                       for fr in tracks_doc["frames"]}
+    if non_players:
+        print(f"[ball_stages] {len(non_players)} human-labelled ref/bench "
+              f"track(s) excluded from being named the SHOOTER")
     tracks_span = (tracks_doc["span_start"],
                    tracks_doc["span_start"] + tracks_doc["span_len"])
 
@@ -234,12 +257,34 @@ def stage_shot_attempts(config, arcs_json, hoop_json):
     for e in events_doc["player_events"]:
         identity_by_ft[(e["frame"], e["track_id"])] = (e["identity_id"], e["identity_state"])
 
+    arcs = list(evaluate_arcs(arcs_doc["chains"], hoop_at_far, hoop_at_near))
+
+    # PLAYER-SIGNAL FILTER setup (only if there's a candidate to check --
+    # the pose model is real inference cost, never pay it for nothing).
+    pose_model = None
+    if any(shot["verdict"] == "shot_attempt" for _a, _seg, shot, _h in arcs):
+        from ultralytics import YOLO
+        import pose_shot_check as psc
+        pose_model = YOLO(psc.POSE_WEIGHTS)
+        ball_by_frame = psc.ball_center_by_frame(filter_conf(det_doc["frames"]))
+        hoop_by_frame = {r["frame_index"]: r for r in hoop_doc["frames"]}
+
     results = []
-    for a, _seg, shot, hoop_label in evaluate_arcs(arcs_doc["chains"],
-                                                   hoop_at_far, hoop_at_near):
+    for a, _seg, shot, hoop_label in arcs:
         rec = {"start_frame": a["start_frame"], "end_frame": a["end_frame"],
                "accel_y": a["accel_y"], "hoop": hoop_label, **shot}
         if shot["verdict"] == "shot_attempt":
+            win = psc.window_verdict(pose_model, config.video_path, ball_by_frame,
+                                     hoop_by_frame, hoop_label, a["end_frame"])
+            if win == "HAND":
+                rec["verdict"] = "not_shot"
+                rec["reason"] = ("player_signal: ball stayed in a hand through "
+                                 "the 0.5s after arrival, not at the rim -- "
+                                 "looks like a catch/pass, not a shot (TEST 16/19)")
+                rec["player_signal_downgraded_from"] = shot["shot_type"]
+                results.append(rec)
+                continue
+            rec["player_signal"] = win
             rel = find_release(a["fit_x"], a["fit_y"], a["start_frame"], tracks_by_frame)
             if rel["status"] != "found":
                 rec["shooter"] = {"status": "no_confident_shooter",
@@ -288,6 +333,11 @@ def stage_shot_attempts(config, arcs_json, hoop_json):
         if r["verdict"] != "shot_attempt" and "deflection" in (r.get("reason") or ""):
             print(f"   ({r['start_frame']}, {r['end_frame']}, {r['hoop']!r}, "
                   f"{r['reason']!r})")
+    downgraded = [r for r in results if r.get("player_signal_downgraded_from")]
+    print("PLAYER-SIGNAL REJECTIONS (ball ended in a hand, not the rim):")
+    for r in downgraded:
+        print(f"   ({r['start_frame']}, {r['end_frame']}, {r['hoop']!r}, "
+              f"was {r['player_signal_downgraded_from']!r})")
     print(f"[ball_stages] wrote {out_json}")
     return out_json
 
@@ -319,6 +369,59 @@ def stage_shot_location(config, sa_json):
     chart_path = _out(config, "shot_chart.png")
     render_shot_chart(config.name, located, chart_path)
     print(f"[ball_stages] wrote {out_json} and {chart_path}")
+    return out_json
+
+
+def stage_ball_touches(config, det_json):
+    """WHO HAS THE BALL, frame by frame -- the join between ball detection and
+    player tracking that never existed before (2026-07-27).
+
+    A TOUCH is one player holding the ball until she gives it up. NOT a
+    possession: that is the team-level idea phase2/possessions.py already owns.
+
+    Reads only cached artifacts (ball detections + tracks + on-court + merged
+    identity), so it costs seconds. Every output is a CANDIDATE pending DJ's
+    eyeball -- see spikes/ball_touch.py for the frozen thresholds and the
+    stated risk ("nearest to the ball" is not "has the ball")."""
+    import ball_touch as bt_touch
+    tracks_doc = _load(config.tracks_cache_path)
+    oncourt_doc = _load(os.path.join(_ROOT, "phase2", "out",
+                                     f"{config.name}_oncourt.json"))
+    events_doc = _load(os.path.join(_ROOT, "phase2", "out",
+                                    f"{config.name}_player_events_merged.json"))
+    # The jersey registry is OPTIONAL: without it a touch is still measured,
+    # it just reports "unnamed" rather than a number it cannot back up.
+    reg_path = os.path.join(_ROOT, "phase2", "out",
+                            f"{config.name}_ocr_confirms.json")
+    registry_doc = _load(reg_path) if os.path.exists(reg_path) else None
+    if registry_doc is None:
+        print(f"[ball_stages] no {os.path.basename(reg_path)} -- touches will "
+              f"report 'unnamed' instead of jersey numbers (run stage6 first)")
+    # REFEREES AND BENCH CANNOT HOLD THE BALL. Reuses the human labels the
+    # pipeline already trusts for seeding (roster.load_ref_tracks -- a pure
+    # path-taking function, so no ACTIVE_CLIP binding here). Found by looking:
+    # HARD's t3 is a DJ-labelled referee and was being credited with a 0.5s
+    # touch. A ref stands in the paint all possession, so crediting one
+    # invents exactly the ball-handling tendency the product sells.
+    from roster import load_ref_tracks
+    non_players = load_ref_tracks(os.path.join(_ROOT, "phase2", "out",
+                                               f"{config.name}_decisions.json"))
+    if non_players:
+        print(f"[ball_stages] {len(non_players)} human-labelled ref/bench "
+              f"track(s) excluded from holding the ball: {sorted(non_players)}")
+    result = bt_touch.analyze(_load(det_json), tracks_doc, oncourt_doc,
+                              events_doc, CONF_FLOOR, registry_doc, non_players)
+
+    out_json = _out(config, "ball_touches.json")
+    json.dump({"clip": config.name, "conf_floor": CONF_FLOOR,
+               "params": {"HOLD_GATE_BODY_FRAC": bt_touch.HOLD_GATE_BODY_FRAC,
+                          "MARGIN_BODY_FRAC": bt_touch.MARGIN_BODY_FRAC,
+                          "MIN_TOUCH_FRAMES": bt_touch.MIN_TOUCH_FRAMES,
+                          "MAX_GAP_FRAMES": bt_touch.MAX_GAP_FRAMES},
+               **result}, open(out_json, "w", encoding="utf-8"), indent=2)
+    for line in bt_touch.summary_lines(result, config.name):
+        print(line)
+    print(f"[ball_stages] wrote {out_json}")
     return out_json
 
 
