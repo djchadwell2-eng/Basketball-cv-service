@@ -126,12 +126,94 @@ def tracking_coverage(box_doc):
     }
 
 
-def build_measured_stats(clip, box_doc, loc_doc, att_doc, court_len=COURT_LEN):
-    """Assemble the web-ready contract from the three loaded docs."""
+def build_touches(touch_doc, court_len):
+    """BALL TOUCHES for the web contract -- who had the ball, for how long, and
+    WHERE on the floor. A touch is ONE PLAYER holding the ball until she gives
+    it up; it is NOT a possession (that is the team-level idea
+    phase2/possessions.py owns). See spikes/ball_touch.py.
+
+    Two honesty rules carried through verbatim, because the app is where a
+    caveat gets lost:
+      1. observed vs inferred seconds stay SEPARATE. Part of every touch is the
+         ball seen in her hands and part is bridged across a detector dropout
+         (DJ's "until proven otherwise" rule, 15s ceiling). A UI that shows only
+         the total would present an assumption as a measurement.
+      2. identity_status rides along. Most touches are review_item, not
+         attributed -- the same confirmed-only discipline the box score uses.
+    """
+    out = []
+    for t in touch_doc.get("touches", []):
+        ft = t.get("court_feet_start")
+        zone, dist = (classify_zone(ft[0], ft[1], court_len) if ft else (None, None))
+        ident = t.get("identity") or {}
+        out.append({
+            "start_frame": t["start_frame"], "end_frame": t["end_frame"],
+            "track_id": t["track_id"],
+            "jersey_number": ident.get("jersey_number"),
+            "identity_status": ident.get("status"),
+            "observed_seconds": t.get("observed_seconds"),
+            "inferred_seconds": t.get("inferred_seconds"),
+            "total_seconds": t.get("total_seconds"),
+            "court_x": ft[0] if ft else None, "court_y": ft[1] if ft else None,
+            "zone": zone, "dist_ft": dist, "on_court": t.get("on_court"),
+        })
+    obs = sum(t["observed_seconds"] or 0.0 for t in out)
+    inf = sum(t["inferred_seconds"] or 0.0 for t in out)
+    named = [t for t in out if t["jersey_number"] is not None]
+    return out, {
+        "n_touches": len(out),
+        "n_nameable": len(named),
+        "observed_seconds": round(obs, 1),
+        "inferred_seconds": round(inf, 1),
+        "pct_inferred": round(100.0 * inf / (obs + inf), 0) if (obs + inf) else None,
+        "zone_counts": {z: sum(1 for t in out if t["zone"] == z) for z in _ZONES},
+    }
+
+
+# How stale a touch may be and still speak to a shot. Basketball reason, not a
+# fitted number: a player who last held the ball two seconds ago has had time to
+# pass it, so the memory stops being evidence. Same value spikes/shooter_compare
+# declared before its run -- kept identical so the app shows what that comparison
+# scored, not a second, differently-tuned answer.
+SHOOTER_MAX_BACK_FRAMES = 60
+
+
+def attribute_shooter(touches, arc_start_frame):
+    """WHO TOOK THIS SHOT -- the last player actually SEEN holding the ball
+    before the arc began (spikes/ball_touch.shooter_from_touches, the method DJ
+    proposed 2026-07-27).
+
+    NOT VERIFIED, AND THE CONTRACT SAYS SO. The project's ground truth records
+    WHICH arcs are real shots; it has never recorded WHO TOOK THEM
+    (spikes/shooter_compare.py exists precisely to surface the disagreements for
+    DJ to settle). So every answer here rides with shooter_verified=False, and
+    the method ABSTAINS -- returns None -- rather than guessing whenever no
+    touch was recorded in time. A shot with no attributable shooter stays
+    unattributed; it is never assigned to the nearest body to fill the gap.
+    """
+    if not touches:
+        return None
+    best = None
+    for t in touches:
+        if t["start_frame"] > arc_start_frame:
+            continue                       # began after the shot: cannot be it
+        if arc_start_frame - t["end_frame"] > SHOOTER_MAX_BACK_FRAMES:
+            continue                       # too stale to speak to this shot
+        if best is None or t["end_frame"] > best["end_frame"]:
+            best = t
+    return best
+
+
+def build_measured_stats(clip, box_doc, loc_doc, att_doc, court_len=COURT_LEN,
+                         touch_doc=None):
+    """Assemble the web-ready contract from the loaded docs."""
     # attempt lookup by frame span -> shot_type / hoop for a located shot
     att_by_span = {(a["start_frame"], a["end_frame"]): a
                    for a in att_doc.get("attempts", [])
                    if a.get("verdict") == "shot_attempt"}
+
+    touches, touch_summary = (build_touches(touch_doc, court_len)
+                              if touch_doc else ([], None))
 
     shots = []
     unlocated = 0
@@ -142,22 +224,57 @@ def build_measured_stats(clip, box_doc, loc_doc, att_doc, court_len=COURT_LEN):
         cx, cy = loc["court_feet"]
         zone, dist = classify_zone(cx, cy, court_len)
         att = att_by_span.get((loc["start_frame"], loc["end_frame"]), {})
+        who = attribute_shooter(touches, loc["start_frame"])
         shots.append({
             "start_frame": loc["start_frame"], "end_frame": loc["end_frame"],
             "court_x": cx, "court_y": cy, "zone": zone, "dist_ft": dist,
             "shot_type": att.get("shot_type"), "hoop": att.get("hoop"),
             "shooter_status": loc.get("shooter_status"),
+            # --- who took it. INFERRED, never verified. See attribute_shooter.
+            "shooter_number": who["jersey_number"] if who else None,
+            "shooter_track_id": who["track_id"] if who else None,
+            "shooter_method": "last_seen_holding_ball" if who else None,
+            "shooter_verified": False,
         })
 
     box_score = [dict({k: p.get(k) for k in _BOX_FIELDS},
                       ambiguous=is_ambiguous(p.get("team")))
                  for p in box_doc.get("players", [])]
 
+    n_attributed = sum(1 for s in shots if s["shooter_number"] is not None)
+
     return {
         "clip": clip,
         "meta": {
             "make_miss_available": False,
             "box_score_note": box_doc.get("note", ""),
+            # Touches are CANDIDATES for review, never confirmed stats -- most
+            # carry identity_status "review_item". And every touch is part seen,
+            # part bridged; a UI that shows only total_seconds would present an
+            # assumption as a measurement. Both facts ride in the contract so
+            # the app cannot overpromise, the same way make_miss_available does.
+            "touches_available": bool(touch_doc),
+            # --- PER-PLAYER SHOTS. The player tab's heat map reads these.
+            # Available does NOT mean verified: no ground truth for WHO took a
+            # shot has ever existed in this project (only which arcs are real
+            # shots). The UI must label this, exactly as it labels
+            # make_miss_available and the seen-vs-inferred touch seconds.
+            "shooter_attribution_available": bool(touch_doc) and n_attributed > 0,
+            "shooter_attribution_verified": False,
+            "shots_attributed": n_attributed,
+            "shooter_note": (
+                "Who took each shot is INFERRED from who was last SEEN holding "
+                "the ball (within 2s). It has never been checked against ground "
+                "truth -- this project has confirmed WHICH arcs are shots, never "
+                "WHO took them. Shots with no recorded touch in time are left "
+                "unattributed rather than guessed. Label as unverified."),
+            "touch_note": ("Touches are review candidates, not confirmed stats. "
+                           "Each one is part SEEN (ball visible in her hands) and "
+                           "part FILLED IN (bridged across a dropout, 15s ceiling) "
+                           "-- show both, never just the total."
+                           if touch_doc else
+                           "No ball-touch data for this clip (the ball layer has "
+                           "not been run on it)."),
             "court": {"length_ft": court_len, "width_ft": COURT_WID,
                       "hoop_dx_ft": HOOP_DX, "three_radius_ft": THREE_RADIUS_FT},
         },
@@ -166,12 +283,21 @@ def build_measured_stats(clip, box_doc, loc_doc, att_doc, court_len=COURT_LEN):
         "shots": shots,
         "shots_unlocated": unlocated,
         "shot_distribution": shot_distribution([s["zone"] for s in shots]),
+        "touches": touches,
+        "touch_summary": touch_summary,
     }
 
 
 def _load(path):
     with open(path, encoding="utf-8") as f:
         return json.load(f)
+
+
+def _load_optional(path, default):
+    """A layer that was skipped is not a failure -- see generate()."""
+    if not os.path.exists(path):
+        return default
+    return _load(path)
 
 
 def court_length_for(clip):
@@ -188,10 +314,27 @@ def generate(clip):
     {clip}_measured_stats.json, and return it. Callable by analyze_clip.py
     (the app's CV entry point) as well as the CLI."""
     box = _load(os.path.join(_ROOT, "phase2", "out", f"{clip}_box_score.json"))
-    loc = _load(os.path.join(_ROOT, "spikes", "out", f"{clip}_shot_locations.json"))
-    att = _load(os.path.join(_ROOT, "spikes", "out", f"{clip}_shot_attempts.json"))
+    # OPTIONAL, for the same reason touches are: a clip whose ball layer has
+    # never run (ball_span_len = 0, which is every game set up in the browser
+    # today -- nobody has marked its rims) writes no shot artifacts at all.
+    # Crashing there would throw away a perfectly good box score over a layer
+    # that was deliberately skipped. Absent shots are reported as zero shots,
+    # never as a failure and never as an empty chart pretending to be complete.
+    loc = _load_optional(os.path.join(_ROOT, "spikes", "out", f"{clip}_shot_locations.json"),
+                         {"locations": []})
+    att = _load_optional(os.path.join(_ROOT, "spikes", "out", f"{clip}_shot_attempts.json"),
+                         {"attempts": []})
+    # OPTIONAL: a clip whose ball layer has never run has no touches. The
+    # contract then says so (meta.touches_available = false) rather than
+    # shipping an empty list the UI might read as "she never had the ball".
+    tp = os.path.join(_ROOT, "spikes", "out", f"{clip}_ball_touches.json")
+    touch = _load(tp) if os.path.exists(tp) else None
 
-    out = build_measured_stats(clip, box, loc, att, court_length_for(clip))
+    out = build_measured_stats(clip, box, loc, att, court_length_for(clip), touch)
+    # Says WHY there are no shots: a skipped layer reads very differently from
+    # a game where the ball was watched and nobody shot.
+    out["meta"]["shot_layer_available"] = os.path.exists(
+        os.path.join(_ROOT, "spikes", "out", f"{clip}_shot_locations.json"))
     out_path = os.path.join(_ROOT, "spikes", "out", f"{clip}_measured_stats.json")
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(out, f, indent=2)
@@ -202,6 +345,13 @@ def generate(clip):
     if d["n"]:
         print(f"  shot distribution: {d['pct_three']}% three / {d['pct_two']}% inside "
               f"(counts {d['counts']})")
+    ts = out["touch_summary"]
+    if ts:
+        print(f"  ball touches: {ts['n_touches']} ({ts['n_nameable']} nameable)  "
+              f"{ts['observed_seconds']}s SEEN + {ts['inferred_seconds']}s FILLED IN "
+              f"({ts['pct_inferred']:.0f}% inferred)  zones {ts['zone_counts']}")
+    else:
+        print(f"  ball touches: none for this clip (ball layer not run)")
     print(f"  wrote {out_path}")
     return out
 

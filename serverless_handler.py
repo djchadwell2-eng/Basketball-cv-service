@@ -49,13 +49,103 @@ def _patch_video_path(clip_name):
     print(f"[serverless_handler] video_path patched -> {real_path}")
 
 
-def run_analysis(clip_name: str) -> dict:
-    _patch_video_path(clip_name)
+VOLUME_ROOT = os.environ.get("RUNPOD_VOLUME_ROOT", "/runpod-volume")
+
+
+def _install_uploaded_clip(clip_name: str, doc: dict, span=None) -> None:
+    """Make a COACH'S game (clips/<NAME>.json from the browser) a real clip here.
+
+    The container ships with the hand-built baselines only. A game set up in the
+    browser arrives as its config document in the job input, and its film is
+    already on the mounted network volume -- so the whole install is: point the
+    config at the mounted film, drop it in clips/, and reload the two config
+    modules that read that directory.
+
+    The reload matters: a warm worker has already imported both modules, and
+    their registry entries are built ONCE at import. Without it, a second job on
+    the same worker would run the FIRST job's clip.
+    """
+    import importlib
+    import clip_registry
+
+    doc = dict(doc)
+    key = doc.get("volume_key")
+    if key:
+        mounted = os.path.join(VOLUME_ROOT, key)
+        if not os.path.exists(mounted):
+            raise FileNotFoundError(
+                f"film not on the volume at {mounted} -- upload_film.py must run "
+                f"before the job (volume mounted at {VOLUME_ROOT}: "
+                f"{os.path.isdir(VOLUME_ROOT)})")
+        doc["video_path"] = mounted
+
+    if span:
+        doc["tracking_span_start"], doc["tracking_span_len"] = int(span[0]), int(span[1])
+    elif not doc.get("tracking_span_len"):
+        # Nobody has said WHAT to analyse, so analyse the game. The browser
+        # setup only ever fills in the calibration half of a config, and the
+        # honest default for "analyse my game" is the whole game -- 171k frames
+        # is ~31 min of detection here, inside the endpoint's 3-hour cap.
+        import cv2
+        cap = cv2.VideoCapture(doc["video_path"])
+        total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+        cap.release()
+        if total <= 0:
+            raise ValueError(f"could not read a frame count from {doc['video_path']}")
+        doc["tracking_span_start"], doc["tracking_span_len"] = 0, total
+        print(f"[serverless_handler] no span set -- defaulting to the whole film "
+              f"({total} frames)", flush=True)
+
+    clip_registry.save(clip_name, doc)
+    print(f"[serverless_handler] installed clip {clip_name}: "
+          f"video={doc.get('video_path')} span="
+          f"{doc.get('tracking_span_start')}..+{doc.get('tracking_span_len')}", flush=True)
 
     import clip_config
-    config = getattr(clip_config, f"{clip_name}_CLIP", None)
+    importlib.reload(clip_config)
+    import clips_config
+    importlib.reload(clips_config)
+
+
+def _build_caches(config) -> None:
+    """Track the span and decide who is on court -- the two caches run_clip
+    REFUSES to run without. On a baked-in baseline these ship in the image; a
+    coach's game has never been tracked before, so they are built here. This is
+    the part the GPU exists for (1.44 s/frame on DJ's laptop, 0.011 here)."""
+    import cache_tracks
+    import cache_oncourt
+
+    if not os.path.exists(config.tracks_cache_path):
+        print("[serverless_handler] STAGE tracking (building tracks cache) ...", flush=True)
+        cache_tracks.cache(config)
+    else:
+        print("[serverless_handler] tracks cache present -- reusing", flush=True)
+
+    oncourt_path = os.path.join(_ROOT, "phase2", "out", f"{config.name}_oncourt.json")
+    if not os.path.exists(oncourt_path):
+        print("[serverless_handler] STAGE on-court cache ...", flush=True)
+        cache_oncourt.cache(config)
+    else:
+        print("[serverless_handler] on-court cache present -- reusing", flush=True)
+
+
+def run_analysis(clip_name: str, doc: dict | None = None, span=None) -> dict:
+    if doc:
+        _install_uploaded_clip(clip_name, doc, span)
+    else:
+        _patch_video_path(clip_name)
+
+    # get_clip, not getattr(...f"{clip}_CLIP"): the attribute form only ever
+    # finds the hand-written baselines, so every coach upload failed here.
+    import clip_config
+    config = clip_config.get_clip(clip_name)
     if config is None:
-        raise ValueError(f"no ClipConfig named {clip_name}_CLIP")
+        raise ValueError(
+            f"no clip {clip_name} -- not a built-in, and no usable clips/{clip_name}.json "
+            f"(a registry clip needs a roster AND a tracking span)")
+
+    if doc:
+        _build_caches(config)
 
     print(f"[serverless_handler] STAGE run_clip (full pipeline) clip={clip_name}", flush=True)
     import run_clip
@@ -143,10 +233,29 @@ def handler(job):
         return {"ok": "error" not in out, "mode": "speedtest",
                 "seconds": round(time.time() - t0, 1), **out}
 
+    # A look at the mounted volume: proves the film landed where the job will
+    # expect it, without spending GPU minutes to find out.
+    if job_input.get("mode") == "volume":
+        root = VOLUME_ROOT
+        out = {"mounted": os.path.isdir(root), "root": root, "entries": []}
+        for base, _dirs, files in os.walk(root):
+            for f in files:
+                p = os.path.join(base, f)
+                try:
+                    out["entries"].append({"key": os.path.relpath(p, root),
+                                           "gb": round(os.path.getsize(p) / 1e9, 2)})
+                except OSError:
+                    pass
+            if len(out["entries"]) > 200:
+                break
+        return {"ok": out["mounted"], "mode": "volume", **out}
+
     clip_name = job_input.get("clip", "TEST1")
+    doc = job_input.get("config")          # the browser-set-up game's own config
+    span = job_input.get("span")           # optional [start, len] override
     t0 = time.time()
     try:
-        stats = run_analysis(clip_name)
+        stats = run_analysis(clip_name, doc, span)
     except Exception as e:
         return {
             "ok": False,

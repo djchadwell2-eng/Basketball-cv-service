@@ -4,3 +4,7 @@ numpy
 matplotlib
 scipy
 easyocr==1.7.2
+
+# upload_film.py: puts a game film on the RunPod network volume (S3 API).
+# Local/setup-side only -- the worker reads the mounted volume directly.
+boto3
