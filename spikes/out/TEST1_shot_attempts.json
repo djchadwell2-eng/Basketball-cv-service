@@ -7,16 +7,17 @@
   ],
   "attempts": [
     {
-      "start_frame": 58,
-      "end_frame": 70,
-      "accel_y": 1.863,
+      "start_frame": 57,
+      "end_frame": 93,
+      "accel_y": 1.73,
       "hoop": "far",
       "verdict": "shot_attempt",
-      "min_dist": 118.1,
-      "at_frame": 85,
-      "arrival": "extrapolated",
+      "min_dist": 61.4,
+      "at_frame": 93,
+      "arrival": "observed",
       "shot_type": "jumpshot",
-      "origin_dist": 353.4,
+      "origin_dist": 393.5,
+      "player_signal": "rim",
       "shooter": {
         "status": "no_confident_shooter",
         "reason": "no tracked body within 120.0px of the back-extrapolated release path within 10 frames"
@@ -42,6 +43,7 @@
       "arrival": "observed",
       "shot_type": "layup",
       "origin_dist": 91.5,
+      "player_signal": "rim",
       "shooter": {
         "status": "review_item",
         "track_id": 38,
@@ -79,6 +81,7 @@
       "arrival": "observed",
       "shot_type": "layup",
       "origin_dist": 27.6,
+      "player_signal": "rim",
       "shooter": {
         "status": "review_item",
         "track_id": 49,
@@ -161,31 +164,17 @@
     },
     {
       "start_frame": 581,
-      "end_frame": 589,
-      "accel_y": 0.998,
+      "end_frame": 601,
+      "accel_y": 0.592,
       "hoop": "near",
-      "verdict": "shot_attempt",
+      "verdict": "not_shot",
       "min_dist": 18.4,
       "at_frame": 589,
       "arrival": "observed",
       "shot_type": "layup",
       "origin_dist": 55.1,
-      "shooter": {
-        "status": "review_item",
-        "track_id": 1280,
-        "identity_id": 58,
-        "identity_state": "unknown",
-        "release": {
-          "status": "found",
-          "release_frame": 579,
-          "track_id": 1280,
-          "dist_px": 104.5,
-          "ball_xy": [
-            1383.5,
-            178.4
-          ]
-        }
-      }
+      "reason": "player_signal: ball stayed in a hand through the 0.5s after arrival, not at the rim -- looks like a catch/pass, not a shot (TEST 16/19)",
+      "player_signal_downgraded_from": "layup"
     }
   ]
 }

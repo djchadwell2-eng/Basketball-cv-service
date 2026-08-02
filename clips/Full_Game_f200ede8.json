@@ -1,0 +1,485 @@
+{
+  "name": "Full_Game_f200ede8",
+  "video_path": "C:\\Users\\djcha\\New folder\\basketball-cv-service\\uploads\\1785468066939_n31rov.mp4",
+  "source_file_name": "Full_Game.mp4",
+  "video_id": "f200ede8-e0c3-4818-a1f6-9663429162bf",
+  "teams": [
+    {
+      "name": "West Clermont",
+      "jersey_color": "black",
+      "numbers": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        11,
+        14,
+        23,
+        24,
+        30,
+        33
+      ],
+      "player_names": {}
+    },
+    {
+      "name": "Milford",
+      "jersey_color": "white",
+      "numbers": [
+        1,
+        3,
+        4,
+        5,
+        10,
+        11,
+        12,
+        13,
+        14,
+        22,
+        23,
+        24,
+        32,
+        33,
+        44
+      ],
+      "player_names": {
+        "1": "Maddie rocky",
+        "3": "Gabby",
+        "4": "Maggie",
+        "5": "Faith",
+        "10": "Rachel",
+        "11": "Avery",
+        "12": "Madison",
+        "13": "Mikayla",
+        "14": "Emma",
+        "22": "Kensley",
+        "23": "Ella",
+        "24": "Ava",
+        "32": "Zoey",
+        "33": "Lexi",
+        "44": "Perone"
+      }
+    }
+  ],
+  "court": {
+    "width": 50,
+    "lane_y0": 19,
+    "lane_y1": 31,
+    "ft_x": 19,
+    "circle_r": 6,
+    "length": 84
+  },
+  "setup_stage": "needs_more_marks",
+  "created_at": "2026-07-31T03:22:20.581Z",
+  "keyframes": [
+    0,
+    600,
+    127200,
+    151200,
+    158700,
+    171000
+  ],
+  "chain_pairs": [
+    {
+      "a": 0,
+      "b": 600,
+      "ratio": 0,
+      "weak": true
+    },
+    {
+      "a": 600,
+      "b": 127200,
+      "ratio": 0.604,
+      "weak": false
+    },
+    {
+      "a": 127200,
+      "b": 151200,
+      "ratio": 0.619,
+      "weak": false
+    },
+    {
+      "a": 151200,
+      "b": 158700,
+      "ratio": 0.659,
+      "weak": false
+    },
+    {
+      "a": 158700,
+      "b": 171000,
+      "ratio": 0.624,
+      "weak": false
+    }
+  ],
+  "chain_weak": 1,
+  "landmarks": {
+    "600": [
+      [
+        "center_logo",
+        1045.1,
+        542.8
+      ],
+      [
+        "center_near",
+        1036.8,
+        326.1
+      ],
+      [
+        "center_far",
+        1060.2,
+        1021.5
+      ],
+      [
+        "circle_left",
+        875.9,
+        538.9
+      ],
+      [
+        "circle_right",
+        1213.2,
+        541.5
+      ],
+      [
+        "circle_top",
+        1047.2,
+        616.7
+      ],
+      [
+        "circle_bottom",
+        1044.6,
+        476.6
+      ],
+      [
+        "L_FT_near",
+        445.2,
+        468.8
+      ],
+      [
+        "L_FT_far",
+        333.7,
+        606.4
+      ],
+      [
+        "L_arc_top",
+        559.4,
+        533.7
+      ],
+      [
+        "LB_side_near",
+        185.8,
+        321
+      ],
+      [
+        "R_FT_near",
+        1654.3,
+        484.4
+      ],
+      [
+        "R_FT_far",
+        1778.9,
+        627.1
+      ],
+      [
+        "R_arc_top",
+        1545.3,
+        549.3
+      ],
+      [
+        "RB_side_near",
+        1919,
+        336.5
+      ]
+    ],
+    "127200": [
+      [
+        "center_logo",
+        878.5,
+        541.5
+      ],
+      [
+        "circle_left",
+        709.9,
+        551.9
+      ],
+      [
+        "circle_right",
+        1047.2,
+        538.9
+      ],
+      [
+        "circle_top",
+        886.3,
+        619.3
+      ],
+      [
+        "circle_bottom",
+        873.3,
+        479.2
+      ],
+      [
+        "center_near",
+        863,
+        328.7
+      ],
+      [
+        "center_far",
+        922.6,
+        1018.9
+      ],
+      [
+        "L_FT_near",
+        255.8,
+        497.4
+      ],
+      [
+        "L_FT_far",
+        144.3,
+        642.7
+      ],
+      [
+        "L_arc_top",
+        383,
+        554.5
+      ],
+      [
+        "R_FT_near",
+        1467.5,
+        461.1
+      ],
+      [
+        "R_FT_far",
+        1592,
+        596
+      ],
+      [
+        "R_arc_top",
+        1366.3,
+        531.1
+      ],
+      [
+        "RB_side_near",
+        1706.2,
+        313.2
+      ]
+    ],
+    "151200": [
+      [
+        "L_lane_base_near",
+        144.3,
+        440.3
+      ],
+      [
+        "center_logo",
+        1197.7,
+        559.7
+      ],
+      [
+        "circle_left",
+        1029,
+        546.7
+      ],
+      [
+        "circle_right",
+        1379.3,
+        562.2
+      ],
+      [
+        "circle_top",
+        1195.1,
+        629.7
+      ],
+      [
+        "circle_bottom",
+        1195.1,
+        487
+      ],
+      [
+        "center_near",
+        1195.1,
+        331.3
+      ],
+      [
+        "center_far",
+        1200.3,
+        1055.2
+      ],
+      [
+        "L_FT_near",
+        595.7,
+        458.5
+      ],
+      [
+        "L_FT_far",
+        484.2,
+        588.2
+      ],
+      [
+        "L_arc_top",
+        704.7,
+        528.5
+      ],
+      [
+        "LB_side_near",
+        354.4,
+        302.8
+      ],
+      [
+        "R_FT_near",
+        1846.3,
+        515.5
+      ],
+      [
+        "R_arc_top",
+        1719.2,
+        575.2
+      ]
+    ],
+    "158700": [
+      [
+        "L_lane_base_near",
+        393.3,
+        411.8
+      ],
+      [
+        "L_lane_base_far",
+        201.3,
+        525.9
+      ],
+      [
+        "center_logo",
+        1529.8,
+        609
+      ],
+      [
+        "circle_left",
+        1324.8,
+        585.6
+      ],
+      [
+        "circle_right",
+        1737.3,
+        640.1
+      ],
+      [
+        "circle_top",
+        1524.6,
+        697.2
+      ],
+      [
+        "circle_bottom",
+        1535,
+        531.1
+      ],
+      [
+        "center_near",
+        1545.3,
+        352.1
+      ],
+      [
+        "L_FT_near",
+        857.8,
+        458.5
+      ],
+      [
+        "L_FT_far",
+        730.6,
+        593.4
+      ],
+      [
+        "L_arc_top",
+        974.5,
+        538.9
+      ],
+      [
+        "LB_side_near",
+        616.5,
+        276.8
+      ]
+    ],
+    "171000": [
+      [
+        "L_lane_base_near",
+        284.4,
+        429.9
+      ],
+      [
+        "L_lane_base_far",
+        92.4,
+        541.5
+      ],
+      [
+        "center_logo",
+        1306.6,
+        567.4
+      ],
+      [
+        "circle_left",
+        1135.4,
+        554.5
+      ],
+      [
+        "circle_right",
+        1488.3,
+        585.6
+      ],
+      [
+        "circle_top",
+        1304,
+        653.1
+      ],
+      [
+        "circle_bottom",
+        1309.2,
+        502.6
+      ],
+      [
+        "center_near",
+        1322.2,
+        349.5
+      ],
+      [
+        "center_far",
+        1301.4,
+        1076
+      ],
+      [
+        "L_FT_near",
+        715.1,
+        458.5
+      ],
+      [
+        "L_FT_far",
+        603.5,
+        583
+      ],
+      [
+        "L_arc_top",
+        824,
+        523.3
+      ],
+      [
+        "LB_side_near",
+        484.2,
+        302.8
+      ],
+      [
+        "R_arc_top",
+        1838.5,
+        606.4
+      ]
+    ]
+  },
+  "exclude_regions": [],
+  "mark_diagnosis": null,
+  "calibration": {
+    "mean_ft": 0.186,
+    "max_ft": 0.429,
+    "keyframe_px": 0.79,
+    "verdict": "glued",
+    "frames_drawn": 1080,
+    "frames_no_match": 0
+  },
+  "calibration_approved": false,
+  "calibration_approved_at": null
+}

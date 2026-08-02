@@ -68,19 +68,23 @@ def main():
             window=DENSE_WINDOW, min_votes=DENSE_MIN_VOTES,
             initial_home=confirmed_home, initial_away=confirmed_away, verbose=True)
 
+        # DJ's hard rule (2026-07-26, binding): the scoreboard may CONFIRM a
+        # make, it may NEVER be used to conclude a miss from silence/absence.
+        # No score change in this shot's window = unknown, never MISS.
         if events:
             e = events[0]        # first change in this shot's window = attributed to this shot
-            print(f"  -> MAKE: score {e['from']} -> {e['to']} at f={e['frame']} "
+            print(f"  -> candidate_make: score {e['from']} -> {e['to']} at f={e['frame']} "
                   f"({e['t_sec']}s, {(e['frame']-end)/30.0:.2f}s after shot ended)")
             confirmed_home, confirmed_away = e["to"]
         elif readings:
             # no CHANGE but a state got (re)confirmed -- carry it forward as-is
             confirmed_home, confirmed_away = readings[-1][1], readings[-1][2]
-            print(f"  -> MISS: no score change in window (confirmed steady at "
-                  f"{confirmed_home}-{confirmed_away})")
+            print(f"  -> unknown: no score change in window (confirmed steady at "
+                  f"{confirmed_home}-{confirmed_away} -- NOT evidence of a miss)")
         else:
-            print(f"  -> MISS: no score change in window (no reliable read this "
-                  f"window either -- carrying prior state {confirmed_home}-{confirmed_away} forward)")
+            print(f"  -> unknown: no reliable scoreboard read this window either "
+                  f"(carrying prior state {confirmed_home}-{confirmed_away} forward -- "
+                  f"NOT evidence of a miss)")
         print()
 
     print(f"[dense-match] final score after all verified shots: "

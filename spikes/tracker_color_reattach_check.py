@@ -40,6 +40,84 @@ from ocr_reader import jersey_crop
 MARGIN_RATIO = 1.4          # same abstention discipline as color_tiebreak.COLOR_MARGIN_RATIO
 MIN_GAP_FRAMES = 2          # a 1-frame hole is normal detector flicker, not a real "lost" event
 SAMPLE_STRIDE = 5           # every 5th frame's every track, for building the 2 color clusters
+REF_IOU = 0.5               # a track box this close to a Ref-class box IS that referee
+
+
+def _in_any_region(bbox, regions):
+    """True if the box's CENTRE falls inside any excluded screen region.
+
+    Centre (not overlap) on purpose: a real player standing NEAR the scorebug
+    corner still has their centre outside it, so this drops the boxes that sit
+    ON the graphic without discarding legitimate players in that corner.
+    """
+    cx = 0.5 * (bbox[0] + bbox[2])
+    cy = 0.5 * (bbox[1] + bbox[3])
+    return any(x1 <= cx <= x2 and y1 <= cy <= y2 for (x1, y1, x2, y2) in regions)
+
+
+def _iou(a, b):
+    ix1, iy1 = max(a[0], b[0]), max(a[1], b[1])
+    ix2, iy2 = min(a[2], b[2]), min(a[3], b[3])
+    iw, ih = max(0.0, ix2 - ix1), max(0.0, iy2 - iy1)
+    inter = iw * ih
+    if inter <= 0:
+        return 0.0
+    area_a = max(0.0, a[2] - a[0]) * max(0.0, a[3] - a[1])
+    area_b = max(0.0, b[2] - b[0]) * max(0.0, b[3] - b[1])
+    return inter / max(area_a + area_b - inter, 1e-6)
+
+
+def apply_junk_filter(frames, clip_name, ref_boxes=None):
+    """TEST 15: drop detections that are not tracked athletes before any colour
+    reasoning happens.
+
+    TEST 13 found 4 of its 6 false alarms were the person detector firing on the
+    ANIMATED SCOREBOARD GRAPHIC and 1 more on a REFEREE -- not jersey-colour
+    noise at all, a separate detector bug. Both sources are already known to the
+    project: the scorebug rectangle is the per-clip `exclude_regions` the
+    calibration engine masks out of SIFT, and refs are a class the fine-tuned
+    model already separates (TEST 4: 3/frame at conf>=0.4).
+
+    Mutates nothing -- returns a new frames list plus a count of what went.
+    """
+    import clips_config
+    regions = clips_config.CLIPS[clip_name].get("exclude_regions", [])
+    ref_boxes = ref_boxes or {}
+
+    # Referees are excluded WHOLE-TRACK, not detection-by-detection. Dropping
+    # single detections punches holes in a referee's track wherever the Ref
+    # detector happened to blink, and every hole becomes a fabricated "reattach
+    # event" the tracker never actually experienced -- measured: doing it
+    # per-detection RAISED the event count 104 -> 126 and left the referee
+    # track flagged anyway, now full of artificial gaps.
+    ref_hits: dict = {}
+    ref_total: dict = {}
+    for fr in frames:
+        refs = ref_boxes.get(str(fr["frame_index"]), [])
+        for t in fr["tracks"]:
+            tid = t["track_id"]
+            ref_total[tid] = ref_total.get(tid, 0) + 1
+            if any(_iou(t["bbox"], rb) >= REF_IOU for rb in refs):
+                ref_hits[tid] = ref_hits.get(tid, 0) + 1
+    ref_tracks = {tid for tid, n in ref_total.items()
+                  if ref_hits.get(tid, 0) / max(n, 1) >= 0.5}
+
+    n_board = n_ref = 0
+    out = []
+    for fr in frames:
+        kept = []
+        for t in fr["tracks"]:
+            if _in_any_region(t["bbox"], regions):
+                n_board += 1
+                continue
+            if t["track_id"] in ref_tracks:
+                n_ref += 1
+                continue
+            kept.append(t)
+        out.append({"frame_index": fr["frame_index"], "tracks": kept})
+    if ref_tracks:
+        print(f"[reattach-check] referee tracks dropped whole: {sorted(ref_tracks)}")
+    return out, n_board, n_ref
 
 
 def _kmeans2(points, iters=25, seed=0):
@@ -80,6 +158,22 @@ def main():
     import run_tracking
 
     doc = json.load(open(tracks_json, encoding="utf-8"))
+
+    # TEST 15: junk-detection pre-filter (scoreboard graphic + referees).
+    # --nofilter reproduces TEST 13's original, unfiltered numbers exactly.
+    if "--nofilter" in sys.argv:
+        print("[reattach-check] junk filter OFF (TEST 13 reproduction mode)")
+    else:
+        ref_path = os.path.join(_HERE, "out", f"{clip_name}_ref_boxes.json")
+        ref_boxes = json.load(open(ref_path, encoding="utf-8")) if os.path.exists(ref_path) else {}
+        if not ref_boxes:
+            print(f"[reattach-check] NOTE: no {os.path.basename(ref_path)} -- "
+                  f"scoreboard filter only, refs NOT filtered")
+        doc["frames"], n_board, n_ref = apply_junk_filter(
+            doc["frames"], clip_name, ref_boxes)
+        print(f"[reattach-check] junk filter ON: dropped {n_board} scoreboard-region "
+              f"detections + {n_ref} referee detections")
+
     span_start, span_len = doc["span_start"], doc["span_len"]
     subclip, fps, n = run_tracking.extract_subclip(CLIP.video_path, span_start, span_len)
 

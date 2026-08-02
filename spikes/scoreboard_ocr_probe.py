@@ -38,6 +38,14 @@ import clip_config
 from ocr_reader import _get_reader
 
 SAMPLE_STRIDE = 15          # every 0.5s @ 30fps -- a make can't blip by faster than that
+# A single basketball play can raise ONE team's score by at most 3 (a
+# 3-pointer) or a made-shot-plus-and-1 free throw (2+1). Anything bigger in
+# one "change" is an OCR misread (e.g. a foul-count digit merged into the
+# score, or two unrelated digits from a different reading averaged into the
+# mode), not a real single play -- found 2026-07-31 running
+# dense_shot_score_match.py for real for the first time: it reported a
+# "0-0 -> 5-0" change that the monotonicity guard alone let straight through.
+MAX_PLAUSIBLE_JUMP = 3
 CORNER_H_FRAC = (0.72, 1.0)  # bottom-left graphic region, generous bounds
 CORNER_W_FRAC = (0.0, 0.22)
 UPSCALE = 3
@@ -120,7 +128,11 @@ def run_probe(clip_name, frame_start=0, frame_end=None, sample_stride=SAMPLE_STR
             home, away = mode_val
             monotonic_ok = (confirmed_home is None
                             or (home >= confirmed_home and away >= confirmed_away))
-            if mode_count >= min_votes and mode_val != (confirmed_home, confirmed_away) and monotonic_ok:
+            plausible_jump = (confirmed_home is None
+                              or (home - confirmed_home <= MAX_PLAUSIBLE_JUMP
+                                  and away - confirmed_away <= MAX_PLAUSIBLE_JUMP))
+            if (mode_count >= min_votes and mode_val != (confirmed_home, confirmed_away)
+                    and monotonic_ok and plausible_jump):
                 if confirmed_home is not None:
                     events.append({"frame": f, "t_sec": round(f / fps, 2),
                                    "from": [confirmed_home, confirmed_away], "to": [home, away]})
@@ -130,7 +142,7 @@ def run_probe(clip_name, frame_start=0, frame_end=None, sample_stride=SAMPLE_STR
                 confirmed_home, confirmed_away = home, away
                 readings.append((f, home, away))
                 recent.clear()
-            elif mode_count >= min_votes and not monotonic_ok:
+            elif mode_count >= min_votes and (not monotonic_ok or not plausible_jump):
                 recent.clear()
         f += sample_stride
         if verbose and (f - frame_start) % (sample_stride * 20) == 0:

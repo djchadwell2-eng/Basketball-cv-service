@@ -355,6 +355,45 @@ document.getElementById('dl').onclick = () => {{
 }};
 </script></body></html>"""
 
+    # --- JSON twin of the same bundle, for the WEB APP ----------------------
+    # The standalone HTML page stays exactly as it is (DJ has used it and it
+    # works). This just also emits the underlying DATA so the app can render
+    # the same review natively instead of embedding a downloadable page.
+    # Deliberately the same crops, ordering, splice quarantine and roster
+    # buttons -- one source, two skins, so they cannot drift apart.
+    review_json = {
+        "clip": CLIP.name,
+        "fps": fps,
+        "window_boundaries": boundaries,
+        "teams": [{"name": t.name, "jersey_color": t.jersey_color,
+                   "numbers": sorted(t.numbers)} for t in CLIP.teams],
+        "preset_track_labels": existing.get("track_labels", {}),
+        "tracks": [],
+    }
+    for tid in order:
+        pv = pur.get(tid)
+        spliced = bool(pv and pv["verdict"] == "spliced")
+        review_json["tracks"].append({
+            "track_id": tid,
+            "floor_seconds": round(floor[tid] / fps, 1),
+            "seed_windows": sorted(seed_tracks[tid]),
+            # A spliced track is QUARANTINED, not labelable: the computer read
+            # two different numbers on it, so it jumped between players and any
+            # single label would be wrong for part of it.
+            "spliced": spliced,
+            "spliced_numbers": sorted(pv["numbers"]) if spliced else [],
+            "crops": [
+                {"frame": f,
+                 "full": _b64_jpg(imgs[f][int(bb[1]):int(bb[3]), int(bb[0]):int(bb[2])], FULL_H),
+                 "number": _b64_jpg(jersey_crop(imgs[f], bb), NUM_H)}
+                for (h, f, bb) in sorted(picks.get(tid, []), key=lambda r: r[1])
+                if f in imgs
+            ],
+        })
+    out_json = os.path.join(_HERE, "out", f"{CLIP.name}_review.json")
+    with open(out_json, "w", encoding="utf-8") as f:
+        json.dump(review_json, f)
+
     os.makedirs(os.path.dirname(OUT_HTML), exist_ok=True)
     with open(OUT_HTML, "w", encoding="utf-8") as f:
         f.write(page)

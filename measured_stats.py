@@ -205,12 +205,19 @@ def attribute_shooter(touches, arc_start_frame):
 
 
 def build_measured_stats(clip, box_doc, loc_doc, att_doc, court_len=COURT_LEN,
-                         touch_doc=None):
+                         touch_doc=None, make_miss_results=None):
     """Assemble the web-ready contract from the loaded docs."""
     # attempt lookup by frame span -> shot_type / hoop for a located shot
     att_by_span = {(a["start_frame"], a["end_frame"]): a
                    for a in att_doc.get("attempts", [])
                    if a.get("verdict") == "shot_attempt"}
+
+    # make/miss lookup by frame span
+    make_miss_by_span = {}
+    if make_miss_results:
+        for mm in make_miss_results:
+            key = (mm["start_frame"], mm["end_frame"])
+            make_miss_by_span[key] = mm
 
     touches, touch_summary = (build_touches(touch_doc, court_len)
                               if touch_doc else ([], None))
@@ -225,7 +232,7 @@ def build_measured_stats(clip, box_doc, loc_doc, att_doc, court_len=COURT_LEN,
         zone, dist = classify_zone(cx, cy, court_len)
         att = att_by_span.get((loc["start_frame"], loc["end_frame"]), {})
         who = attribute_shooter(touches, loc["start_frame"])
-        shots.append({
+        shot = {
             "start_frame": loc["start_frame"], "end_frame": loc["end_frame"],
             "court_x": cx, "court_y": cy, "zone": zone, "dist_ft": dist,
             "shot_type": att.get("shot_type"), "hoop": att.get("hoop"),
@@ -235,7 +242,18 @@ def build_measured_stats(clip, box_doc, loc_doc, att_doc, court_len=COURT_LEN,
             "shooter_track_id": who["track_id"] if who else None,
             "shooter_method": "last_seen_holding_ball" if who else None,
             "shooter_verified": False,
-        })
+        }
+
+        # Add make/miss if available
+        mm = make_miss_by_span.get((loc["start_frame"], loc["end_frame"]))
+        if mm:
+            shot["make_miss_outcome"] = mm["outcome"]
+            shot["make_miss_score_from"] = mm["score_from"]
+            shot["make_miss_score_to"] = mm["score_to"]
+            shot["make_miss_score_change_frame"] = mm["score_change_frame"]
+            shot["make_miss_score_change_time_sec"] = mm["score_change_time_sec"]
+
+        shots.append(shot)
 
     box_score = [dict({k: p.get(k) for k in _BOX_FIELDS},
                       ambiguous=is_ambiguous(p.get("team")))
@@ -246,7 +264,7 @@ def build_measured_stats(clip, box_doc, loc_doc, att_doc, court_len=COURT_LEN,
     return {
         "clip": clip,
         "meta": {
-            "make_miss_available": False,
+            "make_miss_available": bool(make_miss_results),
             "box_score_note": box_doc.get("note", ""),
             # Touches are CANDIDATES for review, never confirmed stats -- most
             # carry identity_status "review_item". And every touch is part seen,
@@ -330,7 +348,35 @@ def generate(clip):
     tp = os.path.join(_ROOT, "spikes", "out", f"{clip}_ball_touches.json")
     touch = _load(tp) if os.path.exists(tp) else None
 
-    out = build_measured_stats(clip, box, loc, att, court_length_for(clip), touch)
+    # Try to load make/miss results from scoreboard analysis
+    make_miss_results = None
+    try:
+        # Try Gemma (vision-based) first - works on all scoreboard styles
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if api_key:
+            from spikes import gemma_make_miss_fast
+            shots_path = os.path.join(_ROOT, "spikes", "out", f"{clip}_shot_attempts.json")
+            try:
+                make_miss_results = gemma_make_miss_fast.detect_makes_by_gemma_fast(
+                    clip, shots_path, api_key)
+                print(f"[measured_stats] using Gemma vision reader", flush=True)
+            except Exception as e:
+                print(f"[measured_stats] Gemma failed, falling back to OCR: {e}", flush=True)
+
+        # Fallback to OCR if Gemma not available or fails
+        if not make_miss_results:
+            from spikes import scoreboard_make_miss
+            shots_path = os.path.join(_ROOT, "spikes", "out", f"{clip}_shot_attempts.json")
+            sb_path = os.path.join(_ROOT, "spikes", "out", f"{clip}_scoreboard_ocr.json")
+            if os.path.exists(shots_path) and os.path.exists(sb_path):
+                make_miss_results = scoreboard_make_miss.detect_makes_by_scoreboard(
+                    clip, shots_path, sb_path)
+                print(f"[measured_stats] using OCR reader", flush=True)
+    except Exception as e:
+        print(f"[measured_stats] warning: could not load make/miss data: {e}")
+
+    out = build_measured_stats(clip, box, loc, att, court_length_for(clip), touch,
+                              make_miss_results)
     # Says WHY there are no shots: a skipped layer reads very differently from
     # a game where the ball was watched and nobody shot.
     out["meta"]["shot_layer_available"] = os.path.exists(

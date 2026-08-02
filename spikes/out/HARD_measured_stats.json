@@ -3,6 +3,12 @@
   "meta": {
     "make_miss_available": false,
     "box_score_note": "presence-seconds over this clip's tracked span -- not full-game stats",
+    "touches_available": true,
+    "shooter_attribution_available": false,
+    "shooter_attribution_verified": false,
+    "shots_attributed": 0,
+    "shooter_note": "Who took each shot is INFERRED from who was last SEEN holding the ball (within 2s). It has never been checked against ground truth -- this project has confirmed WHICH arcs are shots, never WHO took them. Shots with no recorded touch in time are left unattributed rather than guessed. Label as unverified.",
+    "touch_note": "Touches are review candidates, not confirmed stats. Each one is part SEEN (ball visible in her hands) and part FILLED IN (bridged across a dropout, 15s ceiling) -- show both, never just the total.",
     "court": {
       "length_ft": 84.0,
       "width_ft": 50.0,
@@ -224,7 +230,11 @@
       "dist_ft": 20.0,
       "shot_type": "jumpshot",
       "hoop": "far",
-      "shooter_status": "review_item"
+      "shooter_status": "review_item",
+      "shooter_number": null,
+      "shooter_track_id": 1502,
+      "shooter_method": "last_seen_holding_ball",
+      "shooter_verified": false
     }
   ],
   "shots_unlocated": 3,
@@ -242,5 +252,139 @@
     },
     "pct_three": 100.0,
     "pct_two": 0.0
+  },
+  "touches": [
+    {
+      "start_frame": 616,
+      "end_frame": 658,
+      "track_id": 14,
+      "jersey_number": null,
+      "identity_status": "attributed",
+      "observed_seconds": 1.23,
+      "inferred_seconds": 0.2,
+      "total_seconds": 1.43,
+      "court_x": 8.5,
+      "court_y": 28.7,
+      "zone": "paint",
+      "dist_ft": 4.9,
+      "on_court": true
+    },
+    {
+      "start_frame": 671,
+      "end_frame": 682,
+      "track_id": 4,
+      "jersey_number": 10,
+      "identity_status": "attributed",
+      "observed_seconds": 0.33,
+      "inferred_seconds": 0.07,
+      "total_seconds": 0.4,
+      "court_x": 12.0,
+      "court_y": 15.2,
+      "zone": "midrange",
+      "dist_ft": 11.9,
+      "on_court": true
+    },
+    {
+      "start_frame": 808,
+      "end_frame": 816,
+      "track_id": 55,
+      "jersey_number": 1,
+      "identity_status": "review_item",
+      "observed_seconds": 0.27,
+      "inferred_seconds": 0.03,
+      "total_seconds": 0.3,
+      "court_x": -0.5,
+      "court_y": 15.5,
+      "zone": "midrange",
+      "dist_ft": 11.1,
+      "on_court": true
+    },
+    {
+      "start_frame": 888,
+      "end_frame": 906,
+      "track_id": 930,
+      "jersey_number": 1,
+      "identity_status": "attributed",
+      "observed_seconds": 0.63,
+      "inferred_seconds": 0.0,
+      "total_seconds": 0.63,
+      "court_x": -0.8,
+      "court_y": 14.5,
+      "zone": "midrange",
+      "dist_ft": 12.1,
+      "on_court": true
+    },
+    {
+      "start_frame": 1027,
+      "end_frame": 1052,
+      "track_id": 1963,
+      "jersey_number": 3,
+      "identity_status": "attributed",
+      "observed_seconds": 0.8,
+      "inferred_seconds": 0.07,
+      "total_seconds": 0.87,
+      "court_x": 10.6,
+      "court_y": 10.2,
+      "zone": "midrange",
+      "dist_ft": 15.7,
+      "on_court": true
+    },
+    {
+      "start_frame": 1063,
+      "end_frame": 1100,
+      "track_id": 2475,
+      "jersey_number": 3,
+      "identity_status": "review_item",
+      "observed_seconds": 0.87,
+      "inferred_seconds": 0.4,
+      "total_seconds": 1.27,
+      "court_x": 23.7,
+      "court_y": 4.6,
+      "zone": "three",
+      "dist_ft": 27.5,
+      "on_court": true
+    },
+    {
+      "start_frame": 1116,
+      "end_frame": 1123,
+      "track_id": 2475,
+      "jersey_number": 3,
+      "identity_status": "attributed",
+      "observed_seconds": 0.27,
+      "inferred_seconds": 0.0,
+      "total_seconds": 0.27,
+      "court_x": 52.6,
+      "court_y": 9.1,
+      "zone": "three",
+      "dist_ft": 30.6,
+      "on_court": true
+    },
+    {
+      "start_frame": 1147,
+      "end_frame": 1164,
+      "track_id": 1502,
+      "jersey_number": null,
+      "identity_status": "review_item",
+      "observed_seconds": 0.57,
+      "inferred_seconds": 0.03,
+      "total_seconds": 0.6,
+      "court_x": 66.3,
+      "court_y": 41.4,
+      "zone": "three",
+      "dist_ft": 20.6,
+      "on_court": true
+    }
+  ],
+  "touch_summary": {
+    "n_touches": 8,
+    "n_nameable": 6,
+    "observed_seconds": 5.0,
+    "inferred_seconds": 0.8,
+    "pct_inferred": 14.0,
+    "zone_counts": {
+      "three": 3,
+      "midrange": 4,
+      "paint": 1
+    }
   }
 }

@@ -1,0 +1,29 @@
+{
+  "clip": "TEST1_REG",
+  "fps": 30.0,
+  "hold_s": 1.5,
+  "min_poss_s": 4.0,
+  "margin_ft": 6.0,
+  "possessions": [
+    {
+      "side": "L",
+      "start": 120,
+      "end": 500,
+      "side_agreement": 1.0,
+      "partial_start": true,
+      "partial_end": false
+    },
+    {
+      "side": "R",
+      "start": 501,
+      "end": 580,
+      "side_agreement": 1.0,
+      "partial_start": false,
+      "partial_end": true
+    }
+  ],
+  "boundaries": [
+    120,
+    501
+  ]
+}

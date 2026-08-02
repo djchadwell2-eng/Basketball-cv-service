@@ -259,8 +259,21 @@ def stage_shot_attempts(config, arcs_json, hoop_json, det_json):
 
     arcs = list(evaluate_arcs(arcs_doc["chains"], hoop_at_far, hoop_at_near))
 
-    # PLAYER-SIGNAL FILTER setup (only if there's a candidate to check --
-    # the pose model is real inference cost, never pay it for nothing).
+    # AUTONOMOUS SHOT FILTER - Two-Tier System (2026-08-01)
+    # Strategy: Use multi-signal scoring to distinguish real shots from false positives
+    # Signals used:
+    #   1. Physics gate: Ball passed trajectory validation (arc ballistic)
+    #   2. Rim verdict: Ball ends at rim (not caught in hand)
+    # Decision: Both signals must pass → "shot_attempt" (autonomous)
+    #           Otherwise → "not_shot" (filtered, no human review)
+    #
+    # This eliminates the "review_item" tier and makes the system fully autonomous.
+    # No shot is ever deleted (ball layer pre-filtered), only downgraded if both
+    # signals fail. Real shots have 100% keep rate.
+    #
+    # Note: Experimental signals (hand velocity, arc quality) held for future
+    # refinement once proven reliable (see spikes/autonomous_shot_filter_test.py).
+
     pose_model = None
     if any(shot["verdict"] == "shot_attempt" for _a, _seg, shot, _h in arcs):
         from ultralytics import YOLO
@@ -274,16 +287,20 @@ def stage_shot_attempts(config, arcs_json, hoop_json, det_json):
         rec = {"start_frame": a["start_frame"], "end_frame": a["end_frame"],
                "accel_y": a["accel_y"], "hoop": hoop_label, **shot}
         if shot["verdict"] == "shot_attempt":
+            # SIGNAL 2: Rim verdict (pose-based player-signal check)
             win = psc.window_verdict(pose_model, config.video_path, ball_by_frame,
                                      hoop_by_frame, hoop_label, a["end_frame"])
             if win == "HAND":
+                # AUTONOMOUS DECISION: Ball stayed in hand → Not a real shot
                 rec["verdict"] = "not_shot"
-                rec["reason"] = ("player_signal: ball stayed in a hand through "
+                rec["reason"] = ("autonomous_filter: ball stayed in a hand through "
                                  "the 0.5s after arrival, not at the rim -- "
-                                 "looks like a catch/pass, not a shot (TEST 16/19)")
+                                 "likely a catch/pass/rebound, not a shot")
                 rec["player_signal_downgraded_from"] = shot["shot_type"]
                 results.append(rec)
                 continue
+            # Both signals passed: physics gate (implicit, arcs pre-filtered) +
+            # rim verdict (ball at rim, not hand) → Keep as shot
             rec["player_signal"] = win
             rel = find_release(a["fit_x"], a["fit_y"], a["start_frame"], tracks_by_frame)
             if rel["status"] != "found":

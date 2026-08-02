@@ -47,7 +47,12 @@ def main():
         end_t = end / fps
         window_end = end_t + MATCH_WINDOW_SEC
         matches = [e for e in sb["events"] if end_t <= e["t_sec"] <= window_end]
-        verdict = "MAKE (score changed nearby)" if matches else "MISS (no score change in window)"
+        # DJ's hard rule (2026-07-26, binding): the scoreboard may CONFIRM a
+        # make, it may NEVER be used to conclude a miss from silence/absence.
+        # No score-change nearby = unknown, not a miss (the board could have
+        # faded, been occluded, or the OCR simply missed a real change).
+        verdict = ("candidate_make (score changed nearby)" if matches
+                   else "unknown (no score change seen -- NOT evidence of a miss)")
         print(f"shot {start}-{end} ({hoop} hoop, ends {end_t:.1f}s, "
               f"window {end_t:.1f}-{window_end:.1f}s): {verdict}")
         for m in matches:

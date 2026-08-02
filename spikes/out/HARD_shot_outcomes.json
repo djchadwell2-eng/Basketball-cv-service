@@ -3,69 +3,39 @@
   "outcomes": [
     {
       "start_frame": 351,
-      "end_frame": 375,
+      "end_frame": 374,
       "hoop": "near",
-      "checked_after_frame": 375,
-      "outcome": "candidate_miss",
-      "evidence": {
-        "chain_start_frame": 376,
-        "start_dist_px": 77.6,
-        "end_frame": 488,
-        "end_dist_px": 526.1
-      }
-    },
-    {
-      "start_frame": 401,
-      "end_frame": 415,
-      "hoop": "near",
-      "checked_after_frame": 406,
+      "checked_after_frame": 374,
       "outcome": "unknown",
       "reason": "conflicting evidence (both fall-through and deflection signals present)",
       "make_evidence": {
         "frames": [
-          407,
-          408,
-          409,
-          410,
-          411,
-          412,
-          413,
-          415,
-          416,
-          417,
-          418,
-          419,
-          420
+          381,
+          383,
+          384,
+          385
         ],
-        "n_points": 13
+        "n_points": 4
       },
       "miss_evidence": {
-        "chain_start_frame": 409,
-        "start_dist_px": 14.7,
-        "end_frame": 488,
-        "end_dist_px": 526.1
+        "chain_start_frame": 375,
+        "start_dist_px": 88.0,
+        "end_frame": 471,
+        "end_dist_px": 507.2
       }
     },
     {
-      "start_frame": 1188,
-      "end_frame": 1213,
+      "start_frame": 1187,
+      "end_frame": 1214,
       "hoop": "far",
-      "checked_after_frame": 1213,
+      "checked_after_frame": 1214,
       "outcome": "candidate_miss",
       "evidence": {
-        "chain_start_frame": 1216,
-        "start_dist_px": 25.3,
-        "end_frame": 1257,
-        "end_dist_px": 344.7
+        "chain_start_frame": 1215,
+        "start_dist_px": 25.6,
+        "end_frame": 1309,
+        "end_dist_px": 532.5
       }
-    },
-    {
-      "start_frame": 1352,
-      "end_frame": 1381,
-      "hoop": "far",
-      "checked_after_frame": 1362,
-      "outcome": "unknown",
-      "reason": "no evidence either way"
     }
   ]
 }

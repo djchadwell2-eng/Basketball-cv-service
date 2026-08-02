@@ -1,16 +1,21 @@
 {
   "clip": "TEST1",
   "meta": {
-    "make_miss_available": false,
+    "make_miss_available": true,
     "box_score_note": "presence-seconds over this clip's tracked span -- not full-game stats",
     "touches_available": true,
+    "shooter_attribution_available": false,
+    "shooter_attribution_verified": false,
+    "shots_attributed": 0,
+    "shooter_note": "Who took each shot is INFERRED from who was last SEEN holding the ball (within 2s). It has never been checked against ground truth -- this project has confirmed WHICH arcs are shots, never WHO took them. Shots with no recorded touch in time are left unattributed rather than guessed. Label as unverified.",
     "touch_note": "Touches are review candidates, not confirmed stats. Each one is part SEEN (ball visible in her hands) and part FILLED IN (bridged across a dropout, 15s ceiling) -- show both, never just the total.",
     "court": {
       "length_ft": 84.0,
       "width_ft": 50.0,
       "hoop_dx_ft": 5.25,
       "three_radius_ft": 19.75
-    }
+    },
+    "shot_layer_available": true
   },
   "tracking": {
     "named_seconds": 97.7,
@@ -205,7 +210,22 @@
       "dist_ft": 2.9,
       "shot_type": "layup",
       "hoop": "far",
-      "shooter_status": "review_item"
+      "shooter_status": "review_item",
+      "shooter_number": null,
+      "shooter_track_id": null,
+      "shooter_method": null,
+      "shooter_verified": false,
+      "make_miss_outcome": "candidate_make",
+      "make_miss_score_from": [
+        0,
+        0
+      ],
+      "make_miss_score_to": [
+        1,
+        0
+      ],
+      "make_miss_score_change_frame": 274,
+      "make_miss_score_change_time_sec": 4.566666666666666
     },
     {
       "start_frame": 236,
@@ -216,27 +236,31 @@
       "dist_ft": 1.5,
       "shot_type": "layup",
       "hoop": "far",
-      "shooter_status": "review_item"
-    },
-    {
-      "start_frame": 581,
-      "end_frame": 589,
-      "court_x": 82.8,
-      "court_y": 30.7,
-      "zone": "paint",
-      "dist_ft": 7.0,
-      "shot_type": "layup",
-      "hoop": "near",
-      "shooter_status": "review_item"
+      "shooter_status": "review_item",
+      "shooter_number": null,
+      "shooter_track_id": 49,
+      "shooter_method": "last_seen_holding_ball",
+      "shooter_verified": false,
+      "make_miss_outcome": "candidate_make",
+      "make_miss_score_from": [
+        1,
+        0
+      ],
+      "make_miss_score_to": [
+        0,
+        0
+      ],
+      "make_miss_score_change_frame": 280,
+      "make_miss_score_change_time_sec": 4.666666666666667
     }
   ],
   "shots_unlocated": 1,
   "shot_distribution": {
-    "n": 3,
+    "n": 2,
     "counts": {
       "three": 0,
       "midrange": 0,
-      "paint": 3
+      "paint": 2
     },
     "pct": {
       "three": 0.0,

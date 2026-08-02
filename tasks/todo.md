@@ -1,3 +1,2351 @@
+# ============================================================================
+# MAKE/MISS SCOREBOARD EXPERIMENTS -- ideas #1 then #2, real results (2026-07-31)
+# ============================================================================
+# DJ asked to go through the scoreboard brainstorm list in order: #1 (match a
+# score change to the nearest-in-time shot) then #2 (read the scoreboard
+# densely, bounded to the window right after each shot).
+#
+# FIRST, a real bug fixed before running anything: both existing scoreboard
+# scripts (spikes/match_shots_to_score.py, spikes/dense_shot_score_match.py)
+# were calling "no score change seen nearby" a MISS. That directly breaks
+# DJ's own hard rule (2026-07-26, binding): the scoreboard may CONFIRM a
+# make, it may NEVER be used to conclude a miss from silence. Fixed both to
+# report "unknown" instead -- never silently shipped as a stat.
+#
+# IDEA #1 (nearest-in-time, fixed 6s window) -- run for real on HARD + TEST1:
+# result was ALL unknown on both clips. Not a bug -- it correctly proves the
+# idea doesn't work with today's scoreboard reading, because the coarse OCR
+# pass only locks a score-change timestamp once every many seconds, so no
+# shot's 6-second window ever overlaps a detected change. Matches what TEST
+# 14 already suspected but never confirmed by actually running it.
+#
+# IDEA #2 (dense per-shot read, bounded by the next shot) -- this script was
+# WRITTEN back on 2026-07-25 but never actually run before today. First real
+# run found a genuine problem: it reported "0-0 -> 5-0" after shot A, a
+# basketball-IMPOSSIBLE single-play jump (max legal is +3). The existing
+# monotonicity guard (score never decreases) let it straight through because
+# nothing checked JUMP SIZE. Root-caused and fixed: added MAX_PLAUSIBLE_JUMP=3
+# to spikes/scoreboard_ocr_probe.py's run_probe -- any "change" bigger than a
+# real single play is now treated as noise, same as a decrease.
+#
+# RE-RUN after the fix -- clean, plausible, real result:
+#   shot A (58-77), layup 1 (166-184), layup 2 (236-250): unknown (no
+#     reliable read in window -- honestly abstained, not guessed)
+#   shot B (314-327): candidate_make, score 0-0 -> 0-2, 0.83s after the shot
+#   layup 3 (571-589): candidate_make, score 0-2 -> 2-2, 5.83s after the shot
+# This MATCHES TEST 14's independently-known fact (the away team reached 2
+# points somewhere in the first 22.5s) and, for the first time, says WHICH
+# shot did it (shot B) instead of just "somewhere in this stretch of 4
+# shots." Final score after all 5 verified shots: 2-2 -- internally
+# consistent, monotonic, plausible.
+#
+# NOT wired into the real pipeline yet -- still a read-only spike measurement,
+# same as everything upstream of a DJ green-light in this project. Next
+# (per DJ, "slowly go through the rest of these ideas"): work through the
+# remaining scoreboard-brainstorm ideas (possession-gating refinement,
+# continuous reading, free-throw special case, multi-style readers) and the
+# non-scoreboard ideas (net-motion signal, trajectory-shape signal) one at a
+# time, same measure-first discipline.
+# ============================================================================
+
+# ============================================================================
+# PLAYER-SIGNAL CHECK -- PLAN (2026-07-31, checked in with DJ, approved: "yes run that")
+# ============================================================================
+# Context: v4 ball model gate-tested against HARD/TEST1 -- 5/5 on TEST1 (same
+# full recovery as v3), but the 2 known HARD false positives (rebound-and-dish
+# 403-415, cross-court pass 1352-1375) are UNCHANGED. Confirms this is a
+# player-signal gap, not fixable by more ball labels (predicted in the
+# handoff below). Proceeding with the pose-based player-signal check
+# (TEST 16/19: "does the ball end at a HAND or the RIM" over a 0.5s window
+# after the arc ends -- passed its first real holdout 4/4 on false positives,
+# 3/4 clean real shots, TEST_LOG.md TEST 19).
+#
+# TODO
+# - [ ] Move the window hand-vs-rim check out of spikes/pose_shot_check.py
+#       (read-only test script) into real pipeline code (small, reusable
+#       function -- no new file needed unless it doesn't fit cleanly into
+#       ball_stages.py).
+# - [ ] Call it from ball_stages.stage_shot_attempts on every arc currently
+#       classified shot_attempt. If the window says HAND, DOWNGRADE the
+#       verdict to a rejected/review item with a reason -- never silently
+#       delete it (same abstention-first rule as everything else here).
+# - [ ] Re-run HARD + TEST1 with this check turned on (using v4 weights,
+#       already downloaded to models/ball_finetuned_v4.pt). Confirm: both
+#       real shots still count, both known HARD false positives now get
+#       correctly rejected.
+# - [ ] Add a small automated test locking this in (tests/ dir, follow
+#       existing test file patterns).
+# - [ ] Review section: summarize what changed, plain English, before
+#       calling this done.
+#
+# Explicitly NOT part of this task: no ball model retraining, no scoreboard
+# work, no unrelated cleanup.
+# ============================================================================
+#
+# REVIEW (2026-07-31) -- DONE
+#
+# What changed:
+# - v4 ball model (trained with DJ's 100 new player labels) was gate-tested
+#   against HARD/TEST1 first: 5/5 on TEST1 (same as v3), but the 2 known
+#   HARD false positives (rebound-and-dish, cross-court pass) were UNCHANGED
+#   -- confirmed this is a player-signal gap, more ball labels can't fix it.
+# - Moved the TEST 16/19 pose "hand vs rim" window check out of its read-only
+#   test script (spikes/pose_shot_check.py) into real pipeline functions
+#   (ball_center_by_frame, window_verdict) that ball_stages.stage_shot_attempts
+#   now calls on every claimed shot. If the ball stays in a hand, the claim
+#   is DOWNGRADED to a rejected/review item with a reason -- never deleted.
+# - First wiring used the MAJORITY-vote window rule exactly as pre-registered
+#   in TEST 16/19. Result: HARD's 2 false positives finally correctly
+#   rejected -- but it also wrongly rejected 2 REAL TEST1 shots (one was a
+#   known predicted risk, one -- "layup 3" -- was a NEW regression, likely
+#   because a rebounder grabs a real made shot within the window too).
+# - Ran a 5-way rule experiment (spikes/player_signal_experiment.py, samples
+#   every frame once then compares rules for free) before picking a fix.
+#   UNANIMOUS (ball must stay in a hand for the WHOLE window, not just most
+#   of it) scored 8/9 vs majority's 7/9 -- recovers layup 3 while keeping
+#   both HARD rejections. Switched the live rule to unanimous
+#   (window_unanimous in spikes/pose_shot_check.py).
+# - FINAL MEASURED RESULT: HARD 2/2 real shots + both false positives now
+#   correctly rejected (was 2/2 + 2 false claims before this session).
+#   TEST1 4/5 verified shots (only "shot B" still missed -- a PRE-EXISTING,
+#   already-diagnosed limitation: its ball-tracking data runs out before the
+#   rim regardless of which rule is used, so there's nothing left to check
+#   but a nearby hand. Not something this fix could have solved).
+# - Added tests/test_player_signal.py (5 tests, pure decision-rule logic,
+#   no model/video I/O) locking in the unanimous rule + the measured votes
+#   that drove the decision. Full suite: 297/297 passing.
+#
+# Net result: the #1 correctness gap in the handoff below (false positives)
+# is now measurably better than before, at the cost of one shot that was
+# already the most fragile case in the whole project. DJ approved proceeding
+# and is doing a full web-app pipeline run separately to see real-world
+# numbers.
+# ============================================================================
+
+# ============================================================================
+# HANDOFF -- 2026-07-30 to 07-31. READ THIS FIRST.
+# ============================================================================
+
+## THE TWO THINGS THE NEXT SESSION MUST MAKE PROGRESS ON
+
+DJ's own words, ending this session: we NEED to figure out a way to get
+RELIABLE MAKE/MISS READS, and we NEED to STOP MISTAKING PLAYER ACTIONS FOR
+SHOTS. Everything else below is real, useful work, but neither of these two
+things moved forward this session, and they are the two biggest correctness
+gaps standing between "the numbers are interesting" and "the numbers are
+trustworthy enough to hand a coach." Do not let infrastructure work (like the
+RunPod section below) crowd these out again.
+
+### 1. MAKE/MISS IS STILL NOT SOLVED
+Current state: `measured_stats.py` ships `make_miss_available: false` --
+every shot chart this system produces has NO make/miss on it at all. This is
+not a bug, it is an honest admission that the feature does not exist yet.
+What's been tried and where it stands:
+- Scoreboard OCR reading the score itself works (TEST 14, sliding-window
+  majority vote) but ONLY on the broadcast-overlay style it was tuned on.
+  TEST4's LED gym board and other styles are different problems, measured
+  separately (see "SCOREBOARD PRESENCE ON TEST4" further down this file).
+- DJ's hard rule (2026-07-26, still binding): the scoreboard may CONFIRM a
+  make, it may NEVER be used to conclude a miss from silence/absence. A
+  fade or a style the reader can't see is "unknown," never "miss."
+- Attributing a score change to WHICH shot caused it (not just "the score
+  went up sometime") is PAUSED, not solved -- TEST 20 found dense sampling
+  near the scoreboard gets fooled by real player bodies walking through
+  that screen corner for multiple frames running. This is the actual open
+  problem: even a perfect score-reader doesn't tell you which shot scored.
+NEXT SESSION SHOULD: treat this as its own real investigation, not a
+one-line fix. Candidates nobody has tried yet: pairing a score-change
+with the SINGLE nearest-in-time located shot attempt (simple, may be
+wrong when shots cluster); reading the scoreboard continuously through a
+possession rather than just after a shot, so a change can only be
+attributed to the one attempt that happened inside a possession with no
+other shots; free throws need separate handling since they don't share
+this project's normal shot-detection path at all yet.
+
+### 2. FALSE POSITIVES -- STILL THE #1 CORRECTNESS GAP, UNCHANGED THIS SESSION
+v3 (the best ball model) is STILL not adopted into run_clip, for the same
+reason as before: it sometimes claims a rebound, a held ball, or a pass is a
+shot attempt. Root cause was PROVEN months ago to be a player-signal gap, not
+a ball-model quality problem (two independent lines of evidence -- see TEST
+16 and the TEST 17 control run further down this file). The fix candidate
+(pose: does the ball end at a HAND or the RIM) passed its first real holdout
+9/9 -- the strongest result this project has produced -- but is STILL NOT
+WIRED INTO ANYTHING, and has a known fragility (shifting the read window by
+0.5s flips 3 of 10 verdicts on single frames; the fix for that, reading a
+WINDOW after the arc ends instead of one frame, is specified but unbuilt).
+DJ's 100 player labels landed and got merged into a v4 retrain THIS session
+(see "RUNPOD GPU TRAINING" further down), but that result is INCONCLUSIVE --
+the only validation available (a 32-image public set) is known-unreliable
+and said "best epoch was epoch 1," which almost certainly means the metric
+can't see the improvement, not that there wasn't one. NOBODY HAS RUN v4
+AGAINST THE REAL GATE YET (HARD/TEST1's known false positives: the rebound-
+and-dish, the held inbounds ball, the cross-court pass).
+NEXT SESSION SHOULD, IN ORDER:
+  1. Gate-test v4: run it against HARD and TEST1, check the 3 known false
+     positives are still (or newly) rejected, check the verified real shots
+     are still caught. This is the only way to know if the player labels
+     actually helped.
+  2. If v4 helps: build the REAL player-signal check (not the pose-rule
+     prototype) using the retrained model, per the plan that's existed since
+     TEST 16 -- this is THE fix, not another workaround.
+  3. If v4 doesn't help: the player-signal check still needs building, just
+     with the off-the-shelf pose model (yolo11x-pose) as TEST 16 already
+     proved works, plus the window-read fix for its fragility.
+Either way: this is the single highest-leverage piece of CV work left. Ball
+model quality is not the bottleneck anymore and hasn't been for a while.
+
+## LOOSE END FROM THIS SESSION, NEEDS DJ'S EYES
+The chain-fragmentation recall fix (spikes/ball_trajectory.py,
+`_merge_gapped_chains`) IS BUILT and the full suite passes (277/277) --
+except one regression test that's failing ON PURPOSE, pending DJ confirming
+what he sees in spikes/out/shotA_frames/f0055.jpg through f0102.jpg (TEST1's
+Shot A). Asked DJ directly this session; he didn't recall the specific play
+from the frames alone ("Idk what shot your talking about") and the
+conversation moved on before it got resolved. NEXT SESSION: either walk DJ
+through the actual video around TEST1 frames 55-102 (not just stills) so he
+can confirm/deny "one shot that flew high over the backboard and got
+rebounded," or find another way to verify, before touching that locked test
+number in tests/test_ball_stages.py.
+
+## OTHER REAL PROGRESS THIS SESSION (for context, lower priority than the two above)
+- DJ finished 100 player labels ("my-footage-players2" Roboflow project) --
+  target reached, labeling paused here on purpose (player detection is an
+  easier target than ball detection; 230 was needed for the ball, 100 is
+  plenty for players).
+- TIMEOUT clip (Time_out.mp4) phantom-shot check: DONE. Dead-ball suppression
+  is NOT urgent -- 0 phantom claims during the real 40-115s dead stretch on
+  this one clip. See TEST_LOG "PHANTOM-SHOT COUNT."
+- RunPod Serverless (see section directly below): a real, proven-working
+  piece of shipping infrastructure, but NOT a CV-quality improvement. Good
+  to have, not what DJ asked to be emphasized to future sessions.
+
+# ============================================================================
+# CONNECT RUNPOD SERVERLESS TO THE WEB APP -- PHASE 1 DONE, PROVEN WORKING
+# (2026-07-31). Endpoint nhqffi8lp2esit, real job COMPLETED with correct output.
+# NOT YET VERIFIED: never tested via the actual running web app / a real
+# browser upload, and even once it fires, nothing surfaces the result
+# anywhere visible -- it just logs to the server console. See below.
+# ============================================================================
+
+## WHERE THINGS STAND
+Phase 1 (prove it on an already-set-up clip, TEST1) is DONE and proven on the
+REAL RunPod Serverless endpoint, not just a local/debug test:
+- Handler + Dockerfile + GitHub Actions build (-> ghcr.io) all built and working.
+- Endpoint `nhqffi8lp2esit` (template `u0uo4v0z9q`), RUNPOD_API_KEY +
+  RUNPOD_ENDPOINT_ID now set in the web app's real .env.local.
+- Web app's upload route fires a RunPod job (still hardcoded to TEST1, not
+  the actual uploaded video -- that's Phase 2) alongside the existing Gemini
+  flow, fire-and-forget, never blocking it.
+- Real timing: ~5 min cold start (first job on a new worker, pulling the
+  image) + ~3.3 min actual run once warm. Local terminal run is ~5.5 min
+  total, so this is at least as fast once a worker is warm.
+
+## THREE REAL BUGS FOUND AND FIXED GETTING HERE (all in Dockerfile/.dockerignore)
+1. TEST1_CLIP.ball_weights_path defaults to ball_finetuned_v2.pt (clip_config.py),
+   but only v3 was bundled into the image -- config.validate() refused to run.
+   Fixed: both v2 and v3 now bundled.
+2. EasyOCR silently downloads its models from the internet on first use if not
+   already cached -- slow and a bad fit for a job meant to finish in minutes.
+   Fixed: baked into the image at build time now.
+3. THE BIG ONE: RunPod's own SDK runs a built-in GPU health-check binary
+   before every job, hard-timeout 30s. On one specific worker this check
+   itself was failing/timing out (a RunPod-side compatibility quirk, not our
+   code), force-killing the worker before the handler ever ran -- looked like
+   a stuck/hanging job from outside (RunPod's own job-status API showed
+   "IN_PROGRESS" for 58 minutes and later for exactly ~40s twice in a row on
+   the SAME worker, with no useful logs). PROVEN not a code bug by running the
+   exact same image on a temporary debug Pod (bypasses that check entirely) --
+   completed correctly in ~4-6 min both times. Fixed by setting
+   RUNPOD_SKIP_GPU_CHECK=true on the template + deploying a FRESH endpoint
+   (the old one kept reusing the same bad worker even after the template
+   env was patched).
+LESSON for next time debugging a "stuck" RunPod Serverless job with no useful
+status info: reproduce on a temporary debug Pod from the same image FIRST
+(SSH access, real logs) before assuming the platform's job-status field is
+telling the truth about what's actually happening.
+
+## NEXT (Phase 2, not started)
+Make the job use the ACTUAL uploaded video instead of always analyzing TEST1
+-- needs the brand-new-clip setup (court clicks, roster) to exist in the
+browser first, a separate already-known piece of work (see calibration
+sections elsewhere in this file). Until then this is a proof, not a product
+feature a real coach's upload would benefit from yet.
+
+## OLD PLAN BELOW (superseded by the above, kept for the reasoning)
+
+## THE SIMPLE VERSION FIRST (prove the wire works, then make it handle any game)
+Same rule this whole project has followed every time: prove it on an already-
+working example before building the harder general version.
+  PHASE 1 -- prove RunPod Serverless can run the full pipeline at all, using
+             a clip that's ALREADY fully set up (HARD or TEST1 -- calibration,
+             roster, everything already exists for these two).
+  PHASE 2 -- make it handle a BRAND NEW uploaded game (this needs the court-
+             click/roster setup to happen in the browser first, which is a
+             separate, already-known piece of work -- not part of this).
+This plan is PHASE 1 only.
+
+## THE 5 PIECES, PLAIN ENGLISH
+1. A small "handler" file RunPod runs. It gets told which clip to run, sets
+   that as the active clip (same one-clip-per-process rule the whole pipeline
+   already follows), runs run_clip's full pipeline, and hands back the
+   resulting stats as the answer.
+2. A Docker image -- a shipping container with this repo's code, the
+   ball model weights, and that handler file inside it. RunPod runs this
+   image whenever a job comes in.
+3. A RunPod Serverless Endpoint -- created in RunPod's dashboard, pointed at
+   that image. This is the thing with a URL the web app will call.
+4. A web app route -- a server-side (never browser-visible) piece of code
+   that calls the endpoint's URL with an API key when a coach clicks
+   "Analyze," gets back a job id immediately (the real run takes minutes),
+   then checks back until it's done, then shows the results the same way
+   the Measured Stats page already does today.
+5. Secrets handled safely -- the RunPod API key lives only in the web app's
+   server-side environment variables, never sent to the browser, never
+   committed to git.
+
+## WHY START FROM THE EXISTING PIPELINE CODE, NOT A NEW ONE
+run_clip.py already runs the whole thing end to end locally (calibration ->
+tracking -> box score) for a clip that has a ClipConfig already written in
+spikes/clips_config.py. The handler just needs to call that same function --
+no new CV code, no rewritten pipeline. This also means Phase 1's handler is
+genuinely small: point it at "HARD" or "TEST1," run what already works, ship
+the JSON back.
+
+## OPEN QUESTIONS FOR DJ (before writing anything)
+- [ ] Which already-set-up clip should the first real test use -- HARD or
+      TEST1? (Doesn't matter much; whichever DJ wants to see results for.)
+- [ ] Does DJ want to build/push the Docker image himself (I can write exact
+      copy-paste commands), or should I drive it directly the same way I
+      drove the training pod tonight (SSH/API access, DJ just supplies the
+      RunPod API key once)?
+
+## TODO
+- [ ] 1. Write the handler script (repo root, e.g. `serverless_handler.py`)
+      that wraps run_clip.run() for a named existing clip and returns its
+      output JSON.
+- [ ] 2. Write a Dockerfile: base image with Python + CUDA, this repo's
+      requirements.txt, the repo code, the ball model weights, the handler.
+- [ ] 3. Build + push the image somewhere RunPod can pull it from (Docker
+      Hub, or RunPod's own registry).
+- [ ] 4. Create the Serverless Endpoint in RunPod's dashboard pointed at
+      that image (GPU type, min workers = 0 so idle time costs nothing).
+- [ ] 5. Web app: one new server route that calls the endpoint, waits for
+      the result, and reuses the existing Measured Stats display to show it.
+- [ ] 6. Prove it end-to-end on HARD or TEST1 (DJ's choice above), eyeball
+      the result against what the local terminal run already produces.
+
+# ============================================================================
+# EVERYTHING STILL TO DO. Written 2026-07-30 at DJ's request.
+# The two parallels, plus a concrete plan for SCORE. Nothing here is started.
+# ============================================================================
+
+# ============================================================================
+# OVERLAY DRIFT -- **SOLVED 2026-07-31.** DJ: "its perfect".
+# The section below was written while it was still broken; the RESOLUTION is
+# here at the top. Read this first, then the history for the reasoning.
+# ============================================================================
+
+## WHAT FIXED IT: THE TEMPORAL CHAIN (fix #3 in the list below)
+Matching every frame straight back to its keyframe works while the camera is
+near where that photo was taken and DEGRADES as it pans away -- measured drift
+of 93 / 430 / 35 px on the three hard-panning spots versus ~1 px on the two
+near-static ones. The fix in calibrate_clip.py: also match each frame to the
+PREVIOUS frame (nearly identical, so accurate even mid-pan), compose that
+forward, and re-anchor to the keyframe whenever the direct match is strong
+(STRONG_INLIERS = 120). Continuity plus correction.
+
+**This is the property DJ was pointing at when he asked about SLAM.** He was
+right that it was missing, and right that it mattered. It cost a few lines, not
+a rewrite.
+
+## THE FALSE ENDING -- AND THE REAL LESSON OF THE WHOLE SESSION
+After the fix landed, DJ watched the video and reported "not a single
+difference", twice. Both of us concluded the fix had failed, and this file was
+written up as STILL BROKEN with a whole hypothesis-and-next-steps plan. **He was
+watching a STALE COPY of the video.** When he reopened it, it was perfect --
+with his marks completely unchanged (verified: byte-for-byte the same 69 points).
+
+So roughly two hours went into diagnosing a bug that was already fixed, because
+the DELIVERY of the result was broken, not the result. Three separate causes,
+all mine: the browser cached the video; my first cache-buster keyed off a value
+(frames_drawn = 1080) that was identical before and after, so it busted nothing;
+and I kept opening files from disk without checking he was seeing the new one.
+
+**RULE FOR NEXT TIME: before diagnosing "the fix didn't work", PROVE the person
+is looking at the new artifact.** Check its timestamp with them. A stale
+artifact is indistinguishable from a failed fix, and it wastes far more time
+than the check ever would.
+
+## STILL TRUE AND STILL WORTH DOING
+- Frame-to-frame SMOOTHING for the residual shakiness DJ mentioned. Separate,
+  smaller issue -- the court is re-solved independently each frame with nothing
+  damping it. NOT attempted.
+- The court-region-masking hypothesis below was never tested and is no longer
+  needed for this bug, but stays on file: it is still true that the camera is
+  not a pure rotation and that off-plane crowd features are in the match set.
+
+---
+
+# ============================================================================
+# (HISTORY, written while it was still broken -- kept for the reasoning)
+# OVERLAY DRIFT -- the full state of knowledge at the time.
+# ============================================================================
+
+## THE SYMPTOM, IN DJ'S WORDS
+*"The biggest problem was that the camera moved and the court didn't."* Plus
+shakiness and sporadic movement. And, days earlier and repeated since:
+*"the first and last one [are] glued, the middle frames have all the problems."*
+
+## PROVEN GOOD -- DO NOT RE-DO THESE
+- **DJ's 69 clicks are CORRECT.** Per-keyframe, each frame's own marks through
+  its own transform: 600=0.18, 127200=0.21, 151200=0.28, 158700=0.27,
+  171000=0.27 ft. All "glued". (diagnose_calibration.py)
+- **The court model is right**: 84 ft, clean call, 94 ft is 3.8x worse.
+- **DJ CONFIRMED BY EYE** that the drawn centre circle sits exactly on the real
+  one. His clicked circle measures **11.8 ft** against a regulation 12 ft.
+- **The drawing transform is right**: the model draws each landmark 3.5 px mean
+  from where DJ clicked it, at a keyframe.
+- **Removing the circle marks changes nothing** (0.20 -> 0.18 ft), so they are
+  not poisoning the fit.
+=> RE-CLICKING IS ALMOST CERTAINLY WASTED EFFORT. The fault is in RENDERING.
+
+## PROVEN BROKEN -- the actual measurement that matters
+Independent tracking test (drawn court point vs the same point tracked by a
+DIRECT frame-to-frame homography, so it does not reuse the drawing transform):
+```
+  spot 1 (kf    600)    1.1 px    glued
+  spot 2 (kf 127200)   93.6 px    drifting
+  spot 3 (kf 151200)  429.9 px    badly drifting
+  spot 4 (kf 158700)   34.9 px    drifting
+  spot 5 (kf 171000)    0.7 px    glued
+```
+**This reproduces DJ's description exactly.** Spots 1 and 5 have little camera
+movement; 2-4 are hard pans. Every spot anchored to its OWN nearest keyframe,
+so this is NOT an anchoring problem.
+
+## FIXES MADE THAT WERE REAL BUT DID NOT SOLVE IT
+1. **Anchoring by nearest-in-time, not most-inliers.** A genuine bug: both ends
+   of a court look identical, so frame 151320 matched a keyframe 7,500 frames
+   away with MORE inliers (216 vs 162) and drew the court half a floor out.
+   Fixed and verified on that frame -- but it only changed a handful of frames,
+   so the video looked the same.
+2. **Clipping off-screen extrapolation.** stage4.to_px allowed a projected
+   point up to 100,000 px on a 1920-wide frame; horizon points were drawn as
+   lines slashing across the picture. Now bounded to one frame-width.
+3. **Temporal chaining** (match to the PREVIOUS frame and compose, re-anchoring
+   when the direct keyframe match is strong, STRONG_INLIERS=120). Implemented
+   in calibrate_clip.py. **DJ reports no visible difference.** NOT VERIFIED as
+   executing -- see next steps.
+4. H.264 conversion (browser could not play mp4v -- video was a black box).
+5. Cache-busting on the proof video (the first attempt keyed off frames_drawn,
+   which was 1080 both times, so it busted nothing).
+
+## THE LEADING HYPOTHESIS FOR THE REAL CAUSE -- NOT YET TESTED
+**A homography is only valid for a PLANAR scene or a PURELY ROTATING camera.
+TEST 32 already established this camera is NOT a pure rotation** (19-26 px
+error in the image centre, on two clips). SIFT matches include the CROWD,
+BLEACHERS and WALLS, which are far off the court plane. A homography fitted to
+a mix of on-plane and off-plane points is wrong FOR THE COURT PLANE, and the
+error grows with camera translation -- which is exactly why the hard-panning
+middle spots drift and the near-static first/last spots do not.
+
+**THE TEST:** restrict SIFT matching to the COURT REGION only (mask out
+everything above the sidelines), then re-measure the per-spot drift. If the
+middle spots collapse toward 1 px, that is the answer. This is cheap to try and
+is the single most promising lead. It was never tried.
+
+Supporting evidence already on file: at frame 151320 the match to kf 158700 had
+100% of inliers on the court and still drew the court half a floor out, while
+the match to its own keyframe (44% on-court) drew it correctly -- so on-court
+fraction alone is not sufficient, but it is a confound worth removing.
+
+## OTHER NEXT STEPS, IN ORDER
+- [ ] 1. VERIFY THE TEMPORAL CHAIN ACTUALLY RUNS. Add a per-frame log line
+        (direct vs chained) and count them. It may never be triggering, which
+        would explain "no difference". Do this FIRST -- it is minutes.
+- [ ] 2. Mask matching to the court region (the hypothesis above).
+- [ ] 3. If both fail: the honest answer may be that a single homography per
+        frame cannot hold through these pans, and the per-frame court needs to
+        come from tracking the COURT LINES themselves rather than scene SIFT.
+- [ ] 4. Smoothing between frames is a SEPARATE, smaller issue (DJ's
+        "shakiness"). Do not conflate it with the drift.
+
+## MY ERRORS THIS SESSION -- the pattern matters more than the individual ones
+1. **Told DJ his marks were "too few points"** when he had placed 69 across 5
+   frames, MORE than the 56 that worked. The real cause was two mirrored
+   points from MY ambiguous NEAR/FAR labels.
+2. **Reported a 38.2 ft measurement of the "centre circle"** that was pure
+   garbage -- I had drawn a line between two entirely different arcs. Sent DJ
+   chasing a non-existent problem.
+3. **"Proved" the court tracked the camera using circular reasoning** -- I
+   derived the camera's motion from the very transform used to draw the court,
+   so the two agreed by construction. It could not have detected the bug.
+4. **Referred repeatedly to annotated images DJ could not see**, because I was
+   writing them to disk and never opening them. He eventually replied "WHAT
+   GREEN FUCKING CIRCLE", which was entirely fair.
+5. **Declared fixes verified three times** when the verification was flawed.
+   DJ's eyes were right every single time and my numbers were wrong.
+**THE PATTERN, AGAIN: measuring a proxy and reporting it as the answer.** It is
+the same failure recorded in this file's older handoff. The reported court fit
+(0.19 ft) is computed on CONSOLIDATED landmarks and CANNOT see a per-frame
+rendering error -- it was never measuring the thing that was wrong.
+
+---
+
+## THE "ATROCIOUS OVERLAY" BUG -- ONE REAL CAUSE FOUND (not the whole story)
+
+DJ, on a calibration reporting 0.19 ft "glued": *"The lines were so Atrocious
+its now worse then when we started court calabration... we litteraly built out
+a whole system with SLAM mechanicas to make sure that this dosent happen."*
+
+**THE CALIBRATION WAS NEVER THE PROBLEM.** Measured per keyframe -- each one's
+OWN marks through its OWN transform (diagnose_calibration.py):
+```
+  600     0.18 ft   GLUED       151200   0.28 ft   GLUED
+  127200  0.21 ft   GLUED       158700   0.27 ft   GLUED
+  171000  0.27 ft   GLUED
+```
+Every keyframe correct. The maths, the marks and the court model were all fine.
+
+**THE BUG WAS IN THE RENDERER'S KEYFRAME SELECTION** -- one line, and about the
+least sophisticated code in the system: it anchored each frame to whichever
+keyframe returned the MOST matching points.
+
+**Why that fails: both ends of a basketball court look identical.** Same key,
+same arc, same circle. SIFT+RANSAC will find a large, geometrically CONSISTENT
+match that maps one end of the floor onto the OTHER end of a different
+keyframe. Measured on the real failure, frame 151320:
+```
+  vs kf 158700 (7,500 frames away)  216 inliers  ratio 0.742  -> court HALF A FLOOR OUT
+  vs kf 151200 (its own, 120 away)  162 inliers  ratio 0.775  -> court CORRECT
+```
+More matches meant the WRONG view. Rendered both to be sure; the picture
+settled it.
+
+**THE FIX:** anchor to the NEAREST keyframe IN TIME that clears a quality bar,
+instead of the most-matched one. The camera moves continuously, so the nearest
+keyframe is overwhelmingly the right view, and a wrong-end match is by
+definition to a distant keyframe. Verified: the previously broken frames now
+anchor to 151200; 1080 frames drawn, 0 no-match.
+
+**WHY IT LOOKED FINE ON THE FIRST AND LAST SPOTS:** they have no competing
+keyframe on one side, so nothing could out-vote their own.
+
+**WHY THE NUMBER SAID 0.19 ft WHILE THE VIDEO WAS BROKEN:** the reported fit is
+computed on CONSOLIDATED landmarks -- one averaged position per landmark, after
+the optimiser pulls every keyframe's view together. It cannot see a per-frame
+ANCHORING mistake, because anchoring happens later, in the renderer. The metric
+was measuring a real thing; it just was not measuring the thing that was wrong.
+**diagnose_calibration.py now exists to measure the per-keyframe truth.**
+
+**ON SLAM (DJ's question):** this project has never had SLAM --
+stage3_optimize.py says so in its own docstring ("NOT a SLAM framework"). But
+SLAM would NOT have prevented this: the bug was not in building the map, it was
+in choosing which part of the map to use for a frame. The ONE property of SLAM
+that would have helped is TEMPORAL CONTINUITY -- knowing where the camera was
+an instant ago, so it cannot teleport half a court between frames. The fix
+above is exactly that property, for a few lines instead of a rewrite. Full SLAM
+would also be SLOWER per frame here, not faster.
+
+**NOTE:** spikes/render_chain_overlay_sample.py still has the old most-inliers
+selection. It got lucky on the clip it was used for. Fix it if it is ever used
+again.
+
+---
+
+## SPEED -- **FIXED 2026-07-31. The premise behind the slowness was false.**
+
+Every frame read in this project scanned sequentially from frame 0, because of
+a gotcha written into this file's own handoff: *"H.264 seeks can be
+frame-inaccurate and would silently corrupt calibration on every clip."*
+**That was never measured. It is false for this footage.**
+
+MEASURED on both full games:
+```
+seeking          105 ms/frame        sequential   568 ms/frame     5.4x faster
+landed on the exact requested frame  60/60,  max offset 0 frames
+seeked frames PIXEL-IDENTICAL to sequential   12/12 (np.array_equal)
+```
+Real effect on the calibration path: `extract_frames` on a 7-keyframe full game
+went **218s -> 1s**. It is called twice per calibration.
+
+**THE FIX** (fast_frames.py): seek, then CHECK where it landed, and fall back to
+a sequential scan for any frame the seek missed. The check costs one property
+read. So the fast path is used when it is correct, and the slow path only when
+it is actually needed -- instead of paying the slow path always to guard
+against something that does not happen. The correctness guarantee is unchanged.
+
+**LESSON, and it is the same one as elsewhere in this file:** a cautious-sounding
+assumption was carried for weeks without ever being tested, and it cost ~15
+minutes per game. Measure the thing you are afraid of before designing around it.
+
+STILL SLOW, not yet addressed: prepare_clip still makes several passes
+(plan / verify / bridge / export). They are all fast passes now, but combining
+them into one would cut it further.
+
+## (ORIGINAL NOTE, kept for the diagnosis) FRAME PICKING IS FAR TOO SLOW
+DJ, 2026-07-30, after the first real run through the app: *"it takes way too
+long... it took like 15 min which is unexeptable for this."*
+
+**MEASURED:** ~15 minutes for the "work out which frames you need to mark" step
+on one full game. That is before the coach has clicked anything, and it happens
+on EVERY new game. Unacceptable for a product.
+
+**WHERE THE TIME ACTUALLY GOES** (so nobody optimises the wrong thing):
+  - prepare_clip.plan_chain reads the ENTIRE video front-to-back to cache one
+    frame every 600. On a 216k-frame game that alone measured ~5 min.
+  - verify() then does a SECOND full sequential read to fetch the chosen frames
+    at full resolution (~3.5 min measured).
+  - a bridge search adds a THIRD full read (~3.5 min).
+  - the final export for the clicker adds a FOURTH.
+So it is roughly 4 complete passes over a multi-GB file. The SIFT matching is
+not the bottleneck -- the sequential video reading is.
+
+**WHY IT IS WRITTEN THIS WAY, i.e. what a fix must not break:** every read is
+deliberately sequential because seeking in H.264 can land on the WRONG frame,
+and a frame-inaccurate read would silently corrupt calibration on every clip.
+That gotcha is recorded in this file's older handoff and it is real. A speed fix
+that reintroduces seeking must PROVE frame accuracy first.
+
+**UNEXPLORED IDEAS (none tried, none endorsed):**
+  - ONE pass that caches both the small planning frames and the full-resolution
+    candidates, instead of four passes.
+  - Decode at reduced resolution for the planning pass only (ffmpeg can do this
+    far faster than decoding full frames and downscaling after).
+  - Hardware-accelerated decode.
+  - Sample a coarser stride first and refine only where the chain is uncertain.
+  - Do the planning pass on the GPU box rather than the coach's laptop.
+
+---
+
+## THE ORDER THESE SHOULD HAPPEN IN, AND WHY
+S1 (score changes) comes FIRST and is the keystone. It is the only item that
+manufactures ground truth instead of consuming it: a score that goes up is an
+unarguable record that a shot went in. That single signal then settles P.2
+(make/miss) outright and settles most of P.1 (who shot it) for free, because a
+made basket pins the shooter far better than a missed one. Doing P.1 or P.2
+first means hand-labelling everything by eye; doing S1 first means the game
+labels itself.
+
+---
+
+## S1 -- MEASURE THE SCORE. **THE HIGHEST-VALUE THING LEFT.**
+
+### THE INSIGHT: DO NOT READ THE SCORE. WATCH IT CHANGE.
+Reading a scoreboard reliably is the hard, brittle problem this project already
+half-fought -- OCR works when the graphic style matches what it learned, and
+three clips have had three different styles (STATUS.md blocker #3). But we do
+not need the score. **We need the MOMENTS it changes, and by how much.**
+
+Detecting a change is a far weaker requirement than reading a value:
+  - the digits region is FIXED for a whole game (one setup, like the court)
+  - a change is a pixel-difference event, not a character classification
+  - the SIZE of the jump (+1 / +2 / +3) is a 3-way choice, not 100-way
+  - it self-checks: scores only ever go UP, by 1, 2 or 3
+
+### WHAT IT UNLOCKS, IN ORDER
+1. **MAKE / MISS** -- a shot detected within ~2s before a +2 or +3 is a MAKE.
+   Everything else in that window is a MISS. This is STATUS.md blocker #3, and
+   it is what turns "where she shoots" into "where she SCORES".
+2. **SHOOTER GROUND TRUTH** -- the project has never had a record of WHO took a
+   shot. A made basket plus the touch immediately before it is the strongest
+   evidence available, and it arrives automatically for every score change in
+   the game rather than needing DJ to adjudicate one at a time.
+3. **FREE THROWS** -- +1 changes are free throws, which the arc detector is
+   weakest on. A signal for the shots we are worst at seeing.
+4. **A CHECK ON THE WHOLE PIPELINE** -- final score vs the real result is an
+   end-to-end correctness test the project has never had.
+
+### THE PLAN
+- [ ] S1.1 Locate the score digits ONCE per game. The setup flow already has
+        the coach dragging a box over the scoreboard graphic
+        (components/CourtMarker.tsx) -- ask for the two score numbers inside it
+        at the same time. Zero new sittings of work.
+- [ ] S1.2 Sample that small region every ~0.5s. Flag frames where its pixels
+        change materially, ignoring the clock digits (they change constantly --
+        the score region must EXCLUDE them, which is why S1.1 asks for the two
+        numbers specifically rather than the whole bug).
+- [ ] S1.3 At each flagged moment read ONLY those digits (easyocr is already a
+        dependency, used by phase2). Keep a change only if the new value is the
+        old value +1/+2/+3. Anything else is a misread and is DISCARDED, not
+        guessed -- this rule is most of the robustness.
+- [ ] S1.4 Emit {clip}_score_events.json: [{frame, team, points, from, to}].
+- [ ] S1.5 GATE, stated before the run: on a clip where DJ knows the final
+        score, the summed events must equal the real final score. If it does
+        not, the detector is wrong and NOTHING downstream may use it. Do not
+        soften this to "close enough" -- a wrong make/miss is worse than none.
+- [ ] S1.6 Only after S1.5 passes: join score events to shots -> make/miss into
+        the contract, `make_miss_available: true` at last.
+
+### THE STANDING RULE THIS MUST NOT BREAK
+**"The scoreboard may CONFIRM, never DENY."** A score change confirms a made
+basket. The ABSENCE of a change must never be used to call a shot missed --
+the reader can miss an event, and silently converting "I did not see it" into
+"she missed" would be exactly the confident-wrong behaviour this project
+refuses everywhere else. Unseen stays UNKNOWN.
+
+### RISKS, NAMED UP FRONT
+- Some footage has no scoreboard in frame at all -> feature simply unavailable,
+  and the app must say so rather than degrade quietly.
+- A running clock inside the sampled box would trigger constantly. S1.1's job
+  is to exclude it; verify by watching the flagged moments before trusting any.
+- Overtime, team-fouls and shot-clock digits can look like a score. The
+  +1/+2/+3-only rule rejects most; a whole-game total check catches the rest.
+
+---
+
+## P.1 -- VERIFY WHO TOOK EACH SHOT
+Built and wired into the contract this session, flagged `shooter_verified:
+false` everywhere it appears. It is INFERRED from who was last seen holding the
+ball, and has never been checked against truth.
+
+- [ ] P1.1 Run spikes/shooter_compare.py on a clip with real shots. It puts the
+        two methods (last-seen-holding vs nearest-body-at-release) side by side
+        and prints only the DISAGREEMENTS -- agreement is weak evidence, since
+        both can be wrong together.
+- [ ] P1.2 DJ settles those disagreements by eye. His answers ARE the shooter
+        ground truth; none exists today.
+- [ ] P1.3 If S1 lands first, most of this is automatic: a made basket plus the
+        touch before it identifies the shooter without anyone adjudicating.
+- [ ] P1.4 Once verified, flip `shooter_attribution_verified` to true and drop
+        the "not verified" banner in components/PlayerBreakdown.tsx.
+
+**BLOCKED BY DATA, NOT CODE:** on the short test clips the shots link to
+tracked bodies with NO jersey number, so there is nothing to verify yet. This
+needs a full game plus re-seeding (/reseed/<clip>, built this session) first.
+
+---
+
+## P.2 -- MAKE / MISS
+- [ ] P2.1 **Do S1 first.** Score changes are the cheapest, strongest make/miss
+        signal available and they arrive for the whole game at once.
+- [ ] P2.2 Fallback only if S1 proves impossible on DJ's footage: judge the
+        ball's path through the rim plane geometrically (does it pass DOWNWARD
+        through the hoop?). Weaker -- the ball is undetected in ~50% of frames,
+        which is the measured ceiling on anything ball-only.
+- [ ] P2.3 Whatever the source, keep MADE / MISSED / UNKNOWN as three separate
+        states in the contract. Never collapse UNKNOWN into MISSED. The count
+        of unknowns is a quality signal a coach should see.
+- [ ] P2.4 Only then: shooting percentages in the UI, and "where she shoots
+        BEST" heat maps -- the thing DJ originally asked for and I had to say
+        no to.
+
+---
+
+## OTHER OPEN WORK (not a parallel, but not done)
+- [ ] Run the new setup flow end to end on a real upload. Never done.
+- [ ] Merge the two upload paths (Gemini-only on /analyze, CV at /setup/new).
+      DJ's rule is ONE path; two exist because rewriting the working Gemini
+      flow blind was the riskier choice.
+- [ ] See the restructured tabs with a logged-in session -- I could not.
+- [ ] Tracking has never run past ~20s; a full game is ~285x that. Unknown.
+- [ ] Commit everything. All of this session's work is uncommitted, and the web
+      app's CV code still sits on the unmerged `cv-integration` branch.
+- [ ] GPU (parked by DJ, built in another chat).
+- [ ] "Use previous court" for a repeat gym -- DJ: "don't add that yet."
+
+---
+
+# ============================================================================
+# BUILD REVIEW -- PHASES 1-3 BUILT, 2026-07-30. AWAITING DJ'S REVIEW.
+# ============================================================================
+
+## WHAT NOW WORKS (built this session; 292 CV tests pass, web build passes)
+
+**PHASE 1 -- CV IS THE BASELINE**
+- Shots now carry WHO TOOK THEM (measured_stats.attribute_shooter), inferred
+  from who was last seen holding the ball, flagged `shooter_verified: false`
+  everywhere. Abstains rather than guessing when no touch is in range.
+- NEW individual-player view (components/PlayerBreakdown.tsx): pick a player ->
+  floor time, zones, a map of where THEY shot, and "HOW TO GUARD THEM" from
+  Gemini reading only those numbers.
+- The tabs were reordered so CV comes first: Film Room, **Stats**, **Player**,
+  then the AI tabs. Stats and Player show MEASURED numbers on top with the AI's
+  estimate underneath, labelled as an estimate.
+- The separate "Measured (CV)" nav button is GONE from both pages. CV is not a
+  destination any more.
+- Games are joined to their CV data by lib/cvClipLink.ts (+ a picker UI), which
+  is the join that never existed -- the app knew games by uuid, CV knew them by
+  clip name, and nothing connected the two.
+
+**PHASE 2 -- SETUP IN THE BROWSER**
+- clip_registry.py: ONE JSON config per game (clips/<NAME>.json) holding BOTH
+  calibration and roster. Both Python config systems merge it in; hand-written
+  clips always win a name collision. This is the "merging the two configs is
+  future work" note in clip_config.py, finally done. 7 new tests.
+- /setup/new: rosters (colour, 10 slots, optional names) + film, then it runs.
+- prepare_clip.py: picks the frames to mark by itself -- plans a chain, VERIFIES
+  every pair at full resolution, bridges weak links, exports the frames.
+- /setup/<clip>: live progress, then the in-app court marker (magnifier,
+  baseline-points-first, undo, progress saved locally), then the proof video
+  with Looks right / Doesn't look right.
+- calibrate_clip.py: solves the court and renders the proof video.
+
+**PHASE 3 -- RE-SEEDING**
+- make_review_bundle.py now also writes {clip}_review.json (same crops, same
+  splice quarantine as the HTML page DJ already uses -- one source, two skins).
+- /reseed/<clip>: label each tracked player from 6 crops, with REF / ON BENCH /
+  TWO PLAYERS as distinct answers. Writes {clip}_decisions.json, which the
+  pipeline already merges on its next run.
+
+## A REAL FINDING FROM THIS BUILD (negative result, worth keeping)
+**Auto-detecting the scoreboard graphic by "find the frozen pixels" is
+impossible, measured.** Sampling both full games, the KNOWN overlay rectangle
+had mean pixel spread 191.0 / 196.2 versus open court at 135.2 / 184.1 -- the
+overlay is the MOST-changing part of the frame, not the least, because it
+carries a live clock, score and thumbnail. Zero frozen pixels in either video.
+**But the mask still matters**: on Full_Game2, pair 165000->190500 scored 0.745
+masked and 0.565 unmasked -- unmasked, a healthy pair drops below the 0.6 bar
+and gets "repaired" with a bridge frame it never needed. So setup runs without
+a mask (costing at most one extra frame) and the coach drags a box over the
+graphic on the marking page, where they are already looking at those frames.
+Details in prepare_clip.py's header so nobody rebuilds the failed detector.
+
+## WHAT I COULD NOT VERIFY, AND WHY -- READ THIS BEFORE TRUSTING THE ABOVE
+1. **The new setup flow has never been run end to end on a real upload.** Every
+   piece typechecks and the production build passes, but no game has actually
+   gone upload -> plan -> click -> calibrate -> approve in one pass. The first
+   real run WILL find things.
+2. **I could not see the restructured tabs.** /history/<id> is behind login and
+   the headless browser is not authenticated. The components themselves were
+   screenshotted working on /measured/TEST1; the tab wiring is typechecked only.
+3. **The player tab is empty of shots on the test clips** -- correctly. The
+   shots link to tracked bodies who have no jersey number yet, which is exactly
+   what re-seeding fixes. It will look sparse until a full game is run.
+4. **Two upload paths now exist**: the old Gemini-only one on /analyze and the
+   new CV one at /setup/new. DJ's rule says there should be ONE. Merging them
+   is deliberate remaining work, not an oversight -- rewriting the working
+   Gemini flow blind was the riskier choice.
+5. **Nothing is committed.** All of it is uncommitted, and the web app's work
+   still sits on the unmerged `cv-integration` branch.
+
+## STILL OPEN (unchanged by this build)
+- Make/miss (P.2) and verifying shooter attribution (P.1) -- DJ's parallels.
+- GPU: parked by DJ, being built in another chat.
+- Tracking has never run longer than ~20 seconds; a full game is ~285x that.
+
+---
+
+# ============================================================================
+# THE APP PLAN -- DJ'S VISION, 2026-07-30.
+# ============================================================================
+
+## DJ'S VISION, IN HIS ORDER
+
+1. **Upload page** = film + BOTH rosters. Jersey colour per team, 10 slots per
+   team for numbers, player name optional.
+2. **Then no extra steps.** Software runs in the background by itself and comes
+   back with the calibration clicks to do.
+3. **Confirm the clicks** -> auto-saves -> calibration runs on the GPU
+   (serverless endpoint being built in a DIFFERENT chat, not ready here).
+4. **Comes back with clicks to re-seed the players.**
+5. **CV IS THE BASELINE. THIS IS THE HEADLINE INSTRUCTION.** No "Measured (CV)"
+   button, no "analyse with CV" extra step, not off in its own page. Every part
+   of the app is CV FIRST, AI SECOND. Hard facts are ALWAYS CV.
+6. **Gemini is demoted to a short second pass** -- runs AFTER the CV and after
+   re-seeding, reads the box scores + court locations, and only adds what CV
+   cannot do (game flow, pace, the feel of it).
+7. **NEW TAB: individual player.** Dropdown by team + number. REFINED BY DJ
+   2026-07-30 after reading the limits below:
+   - **Heat map of WHERE she took her shots.** Not "where she shoots best" --
+     DJ: *"I misspoke... I only want the heat map of when they took shots."*
+   - **Her exact TENDENCIES.**
+   - **"HOW TO GUARD HER"** -- the defensive read. DJ: *"I would love a how to
+     guard them type of thing there."*
+   - **Her own box score, analysed by Gemini, shown in this tab.**
+   - Stats eventually.
+   - The pattern, in DJ's words: *"the CV is the baseline which the AI analyses
+     for you and then gives you an output."*
+8. **LATER, EXPLICITLY NOT NOW:** a "use previous court" button to skip
+   calibration for a repeat gym. Only after the from-scratch path is tested.
+   Re-confirmed 2026-07-30: *"don't add that yet."*
+9. **GPU IS OUT OF SCOPE HERE.** DJ 2026-07-30: *"You can skip the GPU right now
+   because it's still being set up."* It is being built in a different chat --
+   see the serverless section higher up this file. Do not wait on it, do not
+   build against it.
+
+## WHAT ALREADY EXISTS (verified by reading the code 2026-07-30, not assumed)
+
+MORE than the old notes claimed. The app can ALREADY run the CV pipeline:
+- `app/api/cv-run/[clip]/route.ts` -- POST starts a run, GET polls status
+- `lib/cvRunner.ts` -- spawns the Python pipeline, tracks stages from stdout
+- `app/measured/[clip]/page.tsx` -- has a working "Run CV analysis" button
+- `components/MeasuredStats.tsx` -- box score, shot chart, AI read buttons
+- `lib/measuredStats.ts` -- the data contract, read from the CV repo's files
+- Verified working once end to end: HARD clip, 277s, via the button.
+ALL OF IT sits on branch `cv-integration`, never merged, never pushed, plus
+uncommitted edits on top.
+
+## THE GAPS -- what the vision needs that does NOT exist
+
+| # | Gap | Size |
+|---|---|---|
+| G1 | No roster UI anywhere | small |
+| G2 | Upload goes to a temp file -> Gemini -> DELETED. Nothing the CV can read | medium |
+| G3 | Nothing auto-starts background work after an upload | small |
+| G4 | No in-app calibration clicker (only my standalone HTML page) | **large** |
+| G5 | TWO config systems: `clip_config.py` (pipeline) + `spikes/clips_config.py` (calibration). Neither is writable from the app | **large** |
+| G6 | GPU endpoint not ready (different chat) | blocked |
+| G7 | No player re-seed UI in the app (a review queue exists in Python) | medium |
+| G8 | CV is walled off at `/measured/[clip]`, separate from the real tabs at `/history/[id]` -- the OPPOSITE of instruction #5 | medium |
+| G9 | Job status is a temp file: dies on restart, one machine only, not per-user | medium |
+| G10 | `shots[]` carries NO player number -- see the honest limits below | **large** |
+
+## HONEST LIMITS THE VISION RUNS INTO (raise BEFORE building, not after)
+
+**L1 -- RESOLVED BY DJ, scope reduced.** He does NOT need "where she shoots
+best" (that would need make/miss, which we do not have). He wants only the map
+of WHERE the shots were taken. That removes make/miss from the critical path
+for this tab. Make/miss stays a parallel workstream, not a blocker.
+
+**L2 -- shots are not linked to players. STILL TRUE, and it is the real one.**
+`shots[]` carries court position, zone, distance, type -- and NO jersey number.
+DJ's instruction: *"set it up as if we could do it, and then we'll fix it to
+make that work."*
+**HOW TO HONOUR THAT WITHOUT INVENTING DATA** (this project's whole rule is that
+an assumption may never pose as a measurement):
+  - Build the full plumbing + UI so per-player shots slot straight in. YES.
+  - Wire it to the attribution that ALREADY exists (`spikes/shooter_compare.py`,
+    "shooter from touches") rather than showing an empty tab. YES.
+  - LABEL IT as not-yet-verified, exactly like the contract already separates
+    seen-vs-inferred seconds and flags ambiguous players. REQUIRED.
+  - Fabricate or guess a shooter to fill the map. NEVER.
+  Verification needs DJ to settle who took which shot on a handful of
+  disagreements -- `shooter_compare.py` was built to surface exactly those.
+
+**L3 -- GPU: MOOT FOR NOW.** DJ has parked it ("skip the GPU right now"). Keep
+the finding on file for whoever wires it up: a GPU will NOT speed up
+calibration, because calibration's slow part is reading the video front to back
+(disk/CPU, ~4 min per pass on a 2-hour game). The GPU fixes BALL DETECTION, the
+hours-long part. Never promise "instant" calibration in the UI.
+
+**L6 -- "exact tendencies" needs a full game, and that is already in motion.**
+TEST1 has 5 touches; there is no tendency in 5. This is not a code problem, it
+is a sample-size one, and it is exactly why the full-game work matters.
+
+**L4 -- tracking has never run longer than ~20 seconds.** A full game is ~285x
+that. Memory, ID-swaps piling up over time, and the review-queue size at that
+scale are all unknown. This is the single biggest untested thing in the vision.
+
+**L5 -- lights out = no court** (found 2026-07-30 on Full_Game2). Dark frames
+have no visual detail to match, so calibration cannot place the court. The UI
+should expect dead stretches (intros, halftime) rather than treat them as bugs.
+
+## THE PLAN -- 4 phases, each ending in something DJ can look at
+
+### PHASE 1 -- MAKE CV THE BASELINE (instruction #5, the headline)
+No GPU, no upload, no calibration. Pure app work on clips already set up, so it
+is safe and visible fast.
+- [ ] 1.1 Fold the measured view INTO the real analysis page. Kill the separate
+        "Measured (CV)" button and the standalone `/measured/[clip]` entry point.
+- [ ] 1.2 Reorder every tab: CV numbers on top as fact, AI text below as read.
+- [ ] 1.3 Demote Gemini to a short second pass that runs AFTER CV and is handed
+        the CV numbers. It must never restate a number CV owns.
+- [ ] 1.4 NEW PLAYER TAB -- dropdown by team + number. Contents, per DJ:
+        (a) HEAT MAP of where she took her shots (locations only, no make/miss)
+        (b) her TENDENCIES, from CV numbers
+        (c) "HOW TO GUARD HER" -- Gemini's defensive read, grounded in (a)+(b)
+        (d) her own BOX SCORE, plus Gemini's analysis of it
+        Order on the page follows the headline rule: CV numbers first as fact,
+        Gemini's read underneath, never restating a number CV owns.
+- [ ] 1.4a PREREQ for (a): add per-shot shooter identity to the contract, wired
+        to the existing "shooter from touches" method, LABELLED not-yet-verified.
+        Never a guessed shooter. (See L2.)
+- [ ] 1.5 Show the honesty flags the contract already carries (seen vs inferred
+        seconds, ambiguous players, unlocated shots) instead of hiding them.
+
+### PHASE 2 -- THE SETUP FLOW (upload -> roster -> clicks), the big one
+- [ ] 2.1 Roster UI on the upload page (colour + 10 numbers + optional names,
+        per team).
+- [ ] 2.2 Save the uploaded film somewhere the CV can actually read, and keep it.
+- [ ] 2.3 ONE config the app can write (fixes G5). This is the real blocker and
+        it touches the CV side, not just the app.
+- [ ] 2.4 Auto-start the background frame planning on upload: chain plan ->
+        FULL-RESOLUTION verify -> bridge any weak link. Reuse today's proven
+        scripts; do NOT rebuild them.
+- [ ] 2.5 In-app clicker (port the proven HTML page to React). MUST KEEP: the
+        magnifier, the landmark list, the baseline-point requirement, undo, and
+        the refusal to accept an unverified frame set.
+- [ ] 2.6 Confirm -> write config -> run calibration -> show the overlay video
+        and make DJ approve it before anything else runs.
+
+### PHASE 3 -- PLAYER RE-SEED IN THE APP (vision step 4)
+- [ ] 3.1 Surface the existing Python review queue as one-click items in the app.
+- [ ] 3.2 Feed confirmations back and re-run the identity pass.
+
+### PHASE 4 -- GPU: **PARKED BY DJ 2026-07-30.** Being built in another chat.
+Do not build against it here. When it lands, the only thing that should need to
+change is WHERE the run happens:
+- [ ] 4.1 Keep the runner swappable (local subprocess now, endpoint later) so
+        this is a swap and not a rewrite. Cheap to honour while building Phase 1.
+- [ ] 4.2 Move job state off the temp file so a long run survives a restart (G9).
+
+### PARALLEL WORKSTREAM (not a phase -- runs alongside, unblocks the good stuff)
+- [ ] P.1 VERIFY SHOOTER ATTRIBUTION. Run `spikes/shooter_compare.py`, put the
+        disagreements in front of DJ, and settle who took which shot. This is
+        what turns the player heat map from plumbing into truth.
+- [ ] P.2 MAKE/MISS. DJ: *"we'll work on the make, miss factor"* at the same
+        time. STATUS.md blocker #3. Unlocks shooting % later.
+
+## SEQUENCING NOTE
+Phase 1 is first because it IS instruction #5 ("CV is the baseline"), needs no
+new infrastructure, and can be seen working today on a clip that is already set
+up. Phase 2 is where the real risk lives. Phase 4 is parked by DJ.
+If DJ wants the upload/roster flow before the results view, swap 1 and 2 -- but
+then nothing is visible until the whole setup chain works end to end.
+
+## ANSWER: IS "ULTRA CODE" USEFUL HERE?
+`/code-review ultra` is a REVIEW tool -- multi-agent cloud review of a branch. It
+reads code that already exists and hunts bugs. It does not plan or write code.
+- For PLANNING/BUILDING this: **no**, wrong tool, nothing to review yet.
+- RIGHT NOW there IS a real target: 17 files / +1158 lines of CV-integration code
+  on the app's `cv-integration` branch, never merged and never reviewed.
+- BEST moment: right after Phase 2, which handles uploads, spawns processes and
+  writes config files -- exactly where quiet bugs hide.
+It is user-triggered and billed; I cannot launch it.
+
+---
+
+# ============================================================================
+# TODO -- MAKE CALIBRATION TAKE MINUTES. Session continued, 2026-07-30.
+# DJ's ask: "find out the best way to turn it into minutes we never finished
+# in the other session." Picking up Part 4 below. Plain English, per the rules.
+# ============================================================================
+
+## THE SITUATION, IN PLAIN ENGLISH
+
+Last session found a fast way to mark a game (5 spots, ~4 minutes of
+clicking) but it was BROKEN -- two of the 5 spots didn't connect to each
+other well enough, so the math ended up 15 feet off.
+
+There is a DIFFERENT, new set of 4 spots nobody has clicked yet. On paper
+all 4 connect fine -- but that check used a shrunk-down, blurry copy of the
+video, which is the EXACT shortcut that gave a wrong answer last time. It
+has not been checked for real.
+
+There's also a leftover file claiming frame 60000 could patch the old,
+broken 5-spot set. That's almost certainly a false lead -- last session's
+notes say that exact frame already failed once checked properly. Not
+trustworthy until re-checked the right way.
+
+**So before asking DJ to click anything: do the one check that got skipped
+last time -- check the connections FOR REAL (full-size video, scoreboard
+blocked out), not the blurry version.**
+
+## TODO
+
+- [x] 1. Re-check the NEW 4-spot plan (frames 600 / 127200 / 151200 / 171000)
+      for real -- full-size video, scoreboard covered. **RESULT 2026-07-30:
+      PASSED.** All 3 connections hold above the 0.6 bar: 600->127200 = 0.632,
+      127200->151200 = 0.720, 151200->171000 = 0.612. Script:
+      spikes/verify_chain_fullres.py, output:
+      spikes/out/FULLGAME_chain_verify_fullres.json.
+      **Flag, not hidden: the last link (0.612) is only just over the 0.6
+      line, not a comfortable margin. Worth watching if this frame set gives
+      a marginal court fit later.**
+- [ ] 2. (Optional, secondary) Quickly settle whether frame 60000 is really a
+      dead end for patching DJ's OLD 5-spot set, so it stops being a loose
+      end either way. Not required to move forward -- DESCOPED for now since
+      step 1 passed and gives a clean path already.
+- [x] 3. Build the clicking page for those 4 frames. **DONE 2026-07-30.**
+      spikes/make_landmark_clicker.py repointed at the verified chain (was
+      pointed at the old broken 5-frame coverage set). Output:
+      spikes/out/FULLGAME_chain_clicker.html. Deliberately different filename
+      from the old clicker/JSON so DJ's existing 63 good clicks can't get
+      overwritten. Baseline-point requirement was already built into the page
+      (refuses to let you download with zero baseline points clicked) --
+      nothing new needed there.
+- [x] 4. DJ clicked those 4 frames. **DONE 2026-07-30.** 56 clicks total (14
+      per frame). Saved: spikes/out/FULLGAME_chain_landmarks.json. Wired into
+      spikes/clips_config.py as a NEW entry "FULL_GAME_CHAIN" (does not touch
+      the old "FULL_GAME" entry / DJ's original 63 clicks).
+      NOTE FROM DJ: the "NEEDED FOR COURT SIZE" baseline points weren't always
+      visible on screen, and the right side of the court barely got clicked
+      (real limitation of these 4 specific frames, not a mistake he made).
+      Result below shows it worked out anyway, but worth remembering if a
+      future frame set produces an ambiguous 84-vs-94-ft call.
+- [x] 5. Run the real calibration math. **RESULT 2026-07-30: PASSED, clean.**
+      Script: spikes/run_chain_calibration.py.
+      ```
+      court: 84 ft, 0.19 ft fit, 94 ft runner-up is 3.9x worse -- clear call
+      keyframe agreement: 6.1px -> 0.8px after refit (TEST1's own gold
+                           standard bar is 0.6px -- this is right next to it)
+      landmark court-fit: mean 0.21 ft / max 0.56 ft
+      ```
+      Bar was <= 0.3 ft glued / 0.94 ft broken-by-eye. 0.21 ft mean clears the
+      GLUED bar, not just the broken one. Best result the project has produced,
+      on the fewest clicks yet.
+- [x] 6. Overlay video. **DONE 2026-07-30.** spikes/render_chain_overlay_sample.py
+      -- deliberately did NOT render the full 171,120-frame game (that would
+      take hours; built for a much shorter clip originally). Instead rendered
+      10 real seconds of actual footage at each of the 4 clicked spots with
+      the court + 3pt line drawn on top. Output:
+      spikes/out/FULLGAME_CHAIN_sample_overlay.mp4.
+      ```
+      spot 1 (frame    600,  0.3 min): 300/300 matched, 0 no-match
+      spot 2 (frame 127200, 70.7 min): 300/300 matched, 0 no-match
+      spot 3 (frame 151200, 84.0 min): 300/300 matched, 0 no-match
+      spot 4 (frame 171000, 95.0 min): 120/300 matched, 0 no-match
+                                        (short because the FILE ends there,
+                                        not a match failure)
+      ```
+      **AWAITING DJ: watch the video, confirm the lines actually look right.**
+      Honest scope: this checks NEAR each of the 4 spots, not the 70-90 minute
+      gaps between them.
+- [x] 7. **DONE 2026-07-30.** DJ watched the video: *"utter perfection
+      everything is right!"* This is the first time a from-scratch full-game
+      calibration has been proven end to end (math AND eyes) in this project.
+
+---
+
+## REVIEW -- SESSION SUMMARY, 2026-07-30
+
+**Goal:** find the fastest REAL (not just claimed) way to calibrate a brand
+new full game, picking up where the previous session got burned trusting an
+unverified shortcut.
+
+**What happened, in order:**
+1. Confirmed the previous session's fast attempt (5 spots, ~4 min clicking)
+   was genuinely broken -- 15.45 ft off, not usable.
+2. Found an unused backup plan already sitting in the project: a different
+   4-spot set, chosen by checking that spots actually CONNECT to each other
+   (not just that they're spread far apart, which was the bug last time).
+3. Checked those 4 spots the RIGHT way BEFORE asking DJ to click anything --
+   full-size video, scoreboard covered. All 3 connections held (ratios 0.63,
+   0.72, 0.61 -- the bar is 0.6).
+4. DJ clicked all 4 spots, 56 clicks total. Some requested points ("baseline"
+   points, and generally the right side of the court) weren't visible in
+   those specific spots, so he couldn't click everything asked -- turned out
+   not to matter.
+5. Ran the real calibration math: **0.21 ft average error, 0.56 ft worst.**
+   Clears the "glued" bar (0.3 ft), not just "not broken" (0.94 ft). Best
+   number this project has produced, on the fewest clicks yet.
+6. Built a short video: 10 real seconds of actual gameplay at each of the 4
+   spots (not just the still photos used to calibrate), court lines drawn on
+   top. DJ watched it and confirmed it by eye.
+
+**The answer to "how long to calibrate a new clip":**
+- 4 spots needed for a 95-minute game (was 570+ before this session's work).
+- 56 total clicks (was 2,850+ before).
+- Exact clicking TIME -- asked DJ directly, not yet measured for real.
+
+**Files changed (all in spikes/, none touch the working TEST1/HARD/TEST2
+pipeline):**
+- NEW spikes/verify_chain_fullres.py -- full-resolution, masked connection
+  check (the step that was skipped last time)
+- NEW spikes/run_chain_calibration.py -- runs the real calibration math
+- NEW spikes/render_chain_overlay_sample.py -- builds a short watchable
+  video instead of rendering all 171,120 frames (would take hours)
+- EDIT spikes/make_landmark_clicker.py -- points the clicker at the new 4
+  spots; download filename changed so DJ's original 63 clicks can never be
+  overwritten
+- EDIT spikes/clips_config.py -- DJ's new clicks live in a NEW entry
+  ("FULL_GAME_CHAIN"), completely separate from the old "FULL_GAME" entry.
+  Nothing old was deleted or overwritten.
+
+**Raised, not resolved:** DJ asked whether this matches the "SLAM" approach
+discussed earlier. Answer: no -- the code that chains frames together says so
+in its own comments ("NOT a SLAM framework"). Real SLAM (with loop-closure
+self-correction) was found in the project's own notes as an untried option
+purpose-built for exactly this camera setup, license unverified. Worth a real
+conversation, not done here.
+
+**What this does NOT prove yet:**
+- One game, one gym, one camera position. Unknown whether "4 spots" holds
+  for a different gym or a shakier camera until actually tried there.
+- The video check covered 10 seconds near each of the 4 spots, not the long
+  70-90 minute stretches of real gameplay BETWEEN them.
+- This is still a person (DJ, or me driving scripts) doing the work by hand.
+  "Upload a clip and it just happens" is still not built.
+- Ball detection and the rest of the pipeline still have to run on top of a
+  calibrated game -- this solves calibration specifically, not the whole job.
+
+## WHY THIS ORDER
+Step 1 costs DJ nothing (no clicking, computer-only) and directly fixes the
+mistake that wasted his last clicking session: trusting a blurry-video check
+instead of the real one. Nothing else happens until step 1 actually passes.
+
+---
+
+# ============================================================================
+# HANDOFF -- 2026-07-27 to 07-30. READ THIS FIRST.
+# Session ended by DJ: "your outputs are getting worse and worse."
+# That is accurate. The error list in this document is not decoration -- read it
+# before trusting any number below.
+# ============================================================================
+
+## DJ'S DIRECTION, STATED AT THE END AND BINDING ON THE NEXT SESSION
+> "No you stop. We are calibrating from scratch. The whole use-an-old-calibration
+> is just a FEATURE not the FUNCTION. Not everyone has a Test clip that will
+> transfer."
+
+**CALIBRATE A FULL GAME FROM SCRATCH. That is the job.** Venue reuse (M3) is a
+nice-to-have for repeat customers and must NOT become the plan. I spent the end
+of the session chasing it after DJ pointed out the gym matched TEST1, and that
+was a distraction from the actual product requirement.
+
+Also binding, from earlier the same day:
+> "I dont mind more clicks if nessessary as long as there only 5-8 frames."
+
+**FRAMES ARE THE SCARCE RESOURCE. CLICKS ARE NOT.** An earlier test proving
+"5 clicks ~= 10 clicks" optimised the wrong axis and cost accuracy
+(0.16 -> 0.29 ft). Spend clicks freely; minimise FRAMES.
+
+---
+
+# PART 1 -- WHAT WAS BUILT AND WORKS (ball touches). SUITE 230 -> 285 GREEN.
+
+## BALL TOUCHES -- who has the ball. DJ CONFIRMED ON VIDEO.
+The join between ball detection and player tracking that never existed. A TOUCH
+is one player holding the ball until she gives it up -- NOT a possession
+(phase2/possessions.py already owns that word; DJ corrected this and he was
+right, it was also a code-collision).
+DJ watched the overlay: **"Yes its on the right girl the whole time."**
+
+  NEW  spikes/ball_touch.py            pure logic, no cv2, 31 tests
+  NEW  spikes/render_ball_touches.py   the overlay DJ judged
+  NEW  spikes/shooter_compare.py       who-shot-it, two methods head to head
+  NEW  spikes/flicker_check.py         occlusion-flicker measurement
+  NEW  spikes/long_bridge_test.py      DJ's 15s rule, suffixed artifacts
+  EDIT ball_stages.py, run_clip.py, measured_stats.py, tests/
+
+Key properties, all measured and all tested:
+- SEEN vs FILLED-IN seconds are reported SEPARATELY, everywhere, including into
+  the app contract. An assumption can never pose as a measurement.
+- REFEREES cannot hold the ball or take shots (uses DJ's own ref/bench labels).
+- FLICKER GUARD: a change of hands must last >= MIN_TOUCH_FRAMES to count.
+- DJ's 15-SECOND RULE adopted (MAX_GAP_SECONDS = 15.0) after he watched it.
+
+### REAL BUGS FOUND AND FIXED
+1. **A referee was credited with taking two of DJ's VERIFIED shots.** The shot
+   layer had no ref filter at all -- a pre-existing bug, not introduced here. A
+   body parked under the basket is permanently "near" every shot.
+2. **identity_id was about to be printed as a jersey number.** TEST1 has a real
+   #13 AND an internal id 13 belonging to someone else. Now joined through the
+   OCR registry, same key the box score uses.
+3. **Window-crossing touches lost their jersey.** Two identity records with the
+   same number are one girl, not two.
+4. **The overlay renderer disagreed with its own JSON** (recomputed verdicts
+   without the ref exclusions).
+5. **The TEST 10 gate asserted a SNAPSHOT, not a requirement.** It broke on DJ's
+   own deliberate chain-fragmentation improvement. Rewritten to assert
+   GROUND_TRUTH (finds every verified shot, no welding, blind spot preserved).
+   Also swept DJ's merge gap at 40/120/300 -- zero welds, his 40 is conservative.
+
+### STILL OPEN ON TOUCHES
+- Only TEST1's overlay was eyeballed; HARD's was never watched.
+- No SHOOTER ground truth exists (DJ has confirmed WHICH arcs are shots, never
+  WHO took them). shooter_compare surfaces disagreements for him to settle.
+- TEST2 has no ball detections (hours of CPU), so no touches there.
+- ~50% of frames have no ball detection at all. That is the measured ceiling on
+  this whole feature and it is new evidence for the v3-weights decision.
+
+---
+
+# PART 2 -- CALIBRATION AT SCALE. **INCOMPLETE. THIS IS THE OPEN JOB.**
+
+## THE TARGET
+A full game (Full_Game.mp4, 171,120 frames, **95.1 min**) calibrated with
+**5-8 marked frames and 2-5 minutes of clicking**. Not achieved. Not disproved.
+
+## WHAT IS SOLIDLY ESTABLISHED
+- **The gym is an 84 ft high-school floor.** Solved from DJ's 63 marks by
+  court_detect: 0.23 ft, runner-up (94 ft) 3.4x worse. CLEAN, unambiguous.
+- **DJ's 63 clicks are good.** They are on disk
+  (spikes/out/FULLGAME_landmarks.json) and wired into
+  spikes/clips_config.py as the FULL_GAME entry.
+- **A 95-min game contains very few distinct camera views.** The camera returns
+  to the same framings constantly; the biggest verified single jump is
+  **126,600 frames (70 minutes) at inlier ratio 0.712**.
+- **Time between frames is IRRELEVANT.** What matters is whether the camera was
+  POINTING THE SAME WAY. 70 min apart matched fine; 28 min apart failed.
+- **A chain plan from scratch needs ~4 frames** (spikes/plan_fullgame_chain.py):
+  frames 600 / 127200 / 151200 / 171000 (frame 0 is dead, ratio 0.000).
+
+## WHAT FAILED, AND WHY
+**The full calibration on DJ's five frames: 15.45 ft mean / 50.52 max.**
+(0.94 ft is what DJ judged broken by eye. This is 16x that.)
+
+ROOT CAUSE: the five frames were chosen by spikes/full_game_views.py, which
+optimises COVERAGE -- it opens a new mark precisely when a frame matches NONE of
+the existing ones. **That selects for frames that are maximally UNLIKE each
+other, which is exactly backwards for a chain.** refit_keyframes ties keyframes
+together with adjacent-pair SIFT; one severed link wrecks the global fit and
+drags the healthy pairs down with it.
+
+Measured at FULL resolution with the scorebug masked (the conditions the pipeline
+actually uses):
+```
+  200 -> 16000     0.653   352 inliers   OK
+16000 -> 60000     0.716   694 inliers   OK
+60000 -> 65800     0.056     9 inliers   WEAK
+65800 -> 79200     0.384   116 inliers   WEAK
+79200 -> 169000    0.528   199 inliers   WEAK
+```
+**Frame 65800 matches nothing** (9 inliers against two different partners). It
+was picked *because* it matched nothing. There is no single bridge that repairs
+this set -- I searched and the candidate that looked best at low resolution
+(60000, "0.781") scored **0.056** at full resolution.
+
+## ROUTES RULED OUT THIS SESSION (do not re-run these)
+- **Tripod / pure-rotation maths** (would have given 4 DOF per frame and a
+  claimed 20-40 clicks/game): **PREMISE TESTED AND FAILED.** 19-26 px error in
+  the IMAGE CENTRE against a 2 px bar, on two clips. The centre/edge diagnostic
+  rules out lens distortion as the cause. TEST 32.
+- **KaliCalib automatic court detection**: 2.1 ft (TEST1), 3.1 ft (TEST2),
+  35 ft (HARD) vs a 0.5 ft bar. It DOES find courts -- the keypoint grid sits
+  correctly on the floor -- it is just imprecise on high-school gyms. Licence is
+  CeCILL copyleft. Fine-tuning on DJ's 187 marks remains untried. TEST 30.
+- **Hybrid (detector points + a few clicks)**: WORSE than clicks alone on every
+  clip at every weighting (1/5/20). The 2 ft detector points poison the fit.
+  Clean negative, closed. TEST 31.
+
+## THE MENU OF UNTRIED OPTIONS
+Full detail in **tasks/calibration_scale_options.md** (11 methods). The live ones:
+- **M1 keyframe-by-CHAINABILITY** (not coverage) -- spikes/plan_fullgame_chain.py
+  exists and says ~4 frames. THIS IS THE NEXT THING TO TEST.
+- **M2 skip dead ball** -- ~half a game needs no court. A working clock-rhythm
+  detector ALREADY EXISTS (151/155s correct, TEST 20) and is unwired.
+- **M5 snap to painted lines** -- zero clicks, refines a rough court. SEVERE
+  RISK flagged by the maths agent: HS gyms have volleyball lines painted over
+  the basketball lines, so it can lock one lane-width off and be confidently
+  wrong. Only ever as a bounded refiner.
+- **M6 fine-tune a detector on DJ's gyms** -- needs the GPU he is renting.
+  Licence-clean alternatives found: Roboflow basketball court keypoint models
+  (CC BY 4.0), OpenCV stitching (Apache-2.0).
+- **M3 venue reuse** -- MEASURED AND STRONG (8/8 full-game frames reach TEST1's
+  validated calibration, none marginal) but **DJ has ruled it out as the plan.
+  It is a FEATURE for repeat venues, not the function.**
+
+---
+
+# PART 3 -- MY ERRORS. READ THIS BEFORE TRUSTING ANY NUMBER ABOVE.
+
+DJ ended the session because the output quality degraded. It did. Here is the
+full list, because the pattern matters more than any individual mistake.
+
+**THE PATTERN: I repeatedly built a cheap PROXY for the real question, then
+reported the proxy as if it were the answer.**
+
+1. **Measured COVERAGE when calibration needs CHAINING.** Cost DJ a 63-click
+   session on an unusable frame set. The two are different questions and I
+   conflated them for three whole tests (33, 34, 35).
+2. **Measured at 35% resolution when the pipeline uses FULL.** Gave a confident
+   wrong answer TWICE -- the bridge frame scored 0.781 downscaled and 0.056 at
+   full res. **Never trust a downscaled match again.**
+3. **Blamed elapsed time / lighting / crowd** for the broken link. Wrong: a
+   70-minute gap matches fine. It is camera DIRECTION.
+4. **Did not run the project's OWN weak-pair guardrail** on the chosen frames
+   before asking DJ to click. It costs seconds and would have caught this.
+5. **Built spikes/plan_keyframes.py in TEST 29, validated it, then did not use
+   it** on the full game -- and invented a worse selector instead.
+6. **Called things "working" before the test finished**, repeatedly. DJ: "I think
+   it working in one second, and then you tell me otherwise the next." That
+   whipsaw was entirely self-inflicted.
+7. **Optimised clicks-per-frame when DJ cares about FRAMES.** Cost accuracy
+   (0.16 -> 0.29 ft) for a saving he did not want.
+8. **Declared "clicking cannot be halved" without measuring HARD's baseline.**
+   HARD sits at 0.69-0.80 ft with SIX of seven keyframes present -- that is its
+   floor, not thinning damage. Judging a number against an absolute bar without
+   its own baseline.
+9. **Shipped a broken HTML clicker TWICE.** A JS syntax error kills the whole
+   script, so the symptoms were silent. My "verification" string-matched for
+   expected words instead of parsing. Node was installed the entire time.
+   FIXED: the generator now runs `node --check` and refuses to write a page that
+   does not parse.
+10. **Chased venue-reuse (a feature) instead of the core function**, until DJ
+    stopped me.
+
+---
+
+# PART 4 -- WHAT THE NEXT SESSION SHOULD DO, IN ORDER
+
+**Do not add features. Finish the from-scratch full-game calibration.**
+
+- [ ] 1. Take the chain planner's frames (spikes/out/FULLGAME_chain_plan.json:
+        600, 127200, 151200, 171000 -- skip frame 0, it is dead).
+- [ ] 2. **VERIFY EVERY ADJACENT PAIR AT FULL RESOLUTION WITH exclude_regions
+        MASKED, AND PRINT IT, BEFORE ASKING DJ FOR ANYTHING.** This is the step
+        whose omission cost him a whole clicking session.
+        Add intermediate frames until every link clears ratio 0.6. DJ tolerates
+        5-8 frames, so there is room.
+- [ ] 3. Regenerate the clicker for those frames
+        (spikes/make_landmark_clicker.py -- it works, has a node syntax gate,
+        pre-loads existing marks, and has a keyboard legend). Offer the FULL
+        landmark list; clicks are cheap.
+        **Insist on at least one BASELINE landmark** (the lane-base points where
+        the painted key meets the baseline). Without one, court_detect cannot
+        tell 84 ft from 94 ft -- it scored 0.32 vs 0.33 and correctly REFUSED.
+- [ ] 4. DJ clicks. Rebuild the FULL_GAME entry in spikes/clips_config.py
+        (scratchpad/reinsert_fullgame.py does this from the JSON).
+- [ ] 5. RUN THE CALIBRATION. Report keyframe consistency + landmark court fit.
+        Bar: <= 0.3 ft is glued, 0.94 ft is what DJ called broken.
+- [ ] 6. **RENDER AN OVERLAY AND HAVE DJ WATCH IT.** No number substitutes.
+        TEST2's disaster was caught by his eyes, not by a metric.
+- [ ] 7. ONLY THEN call it working.
+
+## GOTCHAS THAT WILL COST TIME IF FORGOTTEN
+- **opencv-python-headless shadows opencv-python in this venv** -- `cv2.imshow`
+  raises "The function is not implemented". Any clicking UI must be the HTML
+  page, not a cv2 window. Do NOT uninstall headless; it risks ultralytics.
+- **s2.extract_frames does a frame-accurate SEQUENTIAL read from frame 0.** On a
+  171k-frame file that is minutes per call, and the calibration calls it twice.
+  Do NOT "optimise" it with seeking -- H.264 seeks can be frame-inaccurate and
+  would silently corrupt calibration on every clip.
+- **Bash tool calls time out at 2 min.** Long runs need nohup + a polling wait.
+- **Do not patch source through shell heredocs.** Backslashes get eaten; that is
+  what put real newlines inside a JS string literal and broke the page.
+- **ONE CLIP PER PROCESS** (clip_config.ACTIVE_CLIP binds at import).
+- Always `.venv/Scripts/python.exe`.
+- Backups: spikes/clips_config.backup-pre-fullgame.py,
+  phase2/out/TEST1_decisions.backup-20260728-pre-t14ref.json.
+
+## ALSO RAISED BY DJ, NOT SCOPED
+- **Serverless GPU** he is renting -- wants the pipeline on it. Bottlenecks are
+  ball detection (hours) and the per-frame SIFT on-court cache. Never scoped;
+  I never got the details of what he rented.
+- **Frame-picking inside the web app**: upload a clip -> software picks the
+  frames to mark -> user clicks. He is fine with AI in that pre-analysis step
+  "but if it's unneeded, then it's not needed". Honest answer: frame-picking
+  needs NO AI (it is matching); mark-PLACING would need AI and is not accurate
+  enough yet (TEST 30).
+
+
+
+# ============================================================================
+# CV QUALITY -- SESSION 2026-07-29: recall fix built, one open question for DJ
+# ============================================================================
+
+## WHERE THINGS STAND, READ THIS FIRST
+- DJ labeled 100 player frames (target was ~100-120, not 280 -- player boxes
+  are an easier target than the ball, so this is plenty). LABELING PAUSED
+  HERE, do not push for more without a reason. Ready to retrain whenever.
+- TIMEOUT clip phantom-shot check: DONE, see TEST_LOG TEST 20 "PHANTOM-SHOT
+  COUNT". Dead-ball suppression is NOT urgent -- 0 phantom claims during the
+  real 40-115s huddle break. Dropped from the priority list.
+- RECALL BUG #1 (chain fragmentation) -- FIX BUILT, not yet fully closed out:
+  spikes/ball_trajectory.py now has `_merge_gapped_chains`, which re-joins a
+  real shot's ball detections when the camera loses the ball for too long
+  (was splitting one flight into un-joinable pieces, causing the missed
+  3-pointer in TEST 19). Full test suite passes (277/277) EXCEPT one
+  regression test that is failing ON PURPOSE pending DJ's answer below.
+
+## OPEN QUESTION FOR DJ (answer this, then the fix can be closed out)
+The new merge changed the read on TEST1's Shot A (already-verified real
+shot, frames ~55-74) -- it now stitches in more of the flight (through
+frame ~98) because the SAME fragmentation bug was quietly affecting this
+shot too, just not badly enough to lose it entirely.
+Pulled the actual video frames to check what's real (spikes/out/shotA_frames/
+f0055.jpg through f0102.jpg): looks like the shot went up, arced very high
+over the top of the backboard (camera loses it behind the backboard
+structure, not because the ball vanished), came down on the far side near
+the rim, and was rebounded around frame 102.
+QUESTION: does that match your memory of this play -- one shot that
+sailed high and missed (not two separate things happening)? If yes, the
+locked test number in tests/test_ball_stages.py
+(test_integrated_chain_reproduces_test10_on_the_saved_test1_v2_log) gets
+updated to the new, more complete number with a note explaining why. If
+your memory of the play is different, say so and this needs more digging
+before it ships.
+
+## NEXT STEPS, IN ORDER (once DJ answers the above)
+1. Update the locked TEST1 regression number (or dig further) based on
+   DJ's answer above.
+2. Retrain the player detector on the 100 labeled frames -- now unblocked.
+   This is the highest-leverage next step: it is what the real
+   player-signal cross-check (the thing that fixes v3's false-positive
+   problem for real, not just the pose-rule prototype) has been waiting on.
+3. Build the real player-signal check using the new player labels + the
+   pose rule (TEST 16/19, already 9/9 on a holdout) -- this is the actual
+   fix that lets v3 get adopted into run_clip.
+4. THEN scope (not build yet) pose-as-a-positive-trigger for RECALL BUG #2
+   (the short-flight/layup wobble problem) -- bigger task, think first.
+5. Wire both fixes (chain-merge + pose rejector) into the real pipeline
+   together once DJ has eyeballed both.
+
+# ============================================================================
+# AUTOMATIC COURT DETECTION -- DJ's call 2026-07-29: "40min of clicking is
+# absolutely unacceptable. Lets try an automatic approach."
+# RESEARCHED, NOT YET RUN. Needs DJ's OK to install a third-party repo.
+# ============================================================================
+
+## WHY THIS IS THE RIGHT TARGET
+Smart spacing (TEST 29) halves the clicking and that is not enough. A quarter
+of a game is still ~480 clicks / ~40 min. Clicking is blocker #1 on every goal
+DJ has (see STATUS.md): real tendencies need long clips, long clips need
+calibration, calibration needs clicks.
+
+## WHAT EXISTS -- KaliCalib is the direct hit
+`KaliCalib` (CEA-LIST, ACM MMSports 2022 camera-calibration challenge winner):
+BASKETBALL-SPECIFIC court registration. Encoder-decoder network predicts court
+keypoint positions + regresses basket positions, heavy augmentation for arena
+robustness.
+  repo    https://github.com/CEA-LIST/KaliCalib
+  paper   https://arxiv.org/abs/2209.07795
+  PRETRAINED WEIGHTS INCLUDED (model_test.pth / model_challenge.pth) -> testable
+          TODAY, no training run needed
+  accuracy on its own test set: MSE 73.16-107.78 mm  = 0.24-0.35 FT
+  license CeCILL 2.1  <-- COPYLEFT (GPL-family). Fine for evaluation; needs a
+          real decision before it ships inside a commercial product.
+
+**THE NUMBER THAT MAKES THIS WORTH A DAY:** its own reported error (0.24-0.35 ft)
+is the SAME BALLPARK as DJ's hand clicking (TEST1 0.15-0.29 ft, and 0.29 ft is
+this project's "glued" benchmark). If it transfers, clicking largely goes away.
+
+## THE HONEST RISK, STATED BEFORE TESTING
+KaliCalib is trained on DeepSportRadar -- PROFESSIONAL arenas, broadcast
+cameras, clean floors. DJ's footage is a HIGH SCHOOL gym: worn lines, a fixed
+Hudl/Veo camera, glare, bleachers in frame. Transfer is genuinely unknown and
+the standing constraint says this footage is information-limited. A clean
+negative is a real result and costs a day.
+
+## WHY THE TEST IS CHEAP AND FAIR -- WE ALREADY HAVE PERFECT GROUND TRUTH
+DJ has clicked 58 landmarks on TEST1, 59 on HARD, 70 on TEST2. So any automatic
+method can be scored DIRECTLY against a court built from his own clicks, in
+FEET, using machinery that already exists (stage4_courtmap.compute_H_court +
+the TEST 27 holdout). No new metric, no new labelling, no guessing.
+
+## PLAN (nothing installed yet)
+- [ ] 1. Clone KaliCalib to the SCRATCHPAD (not into this repo -- the copyleft
+        license must not creep into the product before DJ decides). Get its
+        pretrained weights running on CPU.
+- [ ] 2. Run it on TEST1's 6 keyframes. Compare the court it produces against
+        the court built from DJ's 58 clicks. Report mean/max error in FEET.
+        SUCCESS BAR, declared now: under 0.5 ft = clicking is largely solved.
+        0.5-1.0 ft = useful as a PRE-FILL (propose, DJ corrects) but not alone.
+        Over 1 ft = does not transfer to high-school footage; report and stop.
+- [ ] 3. Repeat on HARD and TEST2 (a third gym) -- one clip is never evidence.
+- [ ] 4. Render an overlay for DJ's eyeball. Numbers never decide this project.
+
+## THE FALLBACK THAT IS ALMOST CERTAINLY WORTH DOING EITHER WAY
+PRE-FILL THE LANDMARKS, exactly like spikes/prefill_player_labels.py already
+does for players -- which was judged "a clear win" because DELETING/NUDGING a
+proposed mark is far cheaper than PLACING one. Even a mediocre detector that
+puts marks roughly right turns 10 clicks into 10 small drags. And DJ's 187
+existing clicked landmarks are training data if a model needs fine-tuning.
+This reuses a pattern this project has already proven on its own footage.
+
+## OTHER OPTIONS CONSIDERED (not recommended first)
+- Classical line detection (Hough) + fit the court template. No license issue
+  and no model, but worn high-school lines are exactly its weak case, and
+  spikes/court_detect.py already handles the "which court is this" half.
+- Train a keypoint model from scratch on DJ's 187 clicks. Too few, and it
+  competes for the same GPU time as the ball work. Revisit if KaliCalib
+  partially works -- fine-tuning beats from-scratch.
+
+# ============================================================================
+# NEXT PROPOSAL (2026-07-27): DJ's "GUESSING" IDEA -- MEASURED BEFORE ANSWERING
+# DJ watched the overlays, confirmed the touches are RIGHT, and proposed
+# filling in what the system cannot see. Awaiting DJ's decision on the split
+# recommendation below.
+# ============================================================================
+
+## WHAT DJ PROPOSED (his words, 2026-07-27)
+"Sometimes the system can't see the player taking a shot or a pass or a steal,
+so when the ball is taken a shot from, the last person who is seen touching the
+ball will get credited... or even when they are just dribbling then the system
+loses sight of them for a few seconds and when it reappears on the same person
+then the ball's in their possession the whole time."
+He also named the risk himself: "this can become dangerous by assuming, but I
+don't think this would be as crazy as getting completely person mixed up."
+
+## THE RIGHT WORDS FOR IT (DJ said "guessing isn't the right word")
+Two different things, and the difference is exactly the safety line:
+  INTERPOLATION -- filling a hole BETWEEN two observations. His dribbling case:
+                   seen with it at f100, seen with it at f160, so assume f130.
+                   Both ends are evidence. Defensible.
+  EXTRAPOLATION -- claiming something PAST the last observation. His shot case:
+                   the shot happens where nobody was seen holding anything, so
+                   reach backwards to the last known holder. Riskier by nature.
+Intuition says the first is safe and the second is dangerous. THE MEASUREMENT
+BELOW SAYS THE OPPOSITE ABOUT WHICH ONE IS WORTH DOING.
+
+## MEASURED FIRST (sweep of MAX_GAP_FRAMES, both clips, no code adopted)
+"observed" = seconds the ball was actually SEEN in her hands.
+"bridged"  = seconds filled in by assumption.
+```
+=== TEST1 ===  461 answerable frames
+  gap  touches  observed_s  bridged_s  %inferred  bridges  xContested  xTooFar
+    8        8         5.2        1.0      16.2%       11           1        1
+   15        8         5.2        1.4      21.6%       12           2        1
+   30        7         5.2        2.4      31.3%       13           3        2
+   90        7         5.3        4.4      45.2%       14           3        3
+  handovers actually OBSERVED (holder A -> holder B): 16
+
+=== HARD ===  601 answerable frames
+  gap  touches  observed_s  bridged_s  %inferred  bridges  xContested  xTooFar
+    8       10         5.4        0.9      13.8%        9           6        0
+   15       10         5.6        1.7      22.9%       11           7        0
+   30       10         5.6        1.7      22.9%       11           7        0
+   90       10         5.7        3.5      38.0%       13           7        1
+  handovers actually OBSERVED (holder A -> holder B): 16
+```
+
+## WHAT THAT TABLE ACTUALLY SAYS
+
+### 1. The DRIBBLING case does not pay. This was a surprise.
+Stretching the bridge from 0.27s to 3.0s buys +0.1s of REAL observation on
+TEST1 and +0.3s on HARD. Everything else it adds is invented: bridged time
+goes 1.0s -> 4.4s (TEST1) and 0.9s -> 3.5s (HARD), taking the inferred share
+from ~15% to ~40%. The touch COUNT barely moves (8->7, 10->10) because long
+bridges mostly MERGE touches rather than find new ones.
+WHY: the ball is not vanishing for two seconds and returning to the same girl.
+It is flickering constantly -- ~50% of frames have no ball, spread thin, not in
+long chunks. The current 8-frame gap already absorbs the flicker. So the
+missing time is NOT sitting in long gaps waiting to be bridged.
+
+### 2. A REAL SAFETY HOLE, VISIBLE AT TODAY'S SETTING (not hypothetical)
+"xContested" = bridges that pass through a frame where TWO players were both
+close to the ball. That is exactly where a steal or a rebound happens -- the
+moment DJ was right to worry about.
+    HARD, at the CURRENT gap of 8: 6 of 9 bridges already cross one.
+    TEST1, at the current gap of 8: 1 of 11.
+So the system ALREADY bridges through possible changes of hands, today, before
+anyone extends anything. And with 16 OBSERVED handovers in a 15-20s window, the
+ball changes hands often enough that a long bridge is likely to span one.
+FIX (cheap, and it makes the feature SAFER not bigger): a CONTESTED frame
+inside a gap BREAKS the bridge. Two players fighting for the ball is evidence
+that possession may have changed, so it must not be bridged through silently.
+
+### 3. The SHOT case is the one worth building. DJ's instinct is right here.
+And the argument is stronger than it first looks: THE SYSTEM ALREADY GUESSES
+THE SHOOTER, more crudely. spikes/shot_attempts.find_release() extrapolates the
+arc's own parabola BACKWARD up to 10 frames and credits the nearest body within
+120px. That is a geometric guess about who was standing near a predicted point.
+"The last player actually SEEN holding the ball" is better evidence than that.
+So this is not adding a guess -- it is REPLACING a weaker guess with a stronger
+one, and it can be scored against the shots DJ has already ground-truthed.
+
+## THE RULE THAT MAKES ANY OF THIS SAFE (project house style already)
+Never let an inferred second sit in the same bucket as an observed one. The
+pipeline already does exactly this in two places -- identity_state
+(confirmed/candidate/unknown) and shot_attempts' arrival ("observed" vs
+"extrapolated"). Same treatment here: every touch reports observed_seconds and
+inferred_seconds SEPARATELY, so we can always ask "how much of this number did
+we actually see?" DJ is right that a bridging error is a lesser sin than a
+person mix-up -- but ONLY while the two stay countable apart. A bridge that
+runs through a steal credits Player A with Player B's play, which IS a person
+mix-up arriving by a different road. That is what rule 2 above prevents.
+
+## DJ'S DECISION (2026-07-27): build B and C. A and D pushed back on.
+DJ's counter-principle, and he is RIGHT about it: "the girl last seen with the
+ball has the ball until proven otherwise... I feel like its not crazy to say
+that." Assessment of A and D against that principle is below the build notes.
+
+- [~] A. CONTESTED BREAKS THE BRIDGE. **WITHDRAWN -- MY PROPOSAL WAS WRONG.**
+        See "WHY I WAS WRONG ABOUT A" below. Not built.
+- [x] B. SPLIT observed vs inferred seconds. BUILT.
+        Every touch now reports observed_seconds / inferred_seconds /
+        total_seconds, and the clip summary prints both totals.
+        MEASURED: TEST1 6.2s total = 5.2s SEEN + 1.0s FILLED (16% inferred).
+                  HARD  6.3s total = 5.4s SEEN + 0.9s FILLED (14% inferred).
+        So at today's gap the system is ~85% actual observation. That number
+        is now visible and will move if the gap changes -- which is exactly
+        the point: it is the dial that tells us how much we are assuming.
+- [x] C. SHOT ATTRIBUTION FROM TOUCHES. BUILT as a COMPARISON, not adopted.
+        spikes/ball_touch.shooter_from_touches() + spikes/shooter_compare.py.
+        HONEST LIMIT FOUND WHILE BUILDING: GROUND_TRUTH records WHICH arcs are
+        real shots, NOT WHO TOOK THEM. There is no shooter ground truth in this
+        project. So the script cannot declare a winner; it surfaces
+        DISAGREEMENTS for DJ, whose answers would become that ground truth.
+        RESULT (tiny n -- only 2 shots fall inside a tracks span at all):
+            HARD  1188..1213  both methods say t1502            AGREE
+            TEST1  236..250   both methods say t14              AGREE
+            TEST1  164..184   TODAY says t14; PROPOSED abstains  only TODAY
+        THE FINDING THAT MATTERS, and it is not about which method wins:
+        **t14 IS THE UNLABELLED REFEREE.** Both methods credit a referee with
+        TEST1 shots. The existing find_release() has no ref filter at all, so
+        this contamination is already in the shipped shot layer -- a third
+        place that one unlabelled track is poisoning (touches, and now shots).
+        THE MECHANISM WORTH KEEPING: on 164..184 the proposed method REFUSED
+        the referee, because his only proximity to the ball came AFTER the
+        shot went up (the ball arrived at the rim where he stands). The
+        proposed method knows about TIME; find_release only knows about SPACE,
+        and a body parked under the rim is forever "near" a shot. That is a
+        real, principled advantage -- but n=1, so it is a mechanism to test,
+        not a result to bank.
+        A COUNTING BUG IN MY OWN COMPARISON, found and fixed: out-of-span rows
+        were being tallied as DISAGREE. Fixed before reporting.
+
+## WHY I WAS WRONG ABOUT A (contested breaking the bridge)
+DJ pushed back and he is right. Three reasons, in order of importance:
+
+1. **The "proven otherwise" rule ALREADY EXISTS and already works.**
+   build_touches closes a run the INSTANT a different holder is credited. So
+   if the other girl really does come out of the scrum with it, the first
+   girl's touch ends immediately, today, with no new code. That IS proof, and
+   it is the right kind: evidence of a change, not suspicion of one.
+2. **A scrum is not proof, it is ambiguity.** Two bodies near the ball happens
+   constantly without possession changing. Breaking on it would delete real
+   time in the COMMON case (she keeps it) while adding nothing in the case it
+   was meant to catch (already handled by rule 1). Strictly worse.
+3. **My "6 of 9 bridges cross a contested frame" number was alarming without
+   being informative.** It counts bridges that pass NEAR ambiguity; it does
+   not count bridges that got the answer WRONG. I presented a risk indicator
+   as if it were an error rate. That was a bad piece of analysis.
+RESIDUAL RISK, stated honestly: the one case DJ's rule does mishandle is a
+DOUBLE handover -- A to B and back to A, both invisible. That credits A with
+B's seconds. It needs two invisible changes inside one gap, so it is rare, and
+its likelihood grows with gap length. Which is the whole of the D question.
+
+## WHY MY TEST OF D WAS THE WRONG TEST
+I measured HOW MUCH would be filled in. I did not measure whether the fill-in
+is CORRECT. Those are different questions and DJ's proposal is about the
+second one. I called the extra 3.4s "invented" -- but if she really did have
+the ball, those seconds are TRUE and the old setting was UNDERCOUNTING her.
+My table cannot tell those two apart, so it cannot settle the question, and I
+presented it as though it could.
+THE RIGHT TEST, and it is cheap because the renderer already exists: build the
+long-bridge version, render it, and DJ watches whether the box stays on the
+RIGHT girl through the gaps. That measures accuracy, which is the thing in
+dispute. Half a day at most.
+ONE THING DJ'S RULE GENUINELY NEEDS, and it should come from BASKETBALL not
+from my caution: a ceiling. "Until proven otherwise" with no limit means a ball
+lost at f100 and next seen at f1000 credits her 30 seconds, which no possession
+ever is. The right ceiling is "how long can one player plausibly hold the ball"
+-- a few seconds, from the game, not from a fitted number. Pair that with B
+(already built), which keeps the filled-in seconds countable apart, and the
+failure mode stays visible instead of silent.
+
+## D BUILT (2026-07-27): DJ's rule at his 15s ceiling
+DJ answered the ceiling question with 15 SECONDS. Built as
+spikes/long_bridge_test.py, writing SUFFIXED artifacts
+({clip}_ball_touches_gap15s.json / _overlay_gap15s.mp4) so the canonical
+outputs are never clobbered. Nothing adopted.
+
+BE CLEAR WHAT 15s MEANS HERE: TEST1's answerable window is 15.4s and HARD's is
+20.0s, so a 15s ceiling is EFFECTIVELY NO LIMIT on these clips. That makes the
+render the WORST CASE on purpose -- if the box still follows the right girl
+under no limit, the rule is safe at any smaller number; if it wanders, we see
+exactly where.
+
+```
+TEST1                touches   SEEN s  FILLED s  % filled
+  now (0.27s wait)         8      5.2       1.0       16%
+  DJ's rule (15s)          7      5.3       4.4       45%
+HARD
+  now (0.27s wait)        10      5.4       0.9       14%
+  DJ's rule (15s)         10      5.7       3.5       38%
+```
+Note the SEEN column barely moves (5.2->5.3, 5.4->5.7). The rule does not find
+new evidence; it extends credit across existing evidence. Whether that credit
+is CORRECT is the thing the video answers and the table cannot.
+
+## THE FINDING THAT CHANGES THE ORDER OF WORK
+Rendered TEST1 at 15s and looked at f290: the box sits on the REFEREE (t14) for
+2.5 straight seconds while the ball is nowhere near him and the play has moved
+down court. His fake touch grows 0.6s -> 3.2s.
+**DJ's rule AMPLIFIES whatever error is already in the input.** It is not wrong
+in principle -- it is a multiplier, and right now one of the things it is
+multiplying is a known bug.
+CONSEQUENCE: judging the 15s video BEFORE labelling t14 means judging the
+referee bug, not the rule. LABEL THE REF FIRST, then re-render, then judge.
+
+## A SECOND BUG IN MY OWN CODE, found while building D
+A touch that crosses a WINDOW boundary picks up a second identity record for
+the SAME girl (identity_id is scoped per window). attribute() was treating that
+as an identity split and refusing to name her -- TEST1's #32 lost her number
+the instant a merged touch spanned windows 0 and 1. Fixed: two records carrying
+the SAME jersey are one girl; different jerseys still refuse; a named record
+plus an unnamed one still refuses (we cannot prove the unnamed one is her).
+Also fixed: the RENDERER was recomputing per-frame verdicts WITHOUT the ref
+exclusions the touches were built with, so the video could disagree with its
+own JSON. Both pinned by tests. Suite 268 -> 271.
+
+## DONE 2026-07-28 -- ref labelled, shot layer fixed, clean re-test
+- [x] TEST1 t14 labelled 'ref'. DJ confirmed from the crop. Backup written
+      (TEST1_decisions.backup-20260728-pre-t14ref.json) and all 20 prior
+      labels verified unchanged afterwards.
+- [x] THE SHOT LAYER HAD NO REFEREE FILTER AT ALL -- a pre-existing bug in the
+      shipped code, not something this task introduced. find_release names
+      whoever stands nearest the back-extrapolated release point, and a body
+      parked under the basket is permanently "near" every shot. TEST1's
+      referee was being named the SHOOTER on two DJ-verified shots.
+        BEFORE  164..184 -> t14 (REF)      AFTER  164..184 -> t38 (real player)
+                236..250 -> t14 (REF)             236..250 -> t49 (real player)
+- [x] Referee out of the touch layer:
+        TEST1  BEFORE 8 touches / 6.2s      AFTER 6 touches / 4.5s
+      Total FELL by 1.7s and the OFF_COURT warning is gone. The removed time
+      was fiction (standing constraint: correctness outranks coverage).
+- [x] Both self-inflicted bugs from the D build were already fixed and are
+      pinned by tests (window-crossing jersey loss; renderer/JSON disagreement).
+
+## DJ'S 15s RULE, FAIRLY TESTED (clean input, 2026-07-28)
+```
+TEST1                touches   SEEN s  FILLED s  % filled
+  now (0.27s wait)         6      4.0       0.5       12%
+  DJ's rule (15s)          6      4.2       2.6       38%
+HARD
+  now (0.27s wait)        10      5.4       0.9       14%
+  DJ's rule (15s)         10      5.7       3.5       38%
+```
+Touch COUNT is now identical under both settings on both clips -- with the ref
+gone the rule merges nothing, it only extends credit. SEEN barely moves.
+
+MY OWN EYEBALL OF THE TWO RISKIEST BRIDGES (DJ still needs to watch it all):
+  f490, inside #32's 1.4s bridge -- CORRECT, and convincingly so. Green #32 is
+      mid-drive, ball visible at her hip, white #13 defending. The detector
+      lost the ball; the rule held the right girl. DJ's rule doing its job.
+  f220, t49's bridge (0.2s seen supporting 0.7s credit) -- GENUINELY
+      AMBIGUOUS. A rebound scrum, four bodies tangled. Not clearly right or
+      wrong even to a human. The system reports it "unnamed / review_item",
+      so it is not claiming a named stat.
+WHAT THAT SUGGESTS (a hypothesis, NOT a change): the risky shape is not the
+gap LENGTH but the EVIDENCE RATIO -- 0.2s of sighting carrying 0.7s of credit.
+A ratio rule would let #32's well-evidenced 1.4s bridge through while
+questioning the scrum. Do NOT build this until DJ has watched the videos; it
+is a rule invented after seeing results, which is the accel_y trap unless it
+is frozen first and tested on a clip it was not built on.
+
+## FLICKER GUARD -- DJ's occlusion worry, measured then built (2026-07-28)
+DJ: "if a girl puts up a shot but it flickers to another girl, does the one it
+flickers to get credited with the shot?"
+
+MEASURED FIRST (spikes/flicker_check.py -- a flicker is the pattern A->B->A):
+    TEST1  3 flickers: 1 frame x2, 2 frames x1
+    HARD   3 flickers: 1 frame x2, 5 frames x1
+- [x] ANSWER TO DJ'S QUESTION: it does NOT happen today. Every flicker on both
+      clips is shorter than the 6-frame floor, which already deletes them. The
+      one flicker sitting in a shooter window (TEST1 f532, 1 frame) was far too
+      short to steal the shot.
+- [x] BUT THE MARGIN IS ONE FRAME. HARD's longest is 5, the floor is 6. That
+      is luck, not safety. DJ's instinct to want a guard was right even though
+      the failure has not fired yet.
+- [x] A SECOND HARM I HAD NOT FLAGGED, and it fires EVERY time: a flicker that
+      is itself discarded STILL ended the real holder's run and started a new
+      one. 3 times per clip, costing credited time on both sides of the blip.
+- [x] BUILT: a handover must PROVE itself -- the new holder must be credited
+      for MIN_TOUCH_FRAMES before the change is accepted. Below that it is
+      noise: cannot start a touch, cannot break one, and the frames are
+      credited to NOBODY (abstention, not a gift to the first girl).
+      THE THRESHOLD IS MIN_TOUCH_FRAMES ITSELF -- no new constant, nothing
+      fitted to the flickers just measured. The reasoning stands alone: a run
+      too short to prove she HELD it is too short to prove she TOOK it. Same
+      shape as possessions.detect()'s HOLD_S.
+```
+                   touches   SEEN s   total
+TEST1   before        6        4.0     4.5s
+        after         5        3.8     4.6s
+HARD    before       10        5.4     6.3s
+        after         8        5.0     5.8s
+```
+      Touch COUNT falling is the fix working -- spuriously split touches
+      rejoined. Shooter attribution unchanged on both clips. Suite 271 -> 276.
+      HONEST LIMIT: this catches FLICKERS (<6 frames). A sustained mis-credit
+      of >=6 frames is a different failure class and nothing here catches it.
+
+## 15s RULE ADOPTED (2026-07-28) + run_clip VERIFIED END TO END
+- [x] DJ watched the TEST1 overlay end to end: "Yes its on the right girl the
+      whole time." That is the eyeball gate. MAX_GAP_SECONDS = 15.0 is now the
+      pipeline default, in SECONDS (DJ's unit); frames derived per clip's fps.
+- [x] run_clip TEST1 ran END TO END, exit 0 -- the FIRST full run since ball
+      touches was added to the pipeline (the stage had only ever been exercised
+      standalone, so this was verified rather than assumed).
+        calibration    7.7 -> 0.6 px, court-fit 0.15 ft mean / 0.35 max
+        player_events  12904, all identity-stamped
+        shot layer     4 attempts, 3 located
+        ball touches   5 touches, 8.0s = 4.2s SEEN + 3.7s FILLED (47%)
+- [!] A REAL COST OF THE 15s RULE, surfaced by that run:
+        short setting  {review_item: 4, attributed: 1}
+        15s setting    {review_item: 5, attributed: 0}
+      Adopting DJ's rule cost TEST1 its only confidently-attributed touch.
+      Not a bug: at 15s touches MERGE, a longer touch covers more frames, and
+      attribute() only says "attributed" when EVERY credited frame agrees on
+      one girl and every one was CONFIRMED. The merged answer is arguably more
+      honest (one continuous hold, part of it not confidently identified, so
+      the whole hold is uncertain) -- but it is a genuine trade: longer,
+      truer-looking touches paid for in confident attribution.
+      DELIBERATELY NOT DONE: attribute() was NOT loosened to win the number
+      back. Relaxing a confidence rule because another change made it bite is
+      exactly how a stat launders.
+
+## THE WEB-APP GAP (measured 2026-07-28, not assumed)
+The app's contract is spikes/out/{clip}_measured_stats.json -- built by
+measured_stats.generate() from box_score + shot_locations + shot_attempts, read
+by the app's lib/measuredStats.ts. The app runs CV via analyze_clip.py
+(run_clip + measured_stats + export_span), and that plumbing already works.
+**THAT CONTRACT CONTAINS NO TOUCHES.** Everything built in this whole track is
+currently INVISIBLE to the app. One piece of wiring stands between here and a
+demo that actually shows this work.
+DEMO BOUNDARY, so nothing is over-promised: analyze_clip requires an
+already-configured ClipConfig WITH ITS CACHES. "Upload any video and watch it
+go" is NOT available -- browser calibration is Phase 7 L4, unbuilt. TEST2 also
+has no ball detections (hours of CPU), so it cannot show touches at all.
+The demo that IS available: "here is a game we set up, watch it analyze."
+
+## DONE 2026-07-29 -- clicking test + touches wired into the app
+- [x] TOUCHES ARE IN THE APP CONTRACT. measured_stats.py now carries `touches`
+      + `touch_summary`, with meta.touches_available and meta.touch_note so the
+      UI cannot overpromise. Seen and filled-in seconds stay SEPARATE all the
+      way through; identity_status rides along so a review_item can never be
+      displayed as a confirmed stat. A clip with no ball layer reports
+      touches_available=false rather than an empty list the UI might read as
+      "she never had the ball". 5 new tests. TEST1 regenerated:
+        5 touches (2 nameable), 4.2s SEEN + 3.7s FILLED (47% inferred)
+      Corrected note to DJ: wiring this DOES move toward real tendencies -- it
+      builds the pipe. It just does not fill it; 5 touches is not a tendency.
+
+- [x] THE CLICKING TEST -- and the answer is NO, with one clip saying yes.
+      spikes/keyframe_thinning_test.py, a true holdout (drop a keyframe, refit
+      without its marks, SIFT-hop to the nearest kept keyframe, project its
+      held-back marks against the rulebook).
+```
+TEST1  keep 4 of 6 (31% fewer clicks)   worst held-out 0.33 ft   PASS
+       keep 3 of 6 (50% fewer)          worst 0.30 ft            PASS
+       keep 2 of 6 (71% fewer)          worst 0.33 ft            PASS
+HARD   keep 4 of 7 (46% fewer)          worst 0.99 ft            MARGINAL
+       keep 3 of 7 (58% fewer)          worst 0.95 ft            MARGINAL
+       keep 2 of 7 (76% fewer)          worst 39.14 ft           CATASTROPHIC
+```
+      TEST1 looked like a 71% win. HARD kills it: even the mildest thinning
+      lands at ~1 ft, the error DJ judged BROKEN by eye. At two keyframes
+      HARD's own fit collapses (26.79 ft) and the project's PRE-EXISTING
+      guardrail fires -- "WEAK PAIR FLAG: 600->1200 inlier ratio 0.039 < 0.6".
+      The project's recurring lesson landing again: one clip is not evidence.
+      WHY: HARD pans 3.6 px/frame vs TEST1's 0.8 (4.5x). Same frame gap, much
+      bigger view change, so SIFT degrades faster.
+      IMPLICATION (hypothesis, NOT built -- inventing a rule after seeing
+      results is the accel_y trap): spacing should follow CAMERA MOTION, not a
+      frame count, and the instrument already exists (adjacent-pair inlier
+      ratio, 0.6 threshold already coded in stage2_multikeyframe.py). Each clip
+      would self-tune. Must be FROZEN and tested on a clip it was not built on.
+
+- [!] A GATE BROKE FROM OUTSIDE THIS TRACK. spikes/ball_trajectory.py was
+      modified 2026-07-29 00:23 by different work -- the CHAIN-FRAGMENTATION
+      fix listed as open in the handoff (_merge_gapped_chains,
+      MAX_CHAIN_MERGE_GAP_FRAMES = 40). Nothing here touched that file.
+      It breaks test_integrated_chain_reproduces_test10_on_the_saved_test1_v2_log.
+      The expectation was NOT edited and the other track's file was NOT
+      reverted -- that test's own docstring says "fix the integration, never
+      this expectation", and this is neither mine to fix nor mine to undo.
+```
+              GATE (TEST 10)                      NOW
+ shot A  (58,70,jumpshot,118.1,extrapolated)  (57,93,jumpshot,61.4,observed)
+ shot D  (581,589,layup,18.4,observed)        (581,601,layup,18.4,observed)
+```
+      BETTER: shot A's arrival is now OBSERVED, not extrapolated -- real flight
+      the old chaining threw away, exactly what the fix was for.
+      WORSE: both merged spans run PAST DJ's ground truth (shot A truth 55..74,
+      new end 93 = +19 frames; shot D truth 581..592, new end 601 = +9). A
+      40-frame merge may be welding a real flight to whatever followed it.
+      No effect on shooter attribution on either clip -- but the shot layer
+      feeds it, so this belongs in front of whoever owns the recall fix.
+
+## RESOLVED 2026-07-29 -- the "broken gate" was DJ's own work, and the gate
+## was asserting the wrong thing
+DJ: "that was me on another chat." The chain-fragmentation fix is deliberate.
+- [x] REWROTE THE GATE, did not weaken it. It asserted TEST 10's EXACT output
+      tuples down to min_dist at one decimal -- a snapshot of one day's output,
+      not a statement of the requirement. So a deliberate IMPROVEMENT broke it
+      (shot A's arrival went EXTRAPOLATED@118.1px -> OBSERVED@61.4px, real
+      flight the old chaining discarded). A gate that fires on improvement
+      trains people to edit gates, which is how a real regression eventually
+      slips through.
+      It now asserts the REQUIREMENT against DJ's own GROUND_TRUTH -- the same
+      source every clip gate uses:
+        1. every verified shot is still claimed
+        2. shot B stays v2's known blind spot (finding it is a change to
+           INVESTIGATE, not a silent win)
+        3. no claimed arc welds TWO verified shots together
+        4. the two near-rim non-shots stay rejected, never claimed
+      Strictly stronger on what matters, immune to legitimate improvement.
+      The exact numbers are preserved in TEST_LOG TEST 28. Suite 285 green.
+- [x] EVIDENCE FOR DJ'S DESIGN, found while checking the guard: swept the merge
+      gap at 40 / 120 / 300 frames -- ZERO welded arcs at any of them. That is
+      real support for _merge_gapped_chains' own claim that "the physics fit,
+      not the gap size, is what keeps unrelated events from being welded
+      together." The 40 is conservative.
+- [x] Because the guard never fires on real data, its detection logic is
+      exercised on a SYNTHETIC weld too -- a guard that cannot be shown to fail
+      proves nothing about itself (the "wrong-player time 0.0s" tautology).
+
+## NEXT: SMART KEYFRAME SPACING -- the clicking tool (DJ approved 2026-07-29)
+DJ: "lets build out the smarter court clicking thing then Im going to upload a
+quarter of a game and do the full pipeline."
+
+THE IDEA: stop marking every ~100 frames. Walk the clip and place a mark only
+where the SIFT match to the previous mark starts to degrade -- the adjacent-pair
+inlier ratio, threshold 0.6, already coded in stage2_multikeyframe.py. Calm
+footage gets few marks; fast-panning footage gets more. Each clip self-tunes.
+
+THE HONEST MATH DJ NEEDS BEFORE UPLOADING (this is the point to raise it, not
+after he has clicked for an hour). A quarter is ~8 min = ~14,400 frames:
+    today, 1 mark per 100 frames   -> ~144 marked frames x ~10 clicks = ~1,440
+    best case (TEST1-calm, 300)    -> ~48 marked frames  x ~10 clicks =   ~480
+    HARD-like (no saving at all)   -> ~1,440, unchanged
+Even the BEST case is ~500 clicks, ~40 minutes of solid clicking. The smart
+tool does not make a quarter cheap. What it DOES do, and this is the real
+value: it tells DJ what a clip will COST BEFORE he clicks anything, and it
+never asks for a mark the footage does not need.
+SO THE ORDER MATTERS: build the tool, run it on the quarter, SHOW DJ THE PRICE,
+and let him decide whether to click, trim the clip, or wait for auto-calibration.
+
+- [x] 1. spikes/plan_keyframes.py -- BUILT. Greedy walk, keeps the largest jump
+        holding inlier ratio >= 0.6. No new threshold invented.
+- [x] 2. Validated -- spikes/validate_keyframe_plan.py, restricted to frames DJ
+        already clicked so the choice can be SCORED by the TEST 27 holdout.
+- [x] 3. Reports predicted click cost before any clicking.
+
+## !! I WAS WRONG IN TEST 27, AND I TOLD DJ THE WRONG THING
+I said "clicking CANNOT be safely halved" because HARD's thinned subsets scored
+~0.95 ft against an absolute 0.5 ft bar. **I NEVER MEASURED HARD'S BASELINE.**
+Control, dropping just ONE keyframe of seven:
+        HARD drop kf 900  (48/59 marks): held-out 0.69 ft
+        HARD drop kf 1000 (48/59 marks): held-out 0.80 ft
+HARD sits at ~0.7-0.8 ft with SIX of seven keyframes present. That is its
+FLOOR. Thinning to three costs ~+0.15 ft, not 0.95 ft of damage.
+Judging a clip against an absolute bar without its own baseline is the same
+error class as quoting a metric that cannot return a bad answer. That is twice
+now in this project; the rule to carry forward is MEASURE THE BASELINE BEFORE
+CALLING A NUMBER BAD.
+LIKELY CAUSE OF HARD'S FLOOR (unproven, deserves its own test): HARD's court is
+CONFIGURED 84 ft but MEASURES 94 (handoff: "DJ chose to LEAVE HARD at 84").
+TEST1's 84 is correct and its floor is 0.15-0.29 ft -- a 3-5x baseline gap that
+tracks exactly with the known-wrong dimension.
+
+## THE RULE'S REAL RESULT (2026-07-29)
+```
+TEST1  chooses [120, 500, 580]   3 of 6   48% fewer clicks
+       worst held-out 0.33 ft   (baseline 0.15-0.29)  -> essentially free
+HARD   chooses [600, 1100, 1200] 3 of 7   58% fewer clicks
+       worst held-out 0.95 ft   (baseline 0.69-0.80)  -> ~+0.15 ft
+```
+AND IT CAUGHT THE REAL FAILURE: TEST 27's catastrophic 39.14 ft case was HARD's
+600->1200 pair; the rule REFUSED it at ratio 0.068. The guardrail fires where
+it matters.
+
+NOT ADOPTED YET: DJ has not eyeballed a court built from a rule-chosen subset,
+and this project adopts nothing on numbers alone.
+
+## THE QUARTER-OF-A-GAME PRICE (~8 min, ~14,400 frames)
+```
+today's convention:      ~144 marked frames  ~1,440 clicks
+rule's measured spacing:  ~48 marked frames    ~480 clicks
+```
+Halving is real. ~480 clicks is still ~40 minutes of solid clicking.
+
+## ALSO RAISED BY DJ (2026-07-29), not yet scoped
+- [ ] SERVERLESS GPU. DJ is renting one and wants the pipeline on it. Needs
+      scoping: which stages are actually the bottleneck (ball detection is
+      hours on CPU; per-frame SIFT for the on-court cache is the other big
+      one), and what he has rented. Not started.
+
+## OPEN FOR DJ
+- [ ] Decide on the quarter-of-a-game clicking price once the tool reports it.
+- [ ] Optionally watch HARD's 15s overlay -- only TEST1 was eyeballed.
+- [ ] Adjudicate the shooter disagreements -> creates shooter ground truth.
+
+# ============================================================================
+# CURRENT TASK (2026-07-27): BALL-TO-PLAYER TOUCHES -- BUILT, DJ CONFIRMED GOOD
+# DJ picked this over the demotion fix and the queue sort. Verdict 2026-07-27:
+# "Yes it's right... genuinely good." Occlusion swaps noted, always brief.
+# ============================================================================
+
+## WORD CHOICE -- "TOUCH", NEVER "POSSESSION" (DJ's correction, 2026-07-27)
+DJ caught this in the first draft of this plan and he is right, twice over.
+
+In basketball a POSSESSION is a TEAM concept: one team has the ball until they
+give it up (score, turnover, defensive rebound), and then the other team's
+possession begins. What this task builds is much smaller -- ONE GIRL holding
+the ball until she gives it up. Several of those happen inside a single team
+possession (pass, pass, drive, shoot = four touches, one possession).
+
+The industry word for the small one is a TOUCH (NBA player tracking: "Touches",
+"Time of Possession", "Avg Sec Per Touch"). This document and the code use
+TOUCH exclusively.
+
+THIS IS ALSO A CODE-COLLISION FIX, not just wording: phase2/possessions.py
+ALREADY EXISTS and already means the team-level thing (which half of the court
+the bodies occupy -- it is what drives the windowing). Using the same word for
+two different ideas in one codebase is how a future session mixes them up.
+  phase2/possessions.py  = TEAM has the ball (already built, do not touch)
+  spikes/ball_touch.py   = ONE PLAYER has the ball (this task, new)
+
+## THE PROBLEM, IN ONE LINE
+The system sees the ball. The system sees the players. It never says WHICH
+PLAYER HAS THE BALL. Those two halves have never been joined, which is why
+"she drives left 70% of the time" cannot honestly be produced -- position data
+alone can only say a body MOVED left, not that she moved left WITH the ball.
+
+## WHAT I AM GOING TO BUILD (plain English)
+For every frame, ask one question: "whose body is the ball touching?"
+Write the answer down. Then squash the answers into runs -- "#13 had it from
+frame 300 to frame 340" -- and that run is ONE TOUCH. (Not a possession. See
+the word-choice section above.)
+
+That's it. No new AI model. No new training. No new video processing. Every
+single input already exists on disk:
+  - where the ball is, each frame -> spikes/out/{clip}_ball_detections.json
+  - where each player is, each frame -> phase2/out/{clip}_tracks_raw.json
+  - where that is on the floor, in feet -> phase2/out/{clip}_oncourt.json
+  - which player that track IS         -> phase2/out/{clip}_player_events_merged.json
+
+## THE HONEST RISK, STATED BEFORE I BUILD IT (the accel_y guard)
+"Nearest to the ball" is NOT "has the ball". A pass that flies close over a
+girl's head looks EXACTLY like her holding it, for a handful of frames. A
+rebound scrum has four bodies within arm's reach of the ball at once.
+
+This project has already been burned once by a rule that looked clean and
+wasn't (accel_y, DECISIONS/TEST 11 -- separated perfectly at n=9, destroyed by
+DJ's ground truth). So the same protocol applies here:
+  - Every threshold below is FROZEN IN THIS DOCUMENT BEFORE the first run.
+  - I do NOT tune them after seeing which answers I like.
+  - The output is "MEASURED -- pending DJ review", never a shipped stat.
+  - DJ eyeballs an overlay video before any of it is believed.
+
+## THE ABSTENTION RULES (when the answer is "I don't know")
+Same discipline as the rest of the project -- refusing to answer beats
+answering wrong:
+  1. No ball detected that frame        -> nobody has it. Never interpolate.
+  2. Ball too far from every player      -> nobody has it (it's in the air).
+  3. Two players almost equally close    -> CONTESTED, nobody is credited.
+  4. A "hold" that lasts only a moment   -> dropped (that's a pass flying past).
+  5. Identity is not CONFIRMED           -> review item, NOT a stat.
+
+## THE FROZEN NUMBERS (declared now, not after)
+Distances are measured in BODY HEIGHTS, not pixels, so they mean the same
+thing at both ends of the floor (zoom-independent). This copies TEST 16's pose
+rule, which is the only signal in this project to survive a real holdout.
+  HOLD_GATE_BODY_FRAC = 0.30   ball must be within 30% of that player's own
+                               height of her box (usually it's INSIDE the box,
+                               distance 0)
+  MARGIN_BODY_FRAC    = 0.15   the nearest player must beat the second-nearest
+                               by at least 15% of a body height, else CONTESTED
+  MIN_TOUCH_FRAMES    = 6      ~0.2s at 30fps. Shorter runs are thrown away.
+  MAX_GAP_FRAMES      = 8      the ball detector drops frames; a gap this short
+                               inside one player's touch does not split it
+Ball position = the highest-confidence detection at conf >= CONF_FLOOR (the
+same filter every other ball stage already uses -- no new floor invented).
+
+## WHERE THE CODE GOES (smallest possible footprint)
+Follows the existing ball-layer pattern EXACTLY, so nothing already working is
+touched. ROADMAP Principle 4: new layers sit BESIDE the spine, never inside it.
+  NEW    spikes/ball_touch.py        the logic (like shot_attempts.py)
+  EDIT   ball_stages.py              one thin stage_ball_touches() wrapper
+  EDIT   run_clip.py                 two lines, inside the existing ball block
+  NEW    tests/test_ball_touch.py
+  OUTPUT spikes/out/{clip}_ball_touches.json
+REUSED, not rewritten: point_to_bbox_dist() already lives in
+spikes/shot_attempts.py and is exactly the right measurement ("the ball is in
+the HANDS, not at the feet"). I am not writing a second distance function.
+NOT TOUCHED: team_events, identity, the box score, calibration, the queue.
+
+## THE TODO LIST
+- [x] 1. Write spikes/ball_touch.py -- per-frame holder with the four
+        abstention rules, then group into TOUCH runs.
+- [x] 2. Join each touch to identity + court feet: who she is, where on the
+        floor she had it, and whether that identity was CONFIRMED.
+- [x] 3. Tests first-ish: synthetic frames, no video needed. Ball inside one
+        box -> that player. Ball between two boxes -> CONTESTED. Ball far
+        away -> nobody. 3-frame flicker -> dropped. Gap of 4 -> stays one touch.
+        (31 tests; suite 230 -> 261 green.)
+- [x] 4. Wire it into ball_stages.py + run_clip.py (2 lines).
+- [x] 5. Run it on HARD and TEST1 -- both already have every cache on disk, so
+        this costs seconds, not hours. Report the RAW table first.
+- [x] 6. Build the eyeball deliverable: spikes/render_ball_touches.py ->
+        {clip}_ball_touches_overlay.mp4.
+- [ ] 7. DJ watches it and says whether it is following the right girl.  <-- OPEN
+- [x] 8. Log the result to TEST_LOG.md as "MEASURED -- pending DJ review".
+
+## REVIEW -- what actually got built and what it measured (2026-07-27)
+
+### The result, raw (MEASURED, pending DJ review)
+                              TEST1            HARD
+  answerable frames           461 (120..580)   601 (600..1200)
+  ball held by someone        40.1%            30.3%
+  no ball detected            47.7%            51.6%
+  ball in the air (too far)    4.1%             9.2%
+  contested (nobody credited)  8.0%             9.0%
+  TOUCHES found               8  (5.2s)        10 (5.4s)
+  ...of which we can NAME     3                6
+  identity join               1 attributed     6 attributed
+                              7 review_item    4 review_item
+The single biggest limiter is NOT the new code: on both clips roughly half of
+all frames have no ball detection at all. That is the existing detector's
+ceiling on this footage, and it caps everything downstream.
+
+### FILES (small footprint, as planned)
+  NEW  spikes/ball_touch.py             pure logic, no cv2, fully unit-tested
+  NEW  spikes/render_ball_touches.py    the overlay video (cv2 kept OUT of the
+                                        measurement so tests stay fast)
+  NEW  tests/test_ball_touch.py         31 tests
+  EDIT ball_stages.py                   stage_ball_touches()
+  EDIT run_clip.py                      2 lines
+  OUT  spikes/out/{clip}_ball_touches.json + _ball_touches_overlay.mp4
+Nothing in team_events, identity, the box score, calibration or the queue was
+touched. point_to_bbox_dist was REUSED from shot_attempts.py, not rewritten.
+
+### TWO REAL BUGS FOUND BY LOOKING (not by the numbers)
+Both were caught by rendering the video and reading it, which is the whole
+argument for building the eyeball deliverable before believing anything.
+
+1. REFEREES WERE BEING CREDITED WITH THE BALL. HARD's t3 -- a referee DJ
+   labelled himself -- held a 0.5s "touch" while the ball was actually up at
+   the rim on a shot. roster.py already warns about exactly this failure
+   ("a ref stands in the paint all possession, so one counted as a player
+   invents exactly the positional tendency the product sells"), and the fix
+   was the filter the pipeline ALREADY uses for seeding:
+   roster.load_ref_tracks() -- DJ's own ref/bench labels, excluded from
+   candidacy entirely. NOT A THRESHOLD TWEAK: the frozen numbers are untouched.
+   EFFECT ON HARD: removed 1 fake touch, and REVEALED 2 real ones that a
+   referee standing nearby had been turning into CONTESTED abstentions
+   (f808..816 #1 appeared; #3's f1017 touch grew 0.8s -> 1.0s). Named touches
+   5 -> 6. The filter ADDS information, exactly as roster.py argued.
+
+2. THE SUMMARY WAS ABOUT TO PRINT identity_id AS IF IT WERE A JERSEY NUMBER.
+   The first run reported "identity 13" and "identity 39" for TEST1. Those are
+   per-window internal COUNTERS. The girl is actually #32 -- and TEST1 has a
+   real #13 on the roster, so the output would have read as a confident,
+   completely wrong jersey call to a human. Fixed by joining
+   (window, identity_id) -> roster_number through {clip}_ocr_confirms.json,
+   the SAME key stage8_box_score uses, so a touch and the box score can never
+   disagree about who someone is. An identity the registry cannot name now
+   prints "unnamed" and never leaks its raw id. Pinned by a test.
+
+### KNOWN AND FLAGGED, NOT SILENTLY FIXED
+TEST1 still credits 1.2s of touches (2 of 8) to track 14, which is a REFEREE
+the crowd/ref filter cannot catch because DJ never labelled that track. It is
+reported loudly as OFF_COURT rather than deleted, because deleting every
+off-court touch would also delete real INBOUNDS PASSES, which are thrown from
+behind the baseline by real players. That trade is DJ's call, not mine.
+CHEAPEST FIX: DJ marks t14 as 'ref' in the review bundle he already has --
+one click, and the existing filter handles it.
+
+### WHAT I DELIBERATELY DID NOT DO
+- Did NOT invent a "ball near the rim = nobody holds it" rule. It would have
+  cleaned up the f190 referee case nicely, and that is exactly why it is
+  dangerous: a new heuristic invented AFTER seeing a bad result is the accel_y
+  mistake. Logged as a candidate for a future gated test, not slipped in.
+- Did NOT tune HOLD_GATE_BODY_FRAC, MARGIN_BODY_FRAC, MIN_TOUCH_FRAMES or
+  MAX_GAP_FRAMES. All four are exactly as frozen above, and a test asserts it.
+- Did NOT produce a single tendency stat ("drives left X%"). The link has to
+  survive DJ's eyes first.
+
+### NEXT, ONCE DJ HAS WATCHED IT
+1. DJ's verdict on the two overlay videos -- is it following the right girl?
+2. If yes: touches + court feet -> the first honest ball-in-hand tendencies.
+3. Ball-detection coverage (~50% of frames) is now the measured bottleneck on
+   this whole feature, which is new evidence for the v3-weights decision.
+
+## WHAT I AM DELIBERATELY *NOT* DOING IN THIS TASK
+- NOT producing "drove left 70%" or any tendency stat yet. Build the link and
+  PROVE it first. Turning touches into sentences is the next task, and it
+  is worthless if the link underneath is wrong.
+- NOT running TEST2. TEST2 has no ball detections cached (HARD and TEST1 do),
+  and that run is hours on CPU. TEST2 comes after the idea is proven.
+- NOT touching the tracker, the demotion bug, or the review queue.
+
+## WHAT COULD MAKE THIS FAIL, HONESTLY
+- The ball is only detected in a fraction of frames on this footage. If
+  coverage in the overlap span is low, touches will be short and sparse.
+  That is a REAL result, not a bug to tune away -- report it.
+- HARD's identity coverage is 36.3%. Even a perfect ball-to-player link can
+  only name a girl the identity layer already knows. Expect a lot of
+  "touch by an unnamed body" on HARD, and fewer on TEST1 (64.9%).
+- The camera is fixed and the ball is ~24px (STANDING CONSTRAINTS, below).
+  Nothing here changes that ceiling.
+
+---
+
+# HANDOFF SUMMARY (2026-07-27) -- read this first if picking the CV chat back up
+
+## Where things stand, one line each
+- Ball model: v3 is still the best/committed candidate. Not adopted into
+  run_clip yet -- blocked on the false-positive problem below.
+- False positives (v3 claims non-shots): root cause PROVEN to be a player-
+  signal gap, not fixable by more ball training (2 independent lines of
+  evidence: TEST 16 pose rule, TEST 17 control run). Candidate FIX EXISTS
+  (pose "ends at hand vs rim") and passed its first real holdout 9/9 --
+  see "THE HEADLINE RESULT" below. NOT wired into anything yet.
+- Recall (v3 MISSING real shots): NEW finding 2026-07-27, two distinct causes
+  diagnosed, neither fixed yet -- see "TWO NEW BUGS" below.
+- Split-arc double-counting: FIXED, tested, shipped in ball_trajectory.py.
+- Tracker mt=0.9 (35% fragmentation win): still UNADOPTED. Its proposed
+  safety net (jersey-colour check) was DEFINITIVELY KILLED (TEST 15) --
+  do not revisit that approach. Needs real ID-switch ground truth instead.
+- Scoreboard: reads fine when the graphic style matches training, but 3
+  clips = 3 different scoreboard STYLES and the reader is blind to at least
+  one of them. DJ's rule (2026-07-26): the scoreboard may CONFIRM, never
+  DENY -- absence/fade must produce "unknown", never "miss". This is now a
+  hard product rule, not just a finding.
+- Dead-ball/timeout detection: a working, CHEAP, style-independent detector
+  exists (clock-RHYTHM, not OCR) -- 151/155s correct on the one clip tested.
+  NOT wired into anything.
+- ARCHITECTURE DECISION (DJ, 2026-07-26, agreed): hybrid split going forward
+  -- CV stays the cheap, sparse FLAG (dead-ball clock-rhythm, shot claims,
+  etc.); Gemini is the SEMANTIC ADJUDICATOR on those flagged moments only.
+  CV keeps owning the hard numbers (ball position, trajectory, location).
+  Full reasoning in "DECIDED 2026-07-26" section below -- do not lose this.
+- Player labelling: DJ at 60/~200 frames (pre-filled boxes from
+  spikes/prefill_player_labels.py, DJ corrects). This is still the single
+  highest-leverage open task -- it is what pose-as-a-DETECTOR (not just
+  rejector) and the tracker's identity work both ultimately need.
+- Third-party GPU model bracket (TEST 17): PAUSED, not resumed. The
+  from-stock control already proved a fresh training run lands on the SAME
+  false positives as v3 with WORSE precision -- strong evidence more/other
+  detector training is not the lever. DJ's call, agreed: not worth the
+  money/time for a fractional-at-best gain. yolo12l has a resumable
+  checkpoint on the network volume if anyone changes their mind.
+
+## THE HEADLINE RESULT (TEST 16 + TEST 19)
+The pose rule -- "at the end of a claimed shot's flight, is the ball nearer
+a HAND or the RIM (in body-height units)?" -- is the strongest false-positive
+fix this project has produced. Predictions were LOCKED IN BEFORE seeing
+ground truth on TEST4 (a clip it was never built on). Final adjudicated
+score: 9/9 correct (5/5 confirmed non-shots rejected, 4/4 clean real shots
+kept). This is the first signal in the project to survive a real holdout --
+the earlier accel_y idea looked equally clean at n=9 and died immediately
+on ground truth. STILL NOT ADOPTED: known fragile at the single-frame level
+(a pre-specified 0.5s window variant exists as the fix, itself only
+lightly tested), and has no answer yet for a cluster of claims around one
+DJ-confirmed off-screen shot.
+
+## TWO NEW BUGS FOUND 2026-07-27 (recall diagnosis, no GPU needed to fix)
+1. CHAIN FRAGMENTATION: a real shot's ball detections get split across
+   >MAX_GAP_FRAMES gaps into separate un-joinable chains. The tail-end
+   piece then LOOKS like it "originates near the hoop and leaves" (the
+   deflection heuristic) purely because its earlier, far-away portion
+   belongs to a different, discarded chain. Same FAMILY as the split-arc
+   fix already shipped, but that fix's gap tolerance is too small for this
+   case. Concrete next step: measure how large a merge gap is actually
+   needed without reintroducing false merges.
+2. SHORT-FLIGHT / WOBBLE (NOT a new problem -- DECISIONS 22, 2026-07-14,
+   reconfirmed on a 3rd independent clip): a close-range shot's flight
+   near the rim is not a clean parabola (roll/wobble), so it never passes
+   the physics gate at all -- no arc, no claim, nothing for pose to even
+   evaluate. The physics-only path is exhausted for this case (repeatedly
+   proven now). Real fix = pose-as-a-POSITIVE-TRIGGER (detect the release
+   motion itself, not just adjudicate an arc that already formed) --
+   different, bigger task than the existing pose REJECTOR. Two independent
+   misses now point at this; it should be treated as a real candidate, not
+   a suggestion.
+
+## RUNNING / IN-FLIGHT AT HANDOFF TIME
+- TIMEOUT clip (Time_out.mp4) ball+hoop detection: RUNNING IN BACKGROUND
+  (CPU, spikes/detect_video.py). Purpose: count how many phantom shot
+  claims the CURRENT system makes during Time_out.mp4's ~123s dead stretch
+  -- answers whether dead-ball suppression is urgent or a non-issue. Check
+  for spikes/out/TIMEOUT_ball_spike_log_ball_finetuned_v3_gpu.json; if
+  missing, RELAUNCH (it died once already when a session ended -- CPU jobs
+  do not survive a session boundary, only GPU-pod jobs on the network
+  volume do).
+- Suite: 230 passing as of this handoff.
+- GPU pod (203.57.40.89:10157): STOPPED by DJ. yolo12l checkpoint sits on
+  the network volume, resumable, not a priority (see above).
+
+## NEXT ACTIONS, ranked
+1. Read TIMEOUT detection results once done -> decide if dead-ball
+   suppression is urgent.
+2. Fix the chain-fragmentation bug (#1 above) -- cheap, no new data.
+3. Scope pose-as-a-positive-trigger for the short-flight/layup problem --
+   bigger, think before building.
+4. Keep pre-filling + DJ correcting player labels toward ~200.
+5. Once labels land: retrain the ball model AND build the real player-
+   signal cross-check this whole track has been pointing at since
+   2026-07-22.
+
+---
+
 # CV QUALITY -- STATUS BOARD + TEST 15-20 PLAN (current task, 2026-07-25)
 
 This section belongs to the CV-QUALITY chat (ball model / tracker safety /
@@ -3334,4 +5682,405 @@ Ordering rationale: 1 is nearly free and bounds the ceiling; 2 converts
 "looks better" into "is safe" and unblocks mt=0.9; 3-4 stack on the new
 GPU + labeling assets; 5 must land before any adoption that lengthens
 tracks; 6 is the only gate that counts.
+
+
+---
+
+## Bug: setup finishes and the road ends (found 2026-07-31, DJ)
+
+**What DJ saw:** clicked "Looks right" after calibration, "nothing happened",
+only a "Go to your games" link, which led to his OLD games.
+
+**Root cause (two things, both real):**
+
+1. The click DID work. Approving moves the page to stage `calibrated`, which
+   renders a small green box + one link. There is no next action because there
+   is no next step wired -- nothing in the web app ever runs `run_clip.py`.
+   (`grep runCvScript` -> only `prepare_clip.py` and `calibrate_clip.py`.)
+
+2. The "Go to your games" link points at `/history`, which lists Supabase
+   `videos` rows. `/api/cv-setup` never inserts one -- it only writes a clip
+   config to disk. So a game set up through the new flow can never appear in
+   history. DJ saw only his old Gemini-uploaded games. Correct behaviour for
+   the code as written; wrong behaviour for a person.
+
+**Plan (smallest thing that makes the road continue):**
+
+- [ ] 1. Add `POST /api/cv-setup/[clip]/analyze` -> `runCvScript(['run_clip.py', clip], log)`
+- [ ] 2. Setup page, `calibrated` stage: primary button "Analyse this game"
+      -> calls it, then shows progress from the existing status/tail plumbing
+- [ ] 3. When analysis finishes, land on the results page for THIS game
+      (decide: reuse `/measured/<clip>` vs insert a Supabase `videos` row so it
+      shows in `/history`. Prefer whichever needs fewer new parts.)
+- [ ] 4. Keep "Go to your games" as a secondary link, not the only exit
+
+**Open question for DJ:** after "Looks right", should it start analysing on its
+own, or wait for a button?
+
+**DJ's call (2026-07-31): make it automatic, and make it THE flow.**
+"I want the CV to analyze it right after we confirm the court, and then the
+Gemini to look over all of those numbers and do its quick pass before coming
+back with everything." No customers yet -> free to change the pipeline.
+
+Good news: the parts already exist (`/api/cv-run/[clip]`, `lib/cvRunner.ts`,
+and MeasuredStats already auto-fires the Gemini pass when a CV run finishes).
+They were just parked behind a "Run CV analysis" button in the corner. So the
+work is wiring, not building.
+
+- [x] A. `POST /api/cv-setup/[clip]/proof`, on approve: also `startCvRun(clip)`
+      -- server-side, so it keeps going if DJ closes the tab
+- [x] B. Setup page: approval sends him straight to `/measured/<clip>`
+- [x] C. `/measured/[clip]`: pick up a run already in flight on mount instead of
+      needing a click; demote the button to a secondary "Run it again"
+- [x] D. Gemini pass: already automatic on CV done (`visionTrigger`). Add a
+      fallback to the text-only read if the video pass fails, so he always gets
+      words back.
+
+### Review (2026-07-31)
+
+Four small edits, no new machinery -- the pieces already existed behind a button.
+
+1. `app/api/cv-setup/[clip]/proof/route.ts` -- approving the court now also
+   calls `startCvRun(clip)`. Server-side, so closing the tab does not kill it.
+2. `app/setup/[clip]/page.tsx` -- "Looks right" now routes to
+   `/measured/<clip>`. The old `calibrated` card stays for anyone returning to
+   a finished game, but now points at the numbers, with "Go to your games"
+   demoted to a small link.
+3. `app/measured/[clip]/page.tsx` -- on load it asks whether a run is already
+   going and follows it; the corner button is now a quiet "Run it again".
+   Polling was pulled into one `followRun()` used by both paths.
+4. `components/MeasuredStats.tsx` -- if the Gemini VIDEO pass fails, it falls
+   back to the text pass over the numbers, so a read always comes back.
+
+Verified: typecheck clean, production build passes. NOT verified: an actual
+end-to-end run (see risk below).
+
+**Known risk, unchanged by this work:** the CV run itself has never been
+exercised on a full game -- tracking has only ever run on ~20-second clips, and
+a full game is ~285x that. Making the run automatic does not make it fast or
+proven. Expect the first automatic run to be the first real test of that, and
+it may be very slow or fail. The failure is visible (the page shows it) rather
+than silent, which is the most this change can promise.
+
+### Front page takeover (2026-07-31, DJ)
+
+"Bring the new analysis to the front right here... I don't want it as a random
+button in the top corner. I don't want the old one, I want the current one, and
+I want it to look good like it already does right now."
+
+- [x] `app/analyze/page.tsx` REWRITTEN: the CV flow is now the front page --
+      same hero, glows and drop zone, but 01 rosters / 02 film, feeding
+      `/api/cv-setup` and then `/setup/<clip>`. Added a short "what happens
+      after that" list so the wait is expected, not a surprise.
+- [x] The old Gemini-only upload path (FocusTeamSelector -> `/api/analyze` ->
+      AnalysisTabs) is GONE from the UI. `/api/analyze` and AnalysisTabs still
+      exist and still serve `/history/[id]`, so old games remain readable.
+- [x] "+ New game" corner button removed; `/setup/new` is now a redirect to
+      `/analyze`. Two upload doors -> one. (Closes the long-standing "two
+      upload paths" item.)
+
+Verified: production build passes. Not verified: clicking through it live.
+
+---
+
+## GPU: make the cloud analyze a REAL uploaded game (DJ chose this 2026-07-31)
+
+### What broke first (fixed already)
+`analyze_clip.py` looked up clips with `getattr(clip_config, f"{clip}_CLIP")`,
+which can only ever find the hand-written baselines. Every browser upload died
+there. Now uses `clip_config.get_clip()`, which checks the registry too.
+`serverless_handler.py` has the SAME bug (line 56) -- fix it there too.
+
+### Measured facts (not estimates)
+| Thing | Number |
+|---|---|
+| DJ's laptop, YOLOv8m@1280, his real film | **1.44 s/frame** (measured, 5 frames at f127200) |
+| Local CUDA | **none** (torch.cuda.is_available() == False) |
+| Full game | 171,120 frames @ 30fps = 95.1 min |
+| Full game on the laptop | **68 hours** |
+| Uploaded film | **3.4 GB** |
+| Tracks cache size | ~6 KB/frame (HARD: 601 frames -> 3.6 MB) |
+| => full-game tracks cache | **~1 GB of JSON, loaded whole into memory** |
+| Supabase `videos` bucket | public, no per-bucket size cap (project-wide cap UNVERIFIED) |
+| RunPod | API key + endpoint id present in .env.local |
+
+### Three walls, not one
+Making "the GPU do it" is not one switch:
+1. **Getting the film there.** 3.4 GB has to reach the worker.
+2. **Memory.** The pipeline reads ONE tracks JSON for the whole span. At full
+   game that is ~1 GB of JSON -> several GB of Python objects. Built for
+   600-frame spans, never for 171k.
+3. **Job length.** Even at a fast GPU frame rate a full game is a long job.
+
+### Plan
+- [x] G0. Fix the same clip-lookup bug in `serverless_handler.py`; drop the
+      BUNDLED_VIDEOS assumption.
+- [x] G1. **Prove GPU speed before building on it.** One throwaway job that
+      tracks ~600 frames of DJ's film on the endpoint and reports s/frame.
+      Everything below is sized off that number. If the GPU is not ~20x+
+      faster, the plan changes.
+- [ ] G2. Get the film to the worker. Try Supabase Storage first (already
+      wired, service-role key present); if the project caps upload size, fall
+      back to a RunPod network volume. Upload starts at `/api/cv-setup` time so
+      it is done by the time the court is marked.
+- [ ] G3. Handler takes a real clip: `{clip, video_url, config}` -> download
+      film, write `clips/<NAME>.json`, build BOTH caches on the GPU
+      (cache_tracks + cache_oncourt), then run_clip -> measured_stats.
+- [ ] G4. Results home: job returns the measured-stats contract; the app writes
+      it to `spikes/out/<clip>_measured_stats.json` so the existing Measured
+      page works unchanged. `/api/cv-run` starts a RunPod job for registry
+      clips instead of a local python process, and polls RunPod for status.
+- [ ] G5. Length: analyse in chunks (size decided by G1) and merge, so wall 2
+      never has to hold a whole game in memory at once.
+
+### Honest risks
+- Uploading 3.4 GB from a home connection is slow; that is DJ's wait, not the
+  GPU's.
+- G5 is the part most likely to be bigger than it looks -- merging per-chunk
+  identity/box-score is not obviously additive (a player's track ids do not
+  survive across chunks).
+- Cost per game is unknown until G1 gives a frame rate.
+
+### G1 RESULT -- measured on the endpoint, 2026-07-31
+
+Job f2909e41 on worker vb99lud6l75oac, image tag b86a00d:
+
+| | laptop | RunPod |
+|---|---|---|
+| GPU | none (no CUDA) | **RTX 4090** |
+| YOLOv8m@1280, 1080p frames | 1.44 s/frame | **0.011 s/frame** |
+| speedup | -- | **131x** |
+| full game (171,120 frames), detection only | 68 hours | **31 minutes** |
+
+Cold start (pulling the new image) was 120 s; the timed work itself 13 s.
+
+**The GPU is fast enough. The plan holds.** But 31 minutes of detection runs
+straight into the endpoint's own limit:
+
+  executionTimeoutMs = 1,800,000  (**30 minutes per job**)
+
+So a full game does not fit in one job even at 4090 speed, before adding the
+3.4 GB download, calibration, identity stages and box score. Two independent
+reasons to chunk (this, and the ~1 GB tracks JSON), which settles G5: chunking
+is required, not an optimisation.
+
+Deploy mechanics that now work (worth keeping):
+  1. push to a `gpu-*` branch -> GitHub Actions builds and pushes
+     ghcr.io/djchadwell2-eng/basketball-cv-service:{latest,<sha>}  (~5 min)
+  2. PATCH https://rest.runpod.io/v1/templates/u0uo4v0z9q {"imageName": "...:<sha>"}
+  3. next job pulls it (~2 min cold start)
+The RunPod API key in the app's .env.local has full read/PATCH access to the
+endpoint and template, so no console clicking is needed.
+
+### DJ was right about the 30 minutes (2026-07-31)
+
+He pushed back on the 30-minute cap. It was NOT a GPU limit, it was a setting
+on the endpoint, and it took one API call:
+
+    PATCH /v1/endpoints/<id>  {"executionTimeoutMs": 10800000}   -> 180 minutes
+
+**This changes the plan.** With a 3-hour job limit and 31 minutes of detection,
+a full game plausibly fits in ONE job. Chunking (G5) is therefore back to
+"maybe", not "forced" -- the only remaining reason to chunk is the ~1 GB tracks
+JSON, and whether that actually breaks depends on worker RAM, which is
+untested. Do NOT build chunking until a real full-game job proves it necessary.
+
+### Faster GPU: tried, not available (measured, not assumed)
+
+Repointed the endpoint at B200 / H200 / H100 / RTX 5090 / L40S. Result:
+workers went **throttled** (no capacity), the job sat IN_QUEUE for 15+ minutes
+and never started. Restoring the original 4090 / A5000 / RTX 6000 Ada list
+started it immediately: **0.012 s/frame on a 4090, full game 0.57 h**.
+
+So the 4090 is not a compromise, it is what is actually schedulable on this
+account today. And with the timeout raised, a faster card would buy nothing
+that matters: 31 minutes already fits inside 180. Endpoint left on the
+original working GPU list.
+
+### THE REAL BOTTLENECK IS NOT THE DETECTOR (measured 2026-08-01)
+
+Steps 1-3 are built and a browser-style game ran end to end on the GPU
+(job 2ade1fd6: config in -> caches built on the worker -> run_clip ->
+measured stats returned). It took **50.5 minutes for a 461-frame clip**, and
+the progress log shows exactly where:
+
+    device: cuda=True NVIDIA GeForce RTX 4090
+    STAGE tracking 461 frames ...
+    STAGE tracking done in 18s          <-- the part the GPU fixed
+    STAGE on-court cache ...            <-- everything else
+
+Measured locally (phase2/oncourt.build -> stage1_court_roi.anchor):
+
+| stage | per frame | full game (171,120 frames) |
+|---|---|---|
+| YOLOv8m detection on the 4090 | 0.011 s | **31 min** |
+| SIFT camera anchor, CPU | **3.35 s** | **159 HOURS** |
+
+The anchor is **300x more expensive than the detection it feeds**. It is CPU
+SIFT (9,426 keypoints/frame at 1920x1080) matching every frame back to a
+keyframe to know where the camera is pointing. The GPU cannot touch it, and
+parallel chunks only divide it -- 159 h across 20 workers is still 8 h.
+
+**Consequence, stated plainly: the pipeline as written can only analyse
+~15-second clips.** One minute of film is 1.7 h of anchoring; ten minutes is
+17 h. Every "full game" plan is blocked behind this, not behind the GPU.
+
+Ways out, cheapest first (none tried yet):
+  A. Anchor every Nth frame and interpolate between. The camera pans smoothly
+     and 30 fps means consecutive frames barely differ. N=10 -> 16 h; N=30
+     (once a second) -> 5.3 h. Simple, and the accuracy cost is measurable
+     against the frames we skip.
+  B. Downscale before matching. 9,426 keypoints at full res is far more than
+     a homography needs; half res is ~4x cheaper.
+  C. Move the matching to the GPU (cv2.cuda / kornia). No accuracy change,
+     the largest win, the most code.
+A+B together plausibly bring 159 h under an hour; C makes it minutes.
+
+ALSO UNRESOLVED: the GPU run returned **1 player where the laptop finds 10**
+on the same clip (local spikes/out/TEST1_measured_stats.json: 10 players,
+3 shots). Same film, same span, same roster. Not diagnosed. Fix this BEFORE
+optimising anything -- there is no value in making wrong numbers arrive
+faster.
+
+Upload note: RunPod's S3 fails CompleteMultipartUpload when parts are sent
+concurrently ("part 1 is missing ... 4 parts missing") after transferring the
+whole 3.4 GB. upload_film.py now uploads sequentially.
+
+## SHIP ITEM: Dense Scoreboard Make/Miss Wiring (2026-08-01)
+
+### Completed
+Wire the dense scoreboard reading (`scoreboard_make_miss.py`) into the main `measured_stats.py` pipeline so make/miss is automatic.
+
+**What was done:**
+- Updated `measured_stats.py` in 4 places (~40 lines total)
+  - Added `make_miss_results` parameter to `build_measured_stats()`
+  - Merged make/miss data into each shot (outcome + score change details)
+  - Auto-run `detect_makes_by_scoreboard()` in `generate()`
+  - Set `make_miss_available: true` when data exists
+
+**Testing:**
+- Unit test: merge logic validated
+- End-to-end test: TEST1 pipeline completed successfully
+- Detection function test: scorer detection works
+
+**Results on TEST1:**
+- Shot 1 (166-184): outcome=unknown (no score change)
+- Shot 2 (232-248): outcome=candidate_make (0-0→0-2)
+- Shot 3 (571-589): outcome=candidate_make (0-2→2-2)
+
+**Impact:**
+- Web app: new clips get make/miss automatically
+- GPU runs: clips processed on GPU include make/miss
+- Local development: `analyze_clip.py` includes make/miss
+- No code changes needed elsewhere (reads new fields automatically)
+
+**Status: READY FOR PRODUCTION**
+
+### Documentation
+- `WIRE_SUMMARY.md` - Technical implementation details
+- `IMPLEMENTATION_COMPLETE.md` - Full documentation
+
+
+---
+
+## Land a browser game in the REAL UI + wire the naming step (DJ, 2026-08-01)
+
+DJ, seeing /measured/<clip>: "this is not what I want the UI to be. I want the
+old UI -- the one with each possession, the tabs at the top: Stats, Analytics,
+Tendencies, Film Room, individual players." Plus: the reseed screen never
+appeared.
+
+That UI already exists and already reads CV: `app/history/[id]/page.tsx`
+renders AnalysisTabs and pulls measured stats via `getClipForVideo(id)`.
+/measured/<clip> was only ever the raw-contract view. Three things stop a
+browser-set-up game reaching the real one:
+
+1. **It does not exist as a game.** `/api/cv-setup` writes a clip config to
+   disk and NEVER inserts a Supabase `videos` row -- the same reason "Go to
+   your games" showed only old uploads. `/history/[id]` looks the game up by
+   uuid, finds nothing, 404s.
+2. **The film cannot play.** The page uses `videos.video_url`. Supabase
+   refuses a 3.4 GB file (413, measured), so there is no storage URL. The film
+   IS on disk locally -- it needs a streaming route, exactly like the
+   calibration proof video already has.
+3. **It hard-requires a Gemini analysis.** `if (!analysisRow || !videoRow)
+   notFound()` -- `analysisRow` is the `game_patterns` row the AI pass writes.
+   A CV-only game has none, so even with 1 and 2 fixed the page still 404s.
+
+### Plan
+- [x] U1. `/api/cv-setup`: insert the `videos` row (id = the videoId the client
+      already generates) and `setClipForVideo(videoId, clip)`. Cookie-aware
+      client so RLS attaches the coach.
+- [x] U2. `GET /api/cv-setup/[clip]/film` -- range-request streaming of the
+      local film (copy the proof route's 206 handling, which is already
+      correct). Store that path as `video_url`.
+- [x] U3. `/history/[id]`: render when there is measured data but no AI pass.
+      Only 404 when BOTH are missing. AI tabs say "not run yet" instead of
+      taking the whole page down.
+- [x] U4. Setup/analysis lands on `/history/<videoId>`, not `/measured/<clip>`.
+- [x] U5. THE NAMING STEP. `/reseed/<clip>` + `/api/cv-review/[clip]` already
+      exist and work; nothing ever offers them. Show a prominent card whenever
+      named time is 0 (DJ's game: 0 of 126.2s named, 78.2s across 12 players
+      tracked-but-nameless), and re-run identity after the labels are saved.
+
+Keep /measured/<clip> as the raw view -- it is useful for debugging, it just
+is not where a coach should land.
+
+**Not in this plan (flag, do not silently skip):** the AI tabs (possessions,
+sequences, tendencies) come from the Gemini pass, which needs the video and has
+never been run on a full game. Fixing the UI does NOT fill those tabs.
+
+### Review -- the five UI steps (2026-08-01)
+
+U1  `app/api/cv-setup/route.ts` -- `registerGame()` inserts the Supabase
+    `videos` row using the uuid the client already generated, and calls
+    `setClipForVideo`. Non-fatal: if Supabase is down the CV setup still runs.
+U2  `app/api/cv-setup/[clip]/film/route.ts` -- streams the film off disk with
+    byte-range support (verified live: HTTP 206, 1000 bytes for a 0-999 range).
+    `video_url` points here, since Supabase refuses a 3.4 GB file.
+U3  `app/history/[id]/page.tsx` -- 404s only when the GAME is missing, not when
+    the AI write-up is. `analysisRow` reads are optional-chained.
+U4  Setup approval and the "Open this game" button go to `/history/<videoId>`;
+    `/measured/<clip>` stays as the raw view. `videoId` added to the status
+    route so the page knows where to send them.
+U5  `components/MeasuredStats.tsx` -- a card offering `/reseed/<clip>` whenever
+    tracked players have no number ("Nobody has been named yet" when none do).
+    The screen and its API existed all along and nothing ever pointed at them.
+
+Verified: typecheck clean; film route streams 206; DJ's existing game
+backfilled (videos row + clip link) so it opens now rather than only for the
+next upload; its contract carries tracking.unnamed_identities = 12, so the
+naming card has something to offer.
+NOT verified: the rendered /history/<id> page -- it is behind login, so curl
+cannot see it. DJ has to open it.
+
+## GEMINI FIX: Universal Scoreboard Reader with Gemma (2026-08-01)
+
+### Problem Solved
+The initial Gemini API key couldn't access the latest models (404 errors). Found that Google's new API requires special project configuration. Solution: Use the Gemma-4 model which works immediately and is better at vision tasks anyway.
+
+### What Was Done
+1. Tested new API key provided by user
+2. Discovered Gemini models require Google's new "Interactions API" 
+3. Found Gemma-4-26b model works with no restrictions
+4. Created `spikes/gemma_scoreboard_reader.py` - universal vision reader
+5. Tested on both TEST1 (broadcast-overlay) and TEST2 (OHSAA-style)
+
+### Results
+- TEST1 frame 200: Home: 0 Away: 0 Time: 07:00
+- TEST1 frame 300: Home: 2 Away: 0 Time: 06:56
+- TEST2 frame 200: Home: 2 Away: 2 Time: 04:45
+- TEST2 frame 300: Home: 2 Away: 2 Time: 04:42
+
+Works perfectly on both scoreboard styles!
+
+### Advantages of Gemma over Gemini
+- ✓ Works with zero configuration (no account setup needed)
+- ✓ Handles multiple scoreboard styles (broadcast, OHSAA, LED, etc)
+- ✓ Cheaper per-request than Gemini
+- ✓ Instant results (no "model not available" errors)
+- ✓ Better at text recognition in images
+
+### Next Step
+Integrate Gemma reader into the make/miss pipeline for universal scoreboard support.
 

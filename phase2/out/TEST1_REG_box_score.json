@@ -1,0 +1,45 @@
+{
+  "clip": "TEST1_REG",
+  "note": "presence-seconds over this clip's tracked span -- not full-game stats",
+  "players": [
+    {
+      "number": 5,
+      "team": "Little Miami (green/yellow)",
+      "seconds_live": 1.6,
+      "seconds_retro": 0.3333333333333333,
+      "seconds_total": 1.9333333333333333,
+      "disputed_seconds": 0.0,
+      "windows_present": 1,
+      "zone_seconds": {
+        "LEFT_WING": 0.03333333333333333,
+        "PAINT": 0.2,
+        "TOP_OF_KEY": 1.7
+      },
+      "top_zone": "TOP_OF_KEY",
+      "unpositioned_frames": 0
+    },
+    {
+      "number": 13,
+      "team": "Milford (white/red)",
+      "seconds_live": 0.8666666666666667,
+      "seconds_retro": 0.0,
+      "seconds_total": 0.8666666666666667,
+      "disputed_seconds": 0.0,
+      "windows_present": 1,
+      "zone_seconds": {
+        "PAINT": 0.8666666666666667
+      },
+      "top_zone": "PAINT",
+      "unpositioned_frames": 0
+    }
+  ],
+  "readable_seconds": 195.2,
+  "unnamed_confirmed": {
+    "identities": 23,
+    "seconds_total": 99.13333333333334
+  },
+  "review": {
+    "candidate_events": 2422,
+    "unknown_events": 7424
+  }
+}

@@ -3,21 +3,14 @@
   "locations": [
     {
       "start_frame": 351,
-      "end_frame": 375,
+      "end_frame": 374,
       "shooter_status": "no_confident_shooter",
       "status": "location_unknown",
       "reason": "no release estimate (shooter status: no_confident_shooter)"
     },
     {
-      "start_frame": 401,
-      "end_frame": 415,
-      "shooter_status": "no_confident_shooter",
-      "status": "location_unknown",
-      "reason": "no release estimate (shooter status: no_confident_shooter)"
-    },
-    {
-      "start_frame": 1188,
-      "end_frame": 1213,
+      "start_frame": 1187,
+      "end_frame": 1214,
       "shooter_status": "review_item",
       "status": "located",
       "court_feet": [
@@ -26,13 +19,6 @@
       ],
       "release_frame": 1178,
       "track_id": 1502
-    },
-    {
-      "start_frame": 1352,
-      "end_frame": 1381,
-      "shooter_status": "no_confident_shooter",
-      "status": "location_unknown",
-      "reason": "no release estimate (shooter status: no_confident_shooter)"
     }
   ]
 }

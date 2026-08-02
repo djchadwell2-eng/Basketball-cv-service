@@ -2,14 +2,14 @@
   "clip": "TEST1",
   "outcomes": [
     {
-      "start_frame": 58,
-      "end_frame": 70,
+      "start_frame": 57,
+      "end_frame": 93,
       "hoop": "far",
-      "checked_after_frame": 85,
+      "checked_after_frame": 93,
       "outcome": "candidate_miss",
       "evidence": {
-        "chain_start_frame": 92,
-        "start_dist_px": 68.7,
+        "chain_start_frame": 94,
+        "start_dist_px": 60.1,
         "end_frame": 98,
         "end_dist_px": 93.9
       }
@@ -39,14 +39,6 @@
         "end_frame": 262,
         "end_dist_px": 129.7
       }
-    },
-    {
-      "start_frame": 581,
-      "end_frame": 589,
-      "hoop": "near",
-      "checked_after_frame": 589,
-      "outcome": "unknown",
-      "reason": "no evidence either way"
     }
   ]
 }

@@ -39,8 +39,16 @@ GROUND_TRUTH = {
     # confirmed 2026-07-23, TEST 12 follow-up); (2234,2250) is a player
     # HOLDING the ball on an inbounds play (no pass until frame ~2340) --
     # not real ball motion at all, a bogus arc fit to detection jitter.
+    # (395,445) is the ORIGINAL DJ-refuted false positive -- a rebound caught
+    # and dished out to the perimeter (TEST 10, 2026-07-17, DJ eyeball: "NO
+    # shot attempt"), which v2, v3 and the TEST 17 control all claim as a
+    # layup. It was discussed in every test since and was NEVER ADDED HERE,
+    # so the harness has been silently checking 4 of the 5 known non-shots.
+    # Found 2026-07-25 when the control run claimed it and the check said
+    # nothing. Ground truth is only protection if it is actually written down.
     "HARD": {"shots": [(356, 381, "near"), (1188, 1211, "far")],
-             "deflections": [(418, 438), (1217, 1250), (1352, 1378), (2234, 2250)]},
+             "deflections": [(395, 445), (418, 438), (1217, 1250),
+                             (1352, 1378), (2234, 2250)]},
     "TEST1": {"shots": [(55, 74, "far"), (165, 184, "far"), (242, 250, "far"),
                         (315, 327, "far"), (581, 592, "near")],
               "deflections": []},
@@ -121,9 +129,19 @@ def main():
         print("\nGROUND TRUTH CHECK:")
         for (gs, ge, hoop) in gt["shots"]:
             # same shot = a claimed attempt at the right hoop covering the
-            # bulk of the verified span (starts/ends within 10 frames)
-            hits = [s for s in shots if s[2] == hoop
-                    and abs(s[0] - gs) <= 10 and abs(s[1] - ge) <= 10]
+            # BULK of the verified span. Overlap, not endpoint proximity:
+            # the old "both endpoints within 10 frames" test reported TEST 11's
+            # v3 far shot as MISSED because the arc started 11 frames early
+            # while fully containing the verified span -- a harness false
+            # alarm that needed a hand-correction in the log, and it fired
+            # again on the TEST 17 control. Flagged in TEST 11, fixed here.
+            hits = []
+            for s in shots:
+                if s[2] != hoop:
+                    continue
+                covered = min(s[1], ge) - max(s[0], gs)
+                if covered >= 0.5 * (ge - gs):
+                    hits.append(s)
             print(f"  verified shot {gs}-{ge} ({hoop}): "
                   f"{'REPRODUCED ' + str(hits[0]) if hits else '*** MISSED ***'}")
         for (ds, de) in gt["deflections"]:

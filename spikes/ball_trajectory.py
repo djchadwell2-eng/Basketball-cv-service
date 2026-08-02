@@ -118,7 +118,48 @@ def build_chains(frames_doc):
             if di not in used_d:
                 chains.append({"points": [(frame, cx, cy, conf)]})
                 active.append(len(chains) - 1)
-    return chains
+    return _merge_gapped_chains(chains)
+
+
+# Chains split by a gap too large for the per-frame association step above
+# (RECALL DIAGNOSIS, 2026-07-27): the ball can vanish from view for longer
+# than MAX_GAP_FRAMES on a real flight -- measured gaps of 16 and 34 frames
+# on a missed TEST4 3-pointer -- and reappear on the far side of a genuine,
+# continuous arc. classify_shot then reads the lone surviving tail as
+# "originates near the hoop and leaves", mistaking a shot's arrival for a
+# deflection, because the far-away release portion belongs to a different,
+# discarded chain.
+#
+# Two chains are stitched into one only if the COMBINED points still pass
+# the same physics gate _fit_segment enforces everywhere else (or its
+# bounded robust fallback) -- an unrelated later flight does not
+# coincidentally fit one parabola, so this is safe by the same argument as
+# _merge_split_arcs below, just one level up (whole chains, not arcs within
+# one chain). MAX_CHAIN_MERGE_GAP_FRAMES is set comfortably above both
+# measured gaps; the physics fit, not the gap size, is what keeps unrelated
+# events from being welded together.
+MAX_CHAIN_MERGE_GAP_FRAMES = 40
+
+
+def _merge_gapped_chains(chains):
+    if len(chains) < 2:
+        return chains
+    ordered = sorted(chains, key=lambda c: c["points"][0][0])
+    out = [ordered[0]]
+    for nxt in ordered[1:]:
+        cur = out[-1]
+        gap = nxt["points"][0][0] - cur["points"][-1][0]
+        if 0 < gap <= MAX_CHAIN_MERGE_GAP_FRAMES:
+            combined = sorted(cur["points"] + nxt["points"], key=lambda p: p[0])
+            if len(combined) >= MIN_FIT_LEN:
+                ok, _ = _fit_segment(combined)
+                if not ok:
+                    ok = _robust_whole_chain_fit(combined) is not None
+                if ok:
+                    out[-1] = {"points": combined}
+                    continue
+        out.append(nxt)
+    return out
 
 
 def _fit_segment(points):
@@ -206,6 +247,62 @@ def _robust_whole_chain_fit(pts):
     return None
 
 
+def _merge_split_arcs(arcs, pts):
+    """Re-join consecutive arcs that are really ONE ball flight.
+
+    The growth loop below is greedy: it takes the longest parabola it can fit
+    from point i, then RESTARTS at the point straight after it. A real flight
+    is not a perfect parabola in image space over a long span (camera pan and
+    perspective bend it), so a long flight can fail the residual gate as a
+    whole while both of its halves pass -- and the tail then becomes a second
+    "arc", which the shot layer counts as a second, non-existent attempt.
+
+    Measured on TEST4 (TEST 19): DJ's made 3-pointer at 2:27 was claimed
+    TWICE, as (4485,4508) and (4509,4518), from one smooth 33-point flight
+    inside a single chain -- ordinary fit rms_y 5.31 (over the limit) but the
+    robust fitter recovers the whole thing by dropping 3 points.
+
+    Safe against the OTHER adjacent-arc case by construction, not by a special
+    rule: a ball that BOUNCES off the rim reverses direction, which breaks the
+    chain builder's motion prediction, so the shot and its bounce land in
+    DIFFERENT chains (TEST4 0:15 = chains 41 and 42) and never reach this
+    function together. Only genuinely continuous motion is a merge candidate.
+    """
+    if len(arcs) < 2:
+        return arcs
+    out = [arcs[0]]
+    for nxt in arcs[1:]:
+        cur = out[-1]
+        # same continuity tolerance the chain builder itself uses; anything
+        # further apart is two events with a hole, not one carved flight
+        if nxt["start_frame"] - cur["end_frame"] > MAX_GAP_FRAMES + 1:
+            out.append(nxt)
+            continue
+        span = [p for p in pts if cur["start_frame"] <= p[0] <= nxt["end_frame"]]
+        ok, info = _fit_segment(span)
+        if ok:
+            out[-1] = {"start_frame": span[0][0], "end_frame": span[-1][0],
+                       "n_points": len(span), **info}
+            continue
+        robust = _robust_whole_chain_fit(span)
+        if robust is not None:
+            kept, info, dropped = robust
+            # Keep the FULL span's extent, not just the points that survived
+            # the fit. A dropped point is an outlier for fitting a CURVE, but
+            # it is still a real ball detection and it still defines where the
+            # flight began and ended -- which is what the shot layer reads to
+            # decide release distance and rim proximity. Measured on TEST4's
+            # 2:27 shot: using kept[] instead moved the apparent release 25px
+            # closer to the rim, flipping a 3-pointer to "layup", and threw
+            # away the frame nearest the rim (min_dist 39 -> 52).
+            out[-1] = {"start_frame": span[0][0], "end_frame": span[-1][0],
+                       "n_points": len(kept), "n_dropped": len(dropped),
+                       "dropped_frames": dropped, **info}
+            continue
+        out.append(nxt)      # cannot be one flight -- leave them separate
+    return out
+
+
 def classify_chain(chain):
     """Verdict for one chain: static_junk | too_short | arc | no_claim.
     An 'arc' carries the maximal passing sub-segments; a failing chain is
@@ -244,6 +341,8 @@ def classify_chain(chain):
         arcs.append({"start_frame": seg[0][0], "end_frame": seg[-1][0],
                      "n_points": len(seg), **info_best})
         i = i + len(seg)
+
+    arcs = _merge_split_arcs(arcs, pts)
 
     if not arcs:
         robust = _robust_whole_chain_fit(pts)

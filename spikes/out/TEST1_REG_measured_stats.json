@@ -1,0 +1,82 @@
+{
+  "clip": "TEST1_REG",
+  "meta": {
+    "make_miss_available": false,
+    "box_score_note": "presence-seconds over this clip's tracked span -- not full-game stats",
+    "touches_available": false,
+    "shooter_attribution_available": false,
+    "shooter_attribution_verified": false,
+    "shots_attributed": 0,
+    "shooter_note": "Who took each shot is INFERRED from who was last SEEN holding the ball (within 2s). It has never been checked against ground truth -- this project has confirmed WHICH arcs are shots, never WHO took them. Shots with no recorded touch in time are left unattributed rather than guessed. Label as unverified.",
+    "touch_note": "No ball-touch data for this clip (the ball layer has not been run on it).",
+    "court": {
+      "length_ft": 84.0,
+      "width_ft": 50.0,
+      "hoop_dx_ft": 5.25,
+      "three_radius_ft": 19.75
+    },
+    "shot_layer_available": false
+  },
+  "tracking": {
+    "named_seconds": 2.8,
+    "unnamed_seconds": 99.1,
+    "unnamed_identities": 23,
+    "readable_seconds": 195.2,
+    "pct_of_readable_named": 1.4,
+    "review_backlog": {
+      "candidate_events": 2422,
+      "unknown_events": 7424
+    }
+  },
+  "box_score": [
+    {
+      "number": 5,
+      "team": "Little Miami (green/yellow)",
+      "seconds_total": 1.9333333333333333,
+      "seconds_live": 1.6,
+      "seconds_retro": 0.3333333333333333,
+      "windows_present": 1,
+      "zone_seconds": {
+        "LEFT_WING": 0.03333333333333333,
+        "PAINT": 0.2,
+        "TOP_OF_KEY": 1.7
+      },
+      "top_zone": "TOP_OF_KEY",
+      "disputed_seconds": 0.0,
+      "ambiguous": false
+    },
+    {
+      "number": 13,
+      "team": "Milford (white/red)",
+      "seconds_total": 0.8666666666666667,
+      "seconds_live": 0.8666666666666667,
+      "seconds_retro": 0.0,
+      "windows_present": 1,
+      "zone_seconds": {
+        "PAINT": 0.8666666666666667
+      },
+      "top_zone": "PAINT",
+      "disputed_seconds": 0.0,
+      "ambiguous": false
+    }
+  ],
+  "shots": [],
+  "shots_unlocated": 0,
+  "shot_distribution": {
+    "n": 0,
+    "counts": {
+      "three": 0,
+      "midrange": 0,
+      "paint": 0
+    },
+    "pct": {
+      "three": 0.0,
+      "midrange": 0.0,
+      "paint": 0.0
+    },
+    "pct_three": 0.0,
+    "pct_two": 0.0
+  },
+  "touches": [],
+  "touch_summary": null
+}
