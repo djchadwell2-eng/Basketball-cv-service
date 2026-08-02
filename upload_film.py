@@ -93,10 +93,16 @@ def upload(clip: str) -> str:
     print(f"[upload_film] STAGE upload {clip} ({size / 1e9:.2f} GB) -> "
           f"{VOLUME_ID}:{key}", flush=True)
 
+    # SEQUENTIAL, single-threaded on purpose. Uploading the parts in parallel
+    # (max_concurrency=4) got 3.4 GB across and then failed at the last step
+    # with "part 1 is missing; cannot complete multipart upload; 4 parts
+    # missing" -- RunPod's S3 does not reliably register concurrently-uploaded
+    # parts. One at a time costs little here (a home connection is the limit,
+    # not request latency) and it actually completes.
     from boto3.s3.transfer import TransferConfig
     cfg = TransferConfig(multipart_threshold=64 * 1024 * 1024,
                          multipart_chunksize=64 * 1024 * 1024,
-                         max_concurrency=4, use_threads=True)
+                         max_concurrency=1, use_threads=False)
     t0 = time.time()
     _client().upload_file(src, VOLUME_ID, key, Config=cfg, Callback=_Progress(size))
     dt = time.time() - t0

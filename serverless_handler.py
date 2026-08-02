@@ -263,6 +263,23 @@ def handler(job):
 
     # A look at the mounted volume: proves the film landed where the job will
     # expect it, without spending GPU minutes to find out.
+    # Can the GPU do the CAMERA ANCHOR too? Speed AND agreement in feet against
+    # the CPU path -- see spikes/gpu_anchor_bench.py. Nothing local has CUDA, so
+    # this measurement can only happen here.
+    if job_input.get("mode") == "anchorbench":
+        clip = job_input.get("clip", "")
+        doc = job_input.get("config")
+        try:
+            if doc:
+                _install_uploaded_clip(clip, doc, job_input.get("span"))
+            import gpu_anchor_bench
+            out = gpu_anchor_bench.bench(clip, int(job_input.get("start", 0)),
+                                         int(job_input.get("frames", 20)))
+            return {"ok": "error" not in out, "mode": "anchorbench", **out}
+        except Exception as e:
+            return {"ok": False, "mode": "anchorbench", "error": str(e),
+                    "traceback": traceback.format_exc()}
+
     # Read a running job's progress file. Cheap, no GPU work -- but it needs a
     # SECOND worker slot, since the job it is reporting on is holding the first.
     if job_input.get("mode") == "progress":

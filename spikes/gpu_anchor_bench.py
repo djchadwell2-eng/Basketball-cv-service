@@ -1,0 +1,177 @@
+"""gpu_anchor_bench.py -- put the CAMERA ANCHOR on the GPU, and prove it.
+
+WHY. Working out where the camera points is the pipeline's real scaling wall:
+3.35 s/frame on DJ's laptop for a 15-second clip, ~179 s/frame on a full game
+under load. YOLO detection was 68 h -> 31 min on the endpoint's 4090; this
+stage never moved, because it calls OpenCV's CPU SIFT.
+
+WHAT THIS DOES. The same job -- match a frame to its nearest keyframe, estimate
+the homography -- with feature detection and matching done in torch on the GPU
+(kornia's SIFT), then RANSAC on the handful of matched points (cheap, stays on
+the CPU where OpenCV is fine).
+
+WHAT IT REPORTS. Speed is the easy half. The half that decides whether this is
+usable is AGREEMENT: for each frame, where would a player standing at a known
+spot be placed by the GPU anchor versus the CPU one? Measured in FEET, because
+feet is what the pipeline decides in and what DJ judges a court by (0.21 ft
+"utter perfection", 0.94 ft "broken"). A fast anchor that moves players a foot
+is not a win.
+
+Runs on the GPU worker (mode "anchorbench"), because nothing local has CUDA.
+"""
+
+from __future__ import annotations
+
+import os
+import sys
+import time
+
+import cv2
+import numpy as np
+
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+for _p in (_ROOT, os.path.join(_ROOT, "spikes"),
+           os.path.join(_ROOT, "phase1"), os.path.join(_ROOT, "phase2")):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
+# Same probe spots the subsampling test uses: spread over the floor, away from
+# the horizon where any homography's error explodes and basketball never happens.
+PROBE_FEET = [(x, y) for x in (10, 25, 42, 59, 74) for y in (8, 25, 42)]
+
+RANSAC_PX = 3.0
+
+
+def _gpu_sift(device, n_features=4000):
+    import kornia.feature as KF
+    return KF.SIFTFeature(num_features=n_features, device=device).eval()
+
+
+def _to_tensor(img_bgr, device):
+    import torch
+    gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY).astype(np.float32) / 255.0
+    return torch.from_numpy(gray)[None, None].to(device)
+
+
+def _gpu_match(sift, ta, tb):
+    """Keypoint correspondences between two frames, entirely on the GPU."""
+    import torch
+    import kornia.feature as KF
+    with torch.inference_mode():
+        lafs_a, _, desc_a = sift(ta)
+        lafs_b, _, desc_b = sift(tb)
+        _, idxs = KF.match_smnn(desc_a[0], desc_b[0], 0.9)
+        pa = KF.get_laf_center(lafs_a)[0][idxs[:, 0]].cpu().numpy()
+        pb = KF.get_laf_center(lafs_b)[0][idxs[:, 1]].cpu().numpy()
+    return pa, pb
+
+
+def _feet_error(H_court, T_ref, T_test):
+    """How far apart do the two anchors place the same court spots? In feet."""
+    try:
+        f2p_ref = np.linalg.inv(H_court @ T_ref)
+        f2p_test = np.linalg.inv(H_court @ T_test)
+    except np.linalg.LinAlgError:
+        return None
+    p2f = H_court @ T_ref
+    errs = []
+    for (x, y) in PROBE_FEET:
+        a = f2p_ref @ np.array([x, y, 1.0])
+        b = f2p_test @ np.array([x, y, 1.0])
+        if abs(a[2]) < 1e-9 or abs(b[2]) < 1e-9:
+            continue
+        fa = p2f @ np.array([a[0] / a[2], a[1] / a[2], 1.0])
+        fb = p2f @ np.array([b[0] / b[2], b[1] / b[2], 1.0])
+        if abs(fa[2]) < 1e-9 or abs(fb[2]) < 1e-9:
+            continue
+        errs.append(float(np.hypot(fa[0] / fa[2] - fb[0] / fb[2],
+                                   fa[1] / fa[2] - fb[1] / fb[2])))
+    return errs or None
+
+
+def bench(clip: str, start: int, n_frames: int = 20) -> dict:
+    import torch
+    import clip_config
+    import clips_config
+    cfg = clip_config.get_clip(clip)
+    if cfg is None:
+        return {"error": f"no clip {clip}"}
+    clip_config.ACTIVE_CLIP = cfg
+    clips_config.ACTIVE = clip
+
+    import stage1_court_roi as st
+    import stage2_multikeyframe as s2
+    import refit_keyframes
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    H_court, anchor, fps, total = st.build_court_anchor()
+
+    # The keyframe images the CPU anchor matches against -- reused here so both
+    # paths are doing the SAME job, not two different ones.
+    KF_list, ref_pos, Hs_opt, L_opt, tags = refit_keyframes.refit()
+    kf_imgs = s2.extract_frames(s2.VIDEO_PATH, KF_list)
+    KF_arr = np.array(KF_list)
+
+    frames = list(range(start, start + n_frames))
+    imgs = [(f, im) for f, im in s2.iter_frames(cfg.video_path, frames)]
+    if not imgs:
+        return {"error": "no frames read"}
+
+    # --- CPU baseline -------------------------------------------------------
+    t0 = time.time()
+    cpu_T = {}
+    for f, im in imgs:
+        T, inl, reproj, kf = anchor(f, im)
+        cpu_T[f] = T
+    cpu_per = (time.time() - t0) / len(imgs)
+
+    # --- GPU ----------------------------------------------------------------
+    sift = _gpu_sift(device)
+    kf_tensors = {k: _to_tensor(img, device) for k, img in kf_imgs.items()}
+    # one warm-up so CUDA init and kernel compilation are not counted as speed
+    _gpu_match(sift, kf_tensors[KF_list[0]], _to_tensor(imgs[0][1], device))
+
+    t0 = time.time()
+    gpu_T, gpu_fail = {}, 0
+    for f, im in imgs:
+        k = int(KF_arr[np.argmin(np.abs(KF_arr - f))])
+        pos = KF_list.index(k)
+        pk, pf = _gpu_match(sift, kf_tensors[k], _to_tensor(im, device))
+        if len(pk) < 10:
+            gpu_fail += 1
+            gpu_T[f] = None
+            continue
+        H, mask = cv2.findHomography(pf.reshape(-1, 1, 2), pk.reshape(-1, 1, 2),
+                                     cv2.RANSAC, RANSAC_PX)
+        if H is None:
+            gpu_fail += 1
+            gpu_T[f] = None
+            continue
+        T = Hs_opt[pos] @ H
+        gpu_T[f] = T / T[2, 2]
+    gpu_per = (time.time() - t0) / len(imgs)
+
+    # --- do they agree? -----------------------------------------------------
+    all_errs = []
+    compared = 0
+    for f, _ in imgs:
+        if cpu_T.get(f) is None or gpu_T.get(f) is None:
+            continue
+        e = _feet_error(H_court, cpu_T[f], gpu_T[f])
+        if e:
+            all_errs.extend(e)
+            compared += 1
+
+    full_game = 171120
+    return {
+        "clip": clip, "start": start, "frames": len(imgs), "device": device,
+        "cpu_s_per_frame": round(cpu_per, 3),
+        "gpu_s_per_frame": round(gpu_per, 3),
+        "speedup": round(cpu_per / gpu_per, 1) if gpu_per else None,
+        "cpu_full_game_hours": round(full_game * cpu_per / 3600, 1),
+        "gpu_full_game_hours": round(full_game * gpu_per / 3600, 1),
+        "gpu_failed_frames": gpu_fail,
+        "frames_compared": compared,
+        "agreement_mean_ft": round(float(np.mean(all_errs)), 3) if all_errs else None,
+        "agreement_max_ft": round(float(np.max(all_errs)), 3) if all_errs else None,
+    }
