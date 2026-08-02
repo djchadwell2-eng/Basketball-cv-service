@@ -53,17 +53,29 @@ def _to_tensor(img_bgr, device):
     return torch.from_numpy(gray)[None, None].to(device)
 
 
-def _gpu_match(sift, ta, tb):
-    """Keypoint correspondences between two frames, entirely on the GPU."""
+def _describe(sift, t):
+    """Keypoint centres + descriptors for one image, on the GPU."""
+    import torch
+    with torch.inference_mode():
+        lafs, _, desc = sift(t)
+    import kornia.feature as KF
+    return KF.get_laf_center(lafs)[0], desc[0]
+
+
+def _match(desc_a, pts_a, desc_b, pts_b):
     import torch
     import kornia.feature as KF
     with torch.inference_mode():
-        lafs_a, _, desc_a = sift(ta)
-        lafs_b, _, desc_b = sift(tb)
-        _, idxs = KF.match_smnn(desc_a[0], desc_b[0], 0.9)
-        pa = KF.get_laf_center(lafs_a)[0][idxs[:, 0]].cpu().numpy()
-        pb = KF.get_laf_center(lafs_b)[0][idxs[:, 1]].cpu().numpy()
-    return pa, pb
+        _, idxs = KF.match_smnn(desc_a, desc_b, 0.9)
+    return (pts_a[idxs[:, 0]].cpu().numpy(), pts_b[idxs[:, 1]].cpu().numpy())
+
+
+def _gpu_match(sift, ta, tb):
+    """Both images described from scratch -- the naive version, kept so the
+    keyframe-caching win can be measured against it rather than assumed."""
+    pa, da = _describe(sift, ta)
+    pb, db = _describe(sift, tb)
+    return _match(da, pa, db, pb)
 
 
 def _feet_error(H_court, T_ref, T_test):
@@ -89,7 +101,11 @@ def _feet_error(H_court, T_ref, T_test):
     return errs or None
 
 
-def bench(clip: str, start: int, n_frames: int = 20) -> dict:
+def bench(clip: str, start: int, n_frames: int = 20, cpu_frames: int | None = None) -> dict:
+    """cpu_frames: how many frames to ALSO do the slow way. The CPU path costs
+    ~49 s/frame on a full game, so timing it on every frame turns a 2-minute
+    measurement into a 2-hour one. A handful is enough to establish both its
+    rate and whether the GPU agrees with it."""
     import torch
     import clip_config
     import clips_config
@@ -118,12 +134,13 @@ def bench(clip: str, start: int, n_frames: int = 20) -> dict:
         return {"error": "no frames read"}
 
     # --- CPU baseline -------------------------------------------------------
+    cpu_n = min(cpu_frames or len(imgs), len(imgs))
     t0 = time.time()
     cpu_T = {}
-    for f, im in imgs:
+    for f, im in imgs[:cpu_n]:
         T, inl, reproj, kf = anchor(f, im)
         cpu_T[f] = T
-    cpu_per = (time.time() - t0) / len(imgs)
+    cpu_per = (time.time() - t0) / max(1, cpu_n)
 
     # --- GPU ----------------------------------------------------------------
     sift = _gpu_sift(device)
@@ -131,12 +148,21 @@ def bench(clip: str, start: int, n_frames: int = 20) -> dict:
     # one warm-up so CUDA init and kernel compilation are not counted as speed
     _gpu_match(sift, kf_tensors[KF_list[0]], _to_tensor(imgs[0][1], device))
 
+    # THE KEYFRAMES ARE DESCRIBED ONCE. There are five of them and they never
+    # change, yet the naive loop re-analysed the same photo for every frame of
+    # the game -- re-reading the map at every step instead of once before
+    # setting off. Doing it up front removes half the per-frame work at zero
+    # cost to the result: the descriptors are identical either way.
+    kf_desc = {k: _describe(sift, t) for k, t in kf_tensors.items()}
+
     t0 = time.time()
     gpu_T, gpu_fail = {}, 0
     for f, im in imgs:
         k = int(KF_arr[np.argmin(np.abs(KF_arr - f))])
         pos = KF_list.index(k)
-        pk, pf = _gpu_match(sift, kf_tensors[k], _to_tensor(im, device))
+        pts_k, desc_k = kf_desc[k]
+        pts_f, desc_f = _describe(sift, _to_tensor(im, device))
+        pk, pf = _match(desc_k, pts_k, desc_f, pts_f)
         if len(pk) < 10:
             gpu_fail += 1
             gpu_T[f] = None
@@ -165,6 +191,7 @@ def bench(clip: str, start: int, n_frames: int = 20) -> dict:
     full_game = 171120
     return {
         "clip": clip, "start": start, "frames": len(imgs), "device": device,
+        "cpu_frames_timed": cpu_n,
         "cpu_s_per_frame": round(cpu_per, 3),
         "gpu_s_per_frame": round(gpu_per, 3),
         "speedup": round(cpu_per / gpu_per, 1) if gpu_per else None,

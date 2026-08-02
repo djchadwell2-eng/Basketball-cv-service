@@ -274,7 +274,8 @@ def handler(job):
                 _install_uploaded_clip(clip, doc, job_input.get("span"))
             import gpu_anchor_bench
             out = gpu_anchor_bench.bench(clip, int(job_input.get("start", 0)),
-                                         int(job_input.get("frames", 20)))
+                                         int(job_input.get("frames", 20)),
+                                         job_input.get("cpu_frames"))
             return {"ok": "error" not in out, "mode": "anchorbench", **out}
         except Exception as e:
             return {"ok": False, "mode": "anchorbench", "error": str(e),
