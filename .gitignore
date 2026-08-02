@@ -1,3 +1,11 @@
+# SECRETS -- never commit. .env.local held a live GEMINI_API_KEY and was
+# committed on 2026-08-01; GitHub's push protection caught it before it
+# reached the remote, and the file was scrubbed from this branch's history.
+# The file itself stays on disk and keeps working -- it is just not source.
+.env
+.env.local
+.env*.local
+
 # Python
 __pycache__/
 *.pyc
