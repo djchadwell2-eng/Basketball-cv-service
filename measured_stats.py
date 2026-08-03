@@ -178,35 +178,81 @@ def build_touches(touch_doc, court_len):
     }
 
 
-# How stale a touch may be and still speak to a shot. Basketball reason, not a
-# fitted number: a player who last held the ball two seconds ago has had time to
-# pass it, so the memory stops being evidence. Same value spikes/shooter_compare
-# declared before its run -- kept identical so the app shows what that comparison
-# scored, not a second, differently-tuned answer.
+# FALLBACK ONLY, for a clip with no possession layer. How stale a touch may be
+# and still speak to a shot: a player who last held the ball two seconds ago has
+# had time to pass it. When possessions ARE available the possession boundary
+# replaces this, because it is a real basketball event rather than a stopwatch.
 SHOOTER_MAX_BACK_FRAMES = 60
 
 
-def attribute_shooter(touches, arc_start_frame):
+def attribute_shooter(touches, arc_start_frame, possessions=None):
     """WHO TOOK THIS SHOT -- the last player actually SEEN holding the ball
     before the arc began (spikes/ball_touch.shooter_from_touches, the method DJ
-    proposed 2026-07-27).
+    proposed 2026-07-27), bounded by the possession it happened in.
 
-    NOT VERIFIED, AND THE CONTRACT SAYS SO. The project's ground truth records
-    WHICH arcs are real shots; it has never recorded WHO TOOK THEM
-    (spikes/shooter_compare.py exists precisely to surface the disagreements for
-    DJ to settle). So every answer here rides with shooter_verified=False, and
-    the method ABSTAINS -- returns None -- rather than guessing whenever no
-    touch was recorded in time. A shot with no attributable shooter stays
-    unattributed; it is never assigned to the nearest body to fill the gap.
+    NO FIXED TIME LIMIT (DJ, 2026-08-03: "it doesn't have to be at release, it
+    could just be the last person to touch the ball"). The old 2-second ceiling
+    left real shots unattributed whenever the ball detector missed the release,
+    which is common -- the ball is small and fast at exactly that moment.
+
+    ON FLICKERS, and why there is no second threshold for them. DJ's worry was a
+    brief wrong toucher stealing the credit. That is already handled upstream:
+    ball_touch.build_touches requires a change of holder to be SUSTAINED for
+    MIN_TOUCH_FRAMES before it becomes a touch at all, so a blink never reaches
+    this function. And because this takes the LATEST touch, anyone who really
+    does hold the ball in between simply becomes the latest and is credited on
+    their own merit. Adding a second 2s rule here would be a duplicate dial
+    fighting the first one.
+
+    MEASURED, FOR ONCE. shooter_attribution_verified has been false since this
+    was built; on 2026-08-03 all six shots on TEST1/HARD/TEST2 were finally
+    checked against the video (filmstrips, ball circled, credited player boxed).
+    Result: when a touch existed at the right moment the body was right 3 times
+    out of 3, and the one wrong answer (TEST2 f110) came from reaching back to a
+    touch that had ended 1.3s earlier, after she had plainly passed it away.
+    That is the failure this function's gates exist to prevent, and it is
+    honestly still only partly prevented -- see the note on f110 in tasks/todo.md.
+
+    ABSTAINS -- returns None -- rather than guessing when no touch qualifies. A
+    shot with no attributable shooter stays unattributed; it is never assigned
+    to the nearest body to fill the gap.
     """
     if not touches:
         return None
+    shot_poss = (team_possessions.possession_of_frame(possessions, arc_start_frame)
+                 if possessions else None)
+
     best = None
     for t in touches:
         if t["start_frame"] > arc_start_frame:
             continue                       # began after the shot: cannot be it
-        if arc_start_frame - t["end_frame"] > SHOOTER_MAX_BACK_FRAMES:
-            continue                       # too stale to speak to this shot
+        if possessions:
+            # SAME POSSESSION ONLY (DJ, 2026-08-03). No time cap: the shooter is
+            # simply the last player to touch the ball, which is how basketball
+            # actually works. But the reach has to stop at a change of
+            # possession -- a player who gave the ball up before the other team
+            # had it cannot be the one who took this shot.
+            # WHY A GATE AT ALL, since the last-toucher rule sounds safe: our
+            # touch data is SPARSE (5-9 touches per clip), so "the last touch"
+            # can sit a whole transition earlier. TEST2's f146 shot has no touch
+            # within 2.5 seconds and none in its possession; without this gate
+            # the uncapped rule credits a girl from before the ball changed
+            # ends. DJ's read is that crossing a possession is rare anyway --
+            # this is cheap insurance for when it is not.
+            # A shot in NO possession gets no possession protection, so it falls
+            # back to the time ceiling. Matching None to None would mean "both
+            # happened outside any detected possession", which is not evidence
+            # they are related -- it let TEST1's f164 reach back unboundedly.
+            if shot_poss is None:
+                if arc_start_frame - t["end_frame"] > SHOOTER_MAX_BACK_FRAMES:
+                    continue
+            elif team_possessions.possession_of_frame(
+                    possessions, t["end_frame"]) != shot_poss:
+                continue
+        elif arc_start_frame - t["end_frame"] > SHOOTER_MAX_BACK_FRAMES:
+            # No possession layer for this clip: fall back to the old 2s ceiling
+            # rather than reaching back unboundedly with nothing to stop it.
+            continue
         if best is None or t["end_frame"] > best["end_frame"]:
             best = t
     return best
@@ -258,6 +304,9 @@ def build_measured_stats(clip, box_doc, loc_doc, att_doc, court_len=COURT_LEN,
 
     touches, touch_summary = (build_touches(touch_doc, court_len)
                               if touch_doc else ([], None))
+    # Built BEFORE the shot loop: attribute_shooter needs them to know how far
+    # back a touch may reach (it must stay inside the shot's own possession).
+    possessions, poss_summary = build_possessions(poss_doc)
 
     shots = []
     unlocated = 0
@@ -268,7 +317,7 @@ def build_measured_stats(clip, box_doc, loc_doc, att_doc, court_len=COURT_LEN,
         cx, cy = loc["court_feet"]
         zone, dist = classify_zone(cx, cy, court_len)
         att = att_by_span.get((loc["start_frame"], loc["end_frame"]), {})
-        who = attribute_shooter(touches, loc["start_frame"])
+        who = attribute_shooter(touches, loc["start_frame"], possessions)
         shot = {
             "start_frame": loc["start_frame"], "end_frame": loc["end_frame"],
             "court_x": cx, "court_y": cy, "zone": zone, "dist_ft": dist,
@@ -300,7 +349,6 @@ def build_measured_stats(clip, box_doc, loc_doc, att_doc, court_len=COURT_LEN,
     # jump from a shot to the whole sequence that produced it. A shot that
     # lands outside every possession keeps possession_index None rather than
     # being snapped to the nearest one.
-    possessions, poss_summary = build_possessions(poss_doc)
     if possessions:
         team_possessions.tag_shots(shots, possessions)
     else:

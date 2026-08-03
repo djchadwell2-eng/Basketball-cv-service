@@ -6420,3 +6420,187 @@ did not move.
 ### Still true, still not fixed
 A misread that happens to look like a legal jump FOR THAT ZONE still passes.
 These guards remove the impossible, which is a floor, not a guarantee.
+
+---
+
+# NEXT SYSTEM: WHO TOOK THE SHOT -- PLAN, 2026-08-03
+
+## The problem in one line
+We can say a shot happened, where, whether it went in, and which team had the
+ball. We usually cannot say WHO -- and every per-player stat you want needs a
+name.
+
+## What I measured first (not guessed)
+  shots whose shooter is known:  TEST1 0/2   HARD 0/1   TEST2 2/3
+  players named, % of readable time:   65%       36%        43%
+  shooter_attribution_verified: FALSE on every clip -- no "who shot it" answer
+  has EVER been checked against the truth.
+
+## A hypothesis I had, tested, and THREW AWAY
+I thought the names were probably already in the data, just filed under the
+wrong record: identity_id is scoped per window, so one player becomes many
+records and maybe only one of them got read. Cross-window carrying would then
+be free names.
+MEASURED: it recovers ZERO touches (TEST1 2->2, HARD 6->6, TEST2 4->4). The
+players who touch the ball near shots were never read by OCR ANYWHERE. Idea
+dropped before writing any code.
+One good thing did come out of it: across all three clips, 46 tracks carry an
+OCR name and NONE of them disagree with themselves. Track-level naming is
+consistent -- it is just far too rare.
+
+## The real cause, already diagnosed in this repo
+phase2/DECISIONS.md section 4b, from a montage the team eyeballed: the gap is
+DISTANCE and crop size, NOT jersey contrast. Players stay small across the pan.
+Read rates: TEST1 25% of windows, HARD 5%. Its own ranked levers were
+  (1) best-crops-first selection  -- DONE, roughly doubled the rate
+  (2) footage zoom / 4K           -- your camera work, not code
+  (3) a human queue               -- clicking
+
+## What is new since that diagnosis
+Those decisions were written 2026-07-06..13. The Gemma vision model arrived
+LAST SESSION. Nobody has ever pointed it at a jersey.
+And we now have direct evidence it is good at exactly this shape of problem:
+small, low-contrast, partly-obscured digits. It read TEST2's scoreboard
+perfectly and TEST1's clean frames 3/3 identical, where the old reader was
+cutting the board in half.
+phase2/ocr_reader.py is EXPLICITLY built for this -- its docstring calls
+read_jersey() "the swappable engine seam: today it wraps EasyOCR; a future
+fine-grained reader drops in behind the same signature."
+
+## Todo items
+
+- [ ] 1. Build a fair head-to-head harness. Take the EXACT crops stage6 already
+      feeds EasyOCR (same best-crops-first selection, same closed-set roster
+      filter), and read each one with BOTH engines. Change nothing else.
+- [ ] 2. Measure on TEST1, HARD and TEST2: how many crops each engine reads,
+      and -- the number that actually matters -- how many are RIGHT. Ground
+      truth by eye on a sample, because a reader that reads twice as often and
+      is wrong is worse than useless here.
+- [ ] 3. Solve the confidence problem BEFORE adopting anything. EasyOCR returns
+      a calibrated 0..1 score and the whole safety design hangs off
+      OCR_CONFIRM_THRESHOLD = 0.85. A VLM just says "24" with no score. Plan:
+      read each crop N times and require agreement, the same self-consistency
+      trick that just worked on the scoreboard. No agreement, no confirm.
+- [ ] 4. Only if it clearly wins: drop it in behind read_jersey() and rerun.
+      If it does not win, record the negative result in DECISIONS.md and stop
+      -- a measured "no" is a real outcome here (see the re-ID probe, §11).
+- [ ] 5. Separately and regardless: VERIFY shooter attribution. Take every shot
+      on the three clips, look at the video, write down who really shot it.
+      That number has never existed. Without it we cannot tell improvement from
+      noise.
+
+## Rules I am holding to
+- Nothing is adopted on read-RATE alone. Rate without correctness is a way to
+  attribute stats to the wrong girl, which is the one thing this codebase has
+  always refused to do.
+- The abstention machinery stays exactly as it is. A new reader feeds the same
+  gate; it does not get its own path to CONFIRMED.
+- Thresholds written down before the run, not tuned after seeing the answers.
+
+## The honest ceiling
+If a player is 20 pixels tall with her back turned, no reader on earth gets her
+number. Some of this gap is your camera, not the code, and I will say so plainly
+if that is where the measurement lands.
+
+## Cost note
+Gemma is about $0.008 per game for a handful of scoreboard frames. Jerseys are
+FAR more crops (hundreds per clip), so this is the one place cost could become
+real. Step 2 will report actual cost per clip before anything is adopted.
+
+## SHOOTER ATTRIBUTION -- FIRST EVER VERIFICATION, 2026-08-03
+
+shooter_attribution_verified has been FALSE since the feature was built. This is
+the first time anyone has checked the answers against the video. Method: render
+a filmstrip per shot (release -0.8s to +0.3s), box the credited player in green,
+circle the detected ball in orange, and watch who actually shoots.
+MY reads, pending DJ's confirmation -- he is the authority on his own film.
+
+  clip   shot    is the credited BODY the real shooter?   does it have a NAME?
+  TEST1  f164    -- no touch found at all --              --
+  TEST1  f236    YES  (ball in her hands f220, she puts it up)     no
+  HARD   f1187   YES  (ball in her hands f1179, she puts it up)    no
+  TEST2  f110    NO   -- see below                        yes, #4  (so: WRONG)
+  TEST2  f146    -- no touch found at all --              --
+  TEST2  f217    YES  (ball at her hands at release, then the rim) yes, #1  RIGHT
+
+SCORE
+  body correct, of the 4 shots it answered:  3/4
+  fully correct end to end (right girl, named): 1/6
+  CONFIDENTLY WRONG:                            1/6
+
+WHAT TEST2 f110 SHOWS (the important one). The credited touch ENDED AT FRAME 70
+and the shot released at 110 -- 40 frames, 1.3 seconds earlier. In between, at
+f86, the ball is plainly with a DIFFERENT white player on the left, and at
+release that other player is in a shooting follow-through while the credited
+girl is running up the middle. She had passed it away.
+The touch layer never recorded a touch for the real shooter, so
+attribute_shooter's 2-second look-back reached back to a stale touch and
+credited it. That is the one behaviour this codebase forbids everywhere else:
+it turned "we do not know" into a confident wrong answer.
+
+DIAGNOSIS -- DJ's design is NOT the problem
+When a touch exists at the right moment, the body is right every time (3/3).
+Three separate things break it, none of them the shot->ball->player chain:
+  1. MISSING TOUCHES (2 of 6 shots). The ball layer recorded nobody holding it
+     near the release, so there was nothing to attribute to.
+  2. STALE FALLBACK (1 of 6). With no touch at the release, the look-back
+     credits whoever held it up to 2s earlier, even when the ball was SEEN with
+     somebody else in between. Should abstain instead.
+  3. MISSING NAMES (2 of the 3 correct bodies). We know WHICH body shot it and
+     cannot say WHO she is. This is the OCR-distance problem from DECISIONS 4b.
+
+Fixing (2) is small and makes the system honest rather than wrong. Fixing (1)
+and (3) are the real work.
+
+## SHOOTER RULE UPDATE + A MEASURED NEGATIVE, 2026-08-03
+
+DJ's two corrections, implemented and measured against the verified truth above.
+
+### ADOPTED: last toucher, bounded by the possession
+"It doesn't have to be at release. It could just be the last person to touch the
+ball." The hard 2-second ceiling is gone. The one guard DJ approved: the touch
+must be in the SAME POSSESSION as the shot. His own read was that crossing a
+possession is nearly impossible given how the relinking works -- this is cheap
+insurance for when it is not.
+A shot in NO detected possession gets no possession protection, so it falls back
+to the 2s ceiling. Matching None to None would mean "both happened outside any
+possession", which is not evidence they are related -- without this, TEST1's
+f164 reached back unboundedly and credited a girl at random.
+NET EFFECT ON THESE CLIPS: none. Every answer is identical. The value is
+prospective, on longer clips where the ball detector misses a release.
+
+### NOT ADOPTED: the flicker rule as a second threshold
+DJ: "only a big deal if the ball is on another person for longer than two
+seconds." Already satisfied structurally, so no new dial was added:
+ball_touch.build_touches ALREADY requires a change of holder to be sustained for
+MIN_TOUCH_FRAMES before it becomes a touch, so a blink never reaches the shooter
+lookup; and because the rule takes the LATEST touch, anyone who genuinely holds
+it in between becomes the latest and is credited on their own merit. A second 2s
+dial would have fought the first one.
+
+### TESTED AND REJECTED: crediting brief sub-touch ball contacts
+THE IDEA, and it looked strong. TEST2's f110 was credited to the wrong girl.
+Frame-by-frame, the ball went 5 -> 38 -> 13 -> 8 -> 11 in the 40 frames before
+the release, four handoffs of 2-4 frames each -- all below MIN_TOUCH_FRAMES, so
+NONE became a touch and the lookup fell back to a girl who had passed it away.
+Track 11, the last body credited, is visibly in a shooting motion at the release
+(rendered and eyeballed). So: keep every credit run, not just the long ones, and
+let the shooter lookup use them. Exactly DJ's "last person to touch the ball",
+applied to the raw evidence.
+MEASURED HEAD TO HEAD on all six verified shots:
+    with brief credits:      3 right, 3 WRONG
+    touches only (current):  5 right, 1 WRONG
+It fixed f110 and broke f1187, f164 and f146. A ball passing NEAR a body reads
+as "held" for 2-3 frames without her ever having it, so brief credits are mostly
+noise -- the exact risk ball_touch's own docstring names ("a pass flying close
+over a girl's head looks identical to a hold for a handful of frames").
+REVERTED in full, code and all, rather than tuned into submission on six
+samples. That is how accel_y died (DECISIONS/TEST 11).
+
+### WHERE SHOOTER ATTRIBUTION ACTUALLY STANDS
+    5 of 6 right, 1 wrong (TEST2 f110), 0 wrongly abstaining.
+    Of the 4 it answers, 3 bodies are right; 2 of those 3 have no NAME.
+f110 stays wrong. Fixing it needs the touch layer to see the real shooter's
+3-frame contact WITHOUT admitting every 3-frame noise contact -- which the
+measurement above shows is not a threshold you can just lower. Left open and
+honest rather than papered over.
