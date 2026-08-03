@@ -101,6 +101,105 @@ def _feet_error(H_court, T_ref, T_test):
     return errs or None
 
 
+def subsample(clip: str, starts: list, n_frames: int = 300, ns=(2, 5, 10, 15, 30, 60)) -> dict:
+    """THE DECIDING TEST: can we anchor every Nth frame instead of every frame?
+
+    Anchoring every frame is 27.9 h of GPU work for a 95-minute game; even
+    across ten workers that is 2.8 h, and the owner's bar is 30 minutes. Every
+    other saving on the table is already counted. This is the step that decides
+    whether the target is reachable at all.
+
+    The yardstick is the GPU anchor run on EVERY frame -- itself already shown
+    to agree with the original CPU anchor to 0.008 ft mean. Error is reported
+    in FEET at spots spread over the floor, for the frames that would be
+    SKIPPED. Two ways of filling a gap are compared: reuse the last anchor
+    ("hold"), or blend the two either side ("interp").
+
+    Run at several places in the game on purpose: a still camera during a free
+    throw proves nothing about a fast break, and the honest number is the worst
+    one, not the average of the easy ones.
+    """
+    import torch
+    import clip_config
+    import clips_config
+    cfg = clip_config.get_clip(clip)
+    if cfg is None:
+        return {"error": f"no clip {clip}"}
+    clip_config.ACTIVE_CLIP = cfg
+    clips_config.ACTIVE = clip
+
+    import stage1_court_roi as st
+    import stage2_multikeyframe as s2
+    import refit_keyframes
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    H_court, _anchor, fps, total = st.build_court_anchor()
+    KF_list, ref_pos, Hs_opt, L_opt, tags = refit_keyframes.refit()
+    kf_imgs = s2.extract_frames(s2.VIDEO_PATH, KF_list)
+    KF_arr = np.array(KF_list)
+
+    sift = _gpu_sift(device)
+    kf_desc = {k: _describe(sift, _to_tensor(img, device)) for k, img in kf_imgs.items()}
+
+    spots = []
+    for start in starts:
+        frames = list(range(start, start + n_frames))
+        truth, failed = {}, 0
+        t0 = time.time()
+        for f, im in s2.iter_frames(cfg.video_path, frames):
+            k = int(KF_arr[np.argmin(np.abs(KF_arr - f))])
+            pts_k, desc_k = kf_desc[k]
+            pts_f, desc_f = _describe(sift, _to_tensor(im, device))
+            pk, pf = _match(desc_k, pts_k, desc_f, pts_f)
+            if len(pk) < 10:
+                failed += 1
+                continue
+            H, _ = cv2.findHomography(pf.reshape(-1, 1, 2), pk.reshape(-1, 1, 2),
+                                      cv2.RANSAC, RANSAC_PX)
+            if H is None:
+                failed += 1
+                continue
+            T = Hs_opt[KF_list.index(k)] @ H
+            truth[f] = T / T[2, 2]
+        per_frame = (time.time() - t0) / max(1, len(frames))
+
+        ok = sorted(truth)
+        rows = []
+        for N in ns:
+            anchored = [f for i, f in enumerate(ok) if i % N == 0]
+            if len(anchored) < 2:
+                continue
+            for mode in ("hold", "interp"):
+                errs = []
+                for f in ok:
+                    if f in anchored:
+                        continue
+                    prev = max([a for a in anchored if a <= f], default=None)
+                    nxt = min([a for a in anchored if a >= f], default=None)
+                    if prev is None and nxt is None:
+                        continue
+                    if mode == "hold" or nxt is None or prev is None or prev == nxt:
+                        T_est = truth[prev if prev is not None else nxt]
+                    else:
+                        w = (f - prev) / (nxt - prev)
+                        T_est = (1 - w) * truth[prev] + w * truth[nxt]
+                        T_est = T_est / T_est[2, 2]
+                    e = _feet_error(H_court, truth[f], T_est)
+                    if e:
+                        errs.extend(e)
+                if errs:
+                    rows.append({"N": N, "fill": mode,
+                                 "mean_ft": round(float(np.mean(errs)), 3),
+                                 "p95_ft": round(float(np.percentile(errs, 95)), 3),
+                                 "max_ft": round(float(np.max(errs)), 3),
+                                 "gpu_hours_full_game": round(171120 * per_frame / N / 3600, 2)})
+        spots.append({"start": start, "minute": round(start / 30 / 60, 1),
+                      "anchored_ok": len(ok), "failed": failed,
+                      "gpu_s_per_frame": round(per_frame, 3), "rows": rows})
+
+    return {"clip": clip, "device": device, "frames_per_spot": n_frames, "spots": spots}
+
+
 def bench(clip: str, start: int, n_frames: int = 20, cpu_frames: int | None = None) -> dict:
     """cpu_frames: how many frames to ALSO do the slow way. The CPU path costs
     ~49 s/frame on a full game, so timing it on every frame turns a 2-minute

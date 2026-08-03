@@ -433,6 +433,21 @@ def handler(job):
             return {"ok": False, "mode": "merge", "clip": clip,
                     "error": str(e), "traceback": traceback.format_exc()}
 
+    # Can we anchor every Nth frame instead of every frame? The step that
+    # decides whether 30 minutes a game is reachable at all.
+    if job_input.get("mode") == "subsample":
+        clip = job_input.get("clip", "")
+        try:
+            if job_input.get("config"):
+                _install_uploaded_clip(clip, job_input["config"], job_input.get("span"))
+            import gpu_anchor_bench
+            out = gpu_anchor_bench.subsample(clip, job_input.get("starts", [600]),
+                                             int(job_input.get("frames", 300)))
+            return {"ok": "error" not in out, "mode": "subsample", **out}
+        except Exception as e:
+            return {"ok": False, "mode": "subsample", "error": str(e),
+                    "traceback": traceback.format_exc()}
+
     # Can the GPU do the CAMERA ANCHOR too? Speed AND agreement in feet against
     # the CPU path -- see spikes/gpu_anchor_bench.py. Nothing local has CUDA, so
     # this measurement can only happen here.

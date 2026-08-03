@@ -127,11 +127,37 @@ def iter_frames(video_path, indices):
     every caller that only needs frames in order (never needs to hold
     more than the current one)."""
     need = sorted(set(indices))
+    if not need:
+        return
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         raise RuntimeError(f"Could not open video: {video_path}")
+
+    # SEEK to the first wanted frame instead of grabbing every frame from zero.
+    # extract_frames already does this via fast_frames (5.4x faster, landed
+    # exactly 60/60 times, pixel-identical -- measured 2026-07-31); this
+    # iterator never got the same treatment, and it is the one the per-frame
+    # stages actually use. On a 95-minute game analysed in ten parallel slices
+    # that mattered enormously: the worker handling the last tenth decoded
+    # ~154,000 frames it then threw away just to reach its own.
+    #
+    # Same safety rule as fast_frames: seek, then CHECK where we landed. If the
+    # file does not seek accurately we fall back to the scan from zero, so the
+    # output is identical either way -- fast when that is correct, slow only
+    # when it has to be.
+    start = need[0]
+    idx = 0
+    if start > 0:
+        cap.set(cv2.CAP_PROP_POS_FRAMES, start)
+        landed = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
+        if landed == start:
+            idx = start
+        else:
+            cap.release()
+            cap = cv2.VideoCapture(video_path)      # seek missed: scan instead
+
     it = iter(need)
-    nxt, idx = next(it, None), 0
+    nxt = next(it, None)
     yielded = set()
     while nxt is not None:
         if not cap.grab():
