@@ -17,6 +17,7 @@ Returns:    the same {clip}_measured_stats.json contract the web app's
 from __future__ import annotations
 
 import os
+import re
 import sys
 import time
 import traceback
@@ -431,6 +432,41 @@ def handler(job):
                     "seconds": round(time.time() - t0, 1), "measured_stats": stats}
         except Exception as e:
             return {"ok": False, "mode": "merge", "clip": clip,
+                    "error": str(e), "traceback": traceback.format_exc()}
+
+    # RUN AN EXPERIMENT THAT IS NOT IN THIS IMAGE.
+    #
+    # Every measurement so far cost ~20 minutes of overhead before it measured
+    # anything: edit, commit, wait for GitHub to build a multi-gigabyte image,
+    # repoint the template, cold start. That is 2-3 experiments a day, and DJ
+    # is trying to ship. Experiment code now lives on the shared volume and is
+    # simply run -- upload takes a second, so the cycle is the experiment
+    # itself plus a warm worker.
+    #
+    # The file defines run(**kwargs) and returns a JSON-able dict. Only used
+    # for measurement code on DJ's own volume; anything that earns its keep
+    # gets committed into the image properly afterwards.
+    if job_input.get("mode") == "exec":
+        name = job_input.get("script", "")
+        if not re.match(r"^[A-Za-z0-9_-]+$", name or ""):
+            return {"ok": False, "mode": "exec", "error": "bad script name"}
+        path = os.path.join(VOLUME_ROOT, "experiments", f"{name}.py")
+        if not os.path.exists(path):
+            return {"ok": False, "mode": "exec", "error": f"no experiment at {path}"}
+        t0 = time.time()
+        try:
+            if job_input.get("config"):
+                _install_uploaded_clip(job_input.get("clip", ""), job_input["config"],
+                                       job_input.get("span"))
+            ns = {"__name__": "experiment", "__file__": path}
+            with open(path, encoding="utf-8") as fh:
+                exec(compile(fh.read(), path, "exec"), ns)
+            out = ns["run"](**(job_input.get("args") or {}))
+            return {"ok": True, "mode": "exec", "script": name,
+                    "seconds": round(time.time() - t0, 1), "result": out}
+        except Exception as e:
+            return {"ok": False, "mode": "exec", "script": name,
+                    "seconds": round(time.time() - t0, 1),
                     "error": str(e), "traceback": traceback.format_exc()}
 
     # Can we anchor every Nth frame instead of every frame? The step that
