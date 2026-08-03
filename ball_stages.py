@@ -442,6 +442,108 @@ def stage_ball_touches(config, det_json):
     return out_json
 
 
+def stage_team_possessions(config, touches_json):
+    """TEAM POSSESSIONS -- one team has the ball until they lose it.
+
+    Takes the touches (which body had the ball) and answers the team-level
+    question on top of them: whose ball is it, from when to when. See
+    phase2/team_possessions.py for the two end rules (other team touches it;
+    ball goes out of bounds) and phase2/touch_teams.py for how a touch gets a
+    team without asking a human anything new.
+
+    Needs ONE video pass over a few frames per touch (the jersey has to be
+    looked at), so it is not free like the touch stage -- but it is a handful of
+    frames, not the whole clip.
+
+    ABSTAINS LOUDLY rather than producing a teamless or mislabelled game: no two
+    usable jersey colours, or colours that cannot be told apart on this footage,
+    and the stage says so and writes nothing.
+    """
+    import sys as _sys
+    _p2 = os.path.join(_ROOT, "phase2")
+    if _p2 not in _sys.path:
+        _sys.path.insert(0, _p2)
+    import team_possessions as tpos
+    import touch_teams as tteams
+    import stage2_multikeyframe as s2
+
+    touch_doc = _load(touches_json)
+    touches = touch_doc.get("touches", [])
+    fps = touch_doc.get("fps") or 30.0
+    if not touches:
+        print("[ball_stages] no touches -- cannot build possessions (ABSTAINING)")
+        return None
+
+    refs = tteams.refs_from_teams(getattr(config, "teams", None))
+    if refs is None:
+        print("[ball_stages] ABSTAINING from possessions: this clip does not "
+              "have two tellable-apart jersey colours in its config. "
+              "Possession needs to know which team has the ball, and guessing "
+              "would attribute plays to the wrong side.")
+        return None
+
+    # Which frames must actually be read off disk, and which track each is for.
+    want = {}                                   # frame -> {track_id, ...}
+    for t in touches:
+        for f in tteams.sample_frames_for_touch(t):
+            want.setdefault(f, set()).add(t["track_id"])
+
+    tracks_doc = _load(config.tracks_cache_path)
+    boxes = {}                                  # (frame, track_id) -> bbox
+    for fr in tracks_doc["frames"]:
+        f = fr["frame_index"]
+        if f not in want:
+            continue
+        for tr in fr["tracks"]:
+            if tr["track_id"] in want[f]:
+                boxes[(f, tr["track_id"])] = tr["bbox"]
+
+    needed = sorted(f for f in want if any((f, tid) in boxes for tid in want[f]))
+    print(f"[ball_stages] sampling jerseys on {len(needed)} frame(s) "
+          f"for {len({t['track_id'] for t in touches})} track(s)")
+
+    samples = {}                                # track_id -> [bgr, ...]
+    for f, img in s2.iter_frames(config.video_path, needed):
+        for tid in want.get(f, ()):
+            bbox = boxes.get((f, tid))
+            if bbox is None:
+                continue
+            sig = tteams.sample_torso(img, bbox)
+            if sig is not None:
+                samples.setdefault(tid, []).append(sig)
+
+    track_colors = tteams.average_colors(samples)
+    team_by_track, reason, detail = tteams.team_of_tracks(track_colors, refs)
+    if reason:
+        print(f"[ball_stages] ABSTAINING from possessions: {reason}")
+        return None
+
+    tteams.attach_teams(touches, team_by_track)
+    for line in tteams.summary_lines(touches, refs, detail):
+        print(line)
+
+    possessions = tpos.build(touches, fps)
+    for line in tpos.summary_lines(possessions, config.name):
+        print(line)
+
+    out_json = _out(config, "team_possessions.json")
+    json.dump({"clip": config.name, "fps": fps,
+               "teams": [{"name": r["name"], "jersey_color": r["jersey_color"]}
+                         for r in refs],
+               "cluster_separation": detail["separation"],
+               "label_axis_sep": detail["axis_sep"],
+               "params": {"MIN_CENTROID_SEP": tteams.MIN_CENTROID_SEP,
+                          "MIN_AXIS_SEP": tteams.MIN_AXIS_SEP,
+                          "MIN_REF_SEP": tteams.MIN_REF_SEP,
+                          "MIN_SAMPLES_PER_TRACK": tteams.MIN_SAMPLES_PER_TRACK,
+                          "SAMPLES_PER_TOUCH": tteams.SAMPLES_PER_TOUCH},
+               "team_of_track": {str(k): v for k, v in sorted(team_by_track.items())},
+               "possessions": possessions},
+              open(out_json, "w", encoding="utf-8"), indent=2)
+    print(f"[ball_stages] wrote {out_json}")
+    return out_json
+
+
 def stage_shot_outcome(config, sa_json, arcs_json, hoop_json, det_json):
     """Candidate make/miss labels (review-first, never a bare stat) --
     shot_outcome's evidence functions with explicit paths."""

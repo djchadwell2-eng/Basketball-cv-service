@@ -92,8 +92,8 @@ def main():
     odoc = oncourt.load_checked(CLIP)
     fps = tdoc["fps"]
     span_start = tdoc["span_start"]
-    import possessions
-    boundaries, _wlabel = possessions.load_windows(CLIP, verbose=False)
+    import window_boundaries
+    boundaries, _wlabel = window_boundaries.load_windows(CLIP, verbose=False)
     on_by_frame = {fr["frame_index"]: {int(t) for t, i in fr["tracks"].items() if i["on"]}
                    for fr in odoc["frames"]}
 

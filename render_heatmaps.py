@@ -97,10 +97,6 @@ def print_summary(data):
         print(f"    court coverage : {t.get('court_coverage')}")
         print(f"    avg spacing ft : {t.get('avg_spacing_ft')}")
         print(f"    position samples: {t.get('position_samples')}")
-    print("------------------------------------------")
-    print(f"approx possessions : {ts.get('possessions_total')}")
-    print(f"pace (poss/min)    : {ts.get('pace_possessions_per_minute')}")
-    print(f"note               : {ts.get('possession_estimate_note')}")
     print("==========================================\n")
 
 

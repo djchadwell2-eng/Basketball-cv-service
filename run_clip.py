@@ -152,7 +152,9 @@ def run(config):
         # Prints its own full summary; nothing downstream consumes it yet, so
         # the path is deliberately not captured.
         _section("PHASE 5 -- ball touches (who has the ball; NOT possessions)")
-        bs.stage_ball_touches(config, det_json)
+        touches_json = bs.stage_ball_touches(config, det_json)
+        _section("PHASE 5 -- team possessions (whose ball, from when to when)")
+        bs.stage_team_possessions(config, touches_json)
     else:
         _section("PHASE 5 -- ball/shot layer")
         print(f"[run_clip] ball layer not configured for {config.name} "

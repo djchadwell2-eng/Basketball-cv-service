@@ -1,17 +1,28 @@
-"""POSSESSION DETECTION v1 -- windows that follow the game, not the clock.
+"""IDENTITY WINDOW BOUNDARIES -- where to cut the clip so names can't leak.
 
-Replaces the fixed 2.0s stand-in windows (the containment / OCR-accumulation
-boundary) with detected possessions: which half of the court the on-court
-bodies' center of mass occupies, with a dead zone around midcourt, a HOLD time
-before a side switch counts (no flicker possessions from a drive past half
-court), and a minimum possession length (a 2s excursion is a turnover blip,
-not a possession).
+WHAT THIS IS FOR, precisely: the identity/OCR layer resets itself at every
+window boundary (phase2/windows.py) so a wrong name in one stretch cannot
+corrupt the next. That job needs SOME cut points. It does not care what the
+cuts mean -- only that they land where the play changed, so a reset doesn't
+chop a girl's identity in half mid-drive.
+
+WHAT THIS IS NOT -- read this before reusing it: these cuts are NOT
+possessions. This module used to be called possessions.py and claimed they
+were. They are "which half of the court is the centre of mass on", which is a
+camera/court signal, not a ball signal -- both teams stand at the same end on
+every made basket, and an offence can spend a whole possession in its own
+backcourt. DJ (2026-08-02): "that's not how possessions work from a half
+court. That's not what I want."
+
+REAL possessions live in phase2/team_possessions.py, built on ball tracking
+plus jersey colour. That module owns the word "possession". This one owns
+nothing but cut points, and its output is named {clip}_id_windows.json so no
+one mistakes it for basketball again.
 
 The signal is FREE: the on-court cache already stores court_feet for every
-track on every frame. No new perception, no new cache -- windows are derived
-deterministically at load time, and an INSPECTION artifact
-({clip}_possessions.json) is written so a human can scrub the video at each
-boundary timestamp and validate by eye.
+track on every frame. No new perception, no new cache -- boundaries are
+derived deterministically at load time, and an INSPECTION artifact is written
+so a human can scrub the video at each boundary timestamp.
 
 ABSTENTION: a degenerate signal (no frames confidently on either side) returns
 None and callers fall back to the fixed windows LOUDLY. Bad boundaries are
@@ -31,14 +42,17 @@ sys.path.insert(0, os.path.dirname(_HERE))
 sys.path.insert(0, os.path.join(os.path.dirname(_HERE), "spikes"))
 
 HOLD_S = 1.5          # a side switch must hold this long to count
-MIN_POSS_S = 4.0      # shorter same-side runs merge into their neighbor
+MIN_SEG_S = 4.0       # shorter same-side runs merge into their neighbor
 MARGIN_FT = 6.0       # dead zone around midcourt (transition = no side)
 
 
-def detect(xs, fps, court_len, hold_s=HOLD_S, min_poss_s=MIN_POSS_S,
+def detect(xs, fps, court_len, hold_s=HOLD_S, min_poss_s=MIN_SEG_S,
            margin_ft=MARGIN_FT):
-    """xs: dense [(frame, mean_on_court_x | None)] -> possession segments
-    [{'side','start','end','side_agreement'}] or None if degenerate."""
+    """xs: dense [(frame, mean_on_court_x | None)] -> court-side segments
+    [{'side','start','end','side_agreement'}] or None if degenerate.
+
+    A segment is a stretch where the action sat on one half of the floor. It
+    is a CUT POINT for the identity layer, not a possession."""
     mid = court_len / 2.0
     pts = [(f, ("L" if x < mid - margin_ft else
                 "R" if x > mid + margin_ft else "N"))
@@ -65,8 +79,8 @@ def detect(xs, fps, court_len, hold_s=HOLD_S, min_poss_s=MIN_POSS_S,
             pend_side, pend_count = None, 0
     segs.append([cur_side, cur_start, side_pts[-1][0]])
 
-    # merge INTERIOR blips shorter than a real possession, then coalesce same
-    # sides. Segments touching the span edges are EXEMPT: a possession cut off
+    # merge INTERIOR blips shorter than a real segment, then coalesce same
+    # sides. Segments touching the span edges are EXEMPT: a segment cut off
     # by the clip boundary cannot prove its length -- erasing it into the
     # neighboring side is confidently-wrong (user-caught on both clips,
     # 2026-07-12). They are kept and flagged partial instead.
@@ -104,9 +118,9 @@ def detect(xs, fps, court_len, hold_s=HOLD_S, min_poss_s=MIN_POSS_S,
 
 
 def load_windows(config, verbose=True):
-    """-> (boundaries, label). Possession-start frames detected from the
-    on-court cache; LOUD fixed-window fallback when detection is degenerate.
-    Also writes {clip}_possessions.json for eyeball validation."""
+    """-> (boundaries, label). Identity-window cut frames derived from the
+    on-court cache; LOUD fixed-window fallback when the signal is degenerate.
+    Also writes {clip}_id_windows.json for eyeball validation."""
     import oncourt
     import clips_config
 
@@ -127,27 +141,29 @@ def load_windows(config, verbose=True):
         wf = int(round(config.accumulation_window_seconds * fps))
         boundaries = list(range(span_start, span_start + span_len, wf))
         label = (f"FIXED {config.accumulation_window_seconds}s FALLBACK "
-                 f"(possession detection degenerate -- do not trust boundaries)")
+                 f"(court-side signal degenerate -- do not trust boundaries)")
         if verbose:
             print(f"  WINDOWS: {label}")
         return boundaries, label
 
     boundaries = [s["start"] for s in segs]
     boundaries[0] = span_start                  # window 0 covers the span head
-    label = f"{len(segs)} detected possessions"
+    label = f"{len(segs)} court-side segments"
     if verbose:
-        print(f"  WINDOWS: {label} (hold {HOLD_S}s, min {MIN_POSS_S}s, "
-              f"dead zone +/-{MARGIN_FT:.0f}ft):")
+        print(f"  WINDOWS: {label} (hold {HOLD_S}s, min {MIN_SEG_S}s, "
+              f"dead zone +/-{MARGIN_FT:.0f}ft) -- CUT POINTS, not possessions:")
         for i, s in enumerate(segs):
-            print(f"    poss {i}: {s['side']}  frames {s['start']}..{s['end']}"
+            print(f"    seg {i}: {s['side']}  frames {s['start']}..{s['end']}"
                   f"  t={s['start'] / fps:.1f}s..{s['end'] / fps:.1f}s"
                   f"  ({(s['end'] - s['start'] + 1) / fps:.1f}s, "
                   f"side agreement {s['side_agreement']:.0%})")
-    path = os.path.join(_HERE, "out", f"{config.name}_possessions.json")
+    path = os.path.join(_HERE, "out", f"{config.name}_id_windows.json")
     with open(path, "w", encoding="utf-8") as f:
         json.dump({"clip": config.name, "fps": fps, "hold_s": HOLD_S,
-                   "min_poss_s": MIN_POSS_S, "margin_ft": MARGIN_FT,
-                   "possessions": segs, "boundaries": boundaries}, f, indent=2)
+                   "min_seg_s": MIN_SEG_S, "margin_ft": MARGIN_FT,
+                   "note": "court-side cut points for the identity layer; "
+                           "NOT possessions (see team_possessions.py)",
+                   "segments": segs, "boundaries": boundaries}, f, indent=2)
     return boundaries, label
 
 

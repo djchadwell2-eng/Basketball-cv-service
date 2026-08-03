@@ -88,10 +88,10 @@ def build():
     import oncourt
     import ocr_reader
 
-    import possessions
+    import window_boundaries
     tdoc = json.load(open(CLIP.tracks_cache_path, encoding="utf-8"))
     odoc = oncourt.load_checked(CLIP)
-    boundaries, _wlabel = possessions.load_windows(CLIP, verbose=False)
+    boundaries, _wlabel = window_boundaries.load_windows(CLIP, verbose=False)
     tracks = oncourt.seed_frame_tracks(tdoc, odoc, boundaries=boundaries)
     roster = CLIP.roster_numbers()
 

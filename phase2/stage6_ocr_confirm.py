@@ -29,7 +29,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(_HERE), "spikes"))
 from clip_config import ACTIVE_CLIP as CLIP
 import ocr_reader
 import oncourt
-import possessions
+import window_boundaries
 import roster
 import stage2_multikeyframe as s2mk    # Phase 6: iter_frames (targeted streaming)
 import windows as winmod
@@ -62,8 +62,9 @@ def main():
     # only the frames actually picked for an OCR attempt get read. This
     # dict scales with (candidates x MAX_ATTEMPTS), never with clip length.
 
-    # WINDOWS = detected possessions (fixed-window fallback is loud inside).
-    boundaries, wlabel = possessions.load_windows(CLIP)
+    # WINDOWS = court-side cut points, NOT possessions (fixed-window
+    # fallback is loud inside). Real possessions: team_possessions.py.
+    boundaries, wlabel = window_boundaries.load_windows(CLIP)
 
     # ROI-MASK: on-court majority per (window, track). Seeds, OCR attempts, and
     # the review queue are scoped to ON-COURT bodies; off-court exclusions are

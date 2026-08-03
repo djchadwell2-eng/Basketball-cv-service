@@ -4,6 +4,8 @@
     "make_miss_available": true,
     "box_score_note": "presence-seconds over this clip's tracked span -- not full-game stats",
     "touches_available": true,
+    "possessions_available": true,
+    "possession_note": "A possession is a TEAM having the ball until they lose it -- several touches happen inside one. It ends when the other team gets the ball or the ball goes out of bounds (which restarts it even for the same team -- a film-room cut, not the stat-sheet rule). Teams come from the jersey colours entered at setup.",
     "shooter_attribution_available": false,
     "shooter_attribution_verified": false,
     "shots_attributed": 0,
@@ -215,17 +217,12 @@
       "shooter_track_id": null,
       "shooter_method": null,
       "shooter_verified": false,
-      "make_miss_outcome": "candidate_make",
-      "make_miss_score_from": [
-        0,
-        0
-      ],
-      "make_miss_score_to": [
-        1,
-        0
-      ],
-      "make_miss_score_change_frame": 274,
-      "make_miss_score_change_time_sec": 4.566666666666666
+      "make_miss_outcome": "unknown",
+      "make_miss_score_from": null,
+      "make_miss_score_to": null,
+      "make_miss_score_change_frame": null,
+      "make_miss_score_change_time_sec": null,
+      "possession_index": null
     },
     {
       "start_frame": 236,
@@ -243,15 +240,16 @@
       "shooter_verified": false,
       "make_miss_outcome": "candidate_make",
       "make_miss_score_from": [
-        1,
+        0,
         0
       ],
       "make_miss_score_to": [
         0,
-        0
+        2
       ],
-      "make_miss_score_change_frame": 280,
-      "make_miss_score_change_time_sec": 4.666666666666667
+      "make_miss_score_change_frame": 320,
+      "make_miss_score_change_time_sec": 10.67,
+      "possession_index": 0
     }
   ],
   "shots_unlocated": 1,
@@ -358,5 +356,60 @@
       "midrange": 1,
       "paint": 1
     }
+  },
+  "possessions": [
+    {
+      "team": "Milford (white/red)",
+      "start_frame": 207,
+      "end_frame": 260,
+      "n_touches": 1,
+      "track_ids": [
+        49
+      ],
+      "teamless_touches": 0,
+      "ended_by": "other_team",
+      "possession_index": 0,
+      "start_time_s": 6.9,
+      "end_time_s": 8.67,
+      "seconds": 1.8
+    },
+    {
+      "team": "Little Miami (green/yellow)",
+      "start_frame": 345,
+      "end_frame": 553,
+      "n_touches": 4,
+      "track_ids": [
+        67,
+        395,
+        875
+      ],
+      "teamless_touches": 0,
+      "ended_by": "end_of_clip",
+      "possession_index": 1,
+      "start_time_s": 11.5,
+      "end_time_s": 18.43,
+      "seconds": 6.97
+    }
+  ],
+  "possession_summary": {
+    "n_possessions": 2,
+    "by_team": {
+      "Milford (white/red)": 1,
+      "Little Miami (green/yellow)": 1
+    },
+    "seconds_by_team": {
+      "Milford (white/red)": 1.8,
+      "Little Miami (green/yellow)": 7.0
+    },
+    "teams": [
+      {
+        "name": "Milford (white/red)",
+        "jersey_color": "white/red"
+      },
+      {
+        "name": "Little Miami (green/yellow)",
+        "jersey_color": "green/yellow"
+      }
+    ]
   }
 }

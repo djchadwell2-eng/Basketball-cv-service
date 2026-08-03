@@ -6084,3 +6084,203 @@ Works perfectly on both scoreboard styles!
 ### Next Step
 Integrate Gemma reader into the make/miss pipeline for universal scoreboard support.
 
+
+---
+
+# TEAM POSSESSIONS (ball-based) -- PLAN, 2026-08-02
+
+## The one-sentence goal
+Say which TEAM has the ball, from when they get it until they lose it, so the
+film room can jump possession by possession.
+
+## What I found already built (do NOT rebuild any of this)
+- `spikes/ball_touch.py` -- already answers "which BODY is holding the ball,
+  frame by frame", squashed into TOUCHES. Already wired into `run_clip.py`
+  (Phase 5) and into `measured_stats.py`. This is the hard part and it is DONE.
+- `phase2/color_tiebreak.py` -- already turns a jersey crop into a colour and
+  picks the nearest team colour, and ABSTAINS when it is too close to call.
+- `clip_registry.py` -- the web app already writes `teams: [{name, numbers}]`
+  per game. A jersey colour slots in right there.
+- `phase2/possessions.py` -- ALREADY OWNS THE WORD "possession", but it does
+  NOT watch the ball. It guesses from which half of the floor the bodies are
+  standing on. Its boundaries feed the OCR/identity windows, so I am NOT
+  touching it. The new work sits BESIDE it.
+
+## The gap (all that is actually missing)
+A touch knows WHICH BODY, not WHICH TEAM. So:
+  1. Give every touch a team, using the two colours the user typed in.
+  2. Glue touches by the same team together into one possession.
+
+## Todo items
+
+- [ ] 1. Add `jersey_color` to each team in the clip registry.
+      Web app makes it MANDATORY at setup. Two colours per game, e.g. white and
+      dark green for TEST1. No new human clicking -- it is typed once with the
+      roster, which the user already fills in.
+- [ ] 2. New file `phase2/touch_teams.py`: for each touch, sample that body's
+      torso in a few of her credited frames, compare to the two typed colours,
+      majority vote. Reuse `color_tiebreak.classify_identity` -- do not write a
+      new colour matcher. If the colours are too close to call, the touch gets
+      team = None (abstain).
+- [ ] 3. New file `phase2/team_possessions.py`: walk the touches in time order.
+      Same team as the last touch -> same possession. Different team -> the old
+      possession ENDS and a new one starts. Touches with team = None do not end
+      a possession, they are just skipped (that is the anti-flicker safeguard
+      the user asked for -- a dropout is not a turnover).
+- [ ] 4. Write `{clip}_team_possessions.json` so it can be eyeballed against the
+      video, same as every other layer here.
+- [ ] 5. Tag every shot with the possession it happened in (frame overlap), in
+      `measured_stats.py`, so the film room can line shots up with possessions.
+- [ ] 6. Test on TEST1 (white vs dark green, colours the user already has) and
+      check the possession count and boundaries by eye.
+
+## Rules I am holding myself to
+- Abstain, never guess. A possession we cannot call is reported as unknown.
+- Zero new human input beyond the two colours typed with the roster.
+- Nothing inside `phase2/possessions.py` or the Phase 1/2 spine changes.
+- Thresholds get written down here BEFORE the first run, not tuned after.
+
+## Open question for DJ
+The end-of-possession rule is "the other team gets it". A shot that misses and
+is rebounded by the SAME team -- is that still one possession, or two? (Real
+basketball says one possession, offensive rebound.) I will code it as ONE
+unless told otherwise.
+
+## REVISION after DJ's answers, 2026-08-02
+
+DJ answered three things:
+  1. Same team rebounds its own miss = SAME possession. (As planned.)
+  2. Get rid of the court-half possessions. "That's not how possessions work."
+  3. Ball out of bounds could end a possession.
+
+### On killing the court-half possessions -- DJ is right, and the code agrees
+Both placeholder files say so themselves:
+  phase2/windows.py:8   "a STAND-IN for real possession boundaries ... explicitly
+                         NOT final possession logic"
+  src/team_stats.py:105 "this is a placeholder. Real possession detection needs
+                         the ball and change-of-possession events"
+
+BUT phase2/possessions.py is quietly doing TWO jobs, and only one of them is fake:
+  JOB A (REAL, and 5 stages depend on it): chop the clip into time buckets so the
+        identity/OCR layer can reset and not leak a wrong name across the clip.
+        Used by stage4_seed_queue, stage5_player_events, stage6_ocr_confirm,
+        purity, make_review_bundle. This job has nothing to do with basketball --
+        it just needs SOME boundaries.
+  JOB B (FAKE, delete): calling those buckets "possessions" and writing them out
+        as {clip}_possessions.json.
+
+So "delete the file" would break the identity layer for no reason. The fix is to
+strip the costume, not burn the building:
+- [ ] A. Stop reporting the fake possession STAT anywhere a human sees it:
+       src/team_stats.estimate_possessions, and the "approx possessions" /
+       "pace" lines in process_game.py and render_heatmaps.py. That number is a
+       lie in the product and goes first.
+- [ ] B. Rename phase2/possessions.py to what it actually is -- a window chopper.
+       Same math, honest name, stops claiming to be basketball. It no longer
+       writes {clip}_possessions.json.
+- [ ] C. The word "possession" then belongs to ONE thing only: the new
+       ball-based, jersey-colour team possessions.
+- [ ] D. LATER (not now): feed those windows from the REAL possessions. That is
+       what windows.py always wanted. Not doing it yet -- one change at a time.
+
+### On out of bounds -- there is a FREE signal already computed
+spikes/ball_touch.py already flags touches where the holder is OFF THE COURT, and
+its own comment says why: "a real inbounds pass is thrown from behind the
+baseline". An off-court touch is an INBOUNDS PASS, which means the ball WAS out.
+No new model, no new video pass. That is the out-of-bounds detector.
+
+NOT using the ball's own court position for this. The court maths assumes the
+ball is ON THE FLOOR, so a ball ten feet in the air maps to a spot way past where
+it really is -- a high pass near the sideline would read as out of bounds when it
+never left the floor. That would invent turnovers. Rejected on purpose.
+
+### The basketball question this raises (for DJ)
+Ball out of bounds OFF THE DEFENCE -> offence keeps it and inbounds. In real
+basketball that is still the SAME possession, and the jersey colour never
+changes, so nothing needs to happen.
+Ball out OFF THE OFFENCE -> other team's ball -> the jersey colour flips, which
+the colour rule ALREADY catches.
+So out-of-bounds may not change the possession COUNT much. What it genuinely buys
+is a CLEAN CUT POINT: the film room clips at the whistle instead of mid-scramble.
+-> Coding it as a boundary TIDY-UP (snap the cut to the stoppage), NOT as a thing
+   that splits a possession on its own. Say the word if you want it to split.
+
+## REVIEW -- team possessions, 2026-08-02
+
+All items done. 343 tests pass (was 297; +46 new).
+
+### What changed, in plain terms
+
+DELETED (a number that was lying to you):
+- src/team_stats.py: estimate_possessions() + pace_per_minute(), and the
+  "approx possessions / pace" lines they fed in process_game.py and
+  render_heatmaps.py. They guessed possession from which half of the floor the
+  players stood on. Both files' own TODOs already admitted they were
+  placeholders waiting for real ball data.
+
+RENAMED (a job we DO need, wearing the wrong name):
+- phase2/possessions.py -> phase2/window_boundaries.py, and its output
+  {clip}_possessions.json -> {clip}_id_windows.json. Same maths, honest name.
+  It cuts the clip into chunks so the name-reading layer can reset; 5 stages
+  need that and would have broken if the file were simply deleted. It no longer
+  claims to be basketball.
+
+NEW (the real thing):
+- phase2/touch_teams.py    -- puts a TEAM on each touch, by jersey colour
+- phase2/team_possessions.py -- chains touches into possessions
+- ball_stages.stage_team_possessions -- the pipeline stage, wired into run_clip
+- measured_stats.py -- possessions + a possession_index on every shot, so the
+  film room can jump from a shot to the sequence that made it
+
+### Cost to you: ZERO new clicks
+The jersey colours were ALREADY being collected -- clip_config.py has had a
+jersey_color field on every team all along, and the web app writes one too. No
+new setup step, no new screen. This was the requirement and it was already met.
+
+### Two real bugs found and fixed (not papered over)
+
+1. NEAREST-COLOUR MATCHING DOES NOT WORK ON REAL FOOTAGE.
+   The first version compared each measured jersey to the typed colour. It
+   failed on TEST1: measured centroids were (121,97,109) and (82,93,101) -- two
+   muddy greys, nothing like "white/red" or "green/yellow". A torso crop always
+   carries skin, shadow, floor and gym light, and averaging drags every jersey
+   toward the same middling grey.
+   ROOT CAUSE, not a threshold nudge: absolute colour is unusable; only the
+   DIRECTION between the two teams survives. The clustering had in fact
+   separated the players perfectly (verified by rendering the crops and looking
+   at them -- one white jersey, three green). Only the naming was stuck. Fixed
+   by projecting both clusters onto the axis between the two typed colours, so
+   the shared grey offset cancels out.
+   Pinned by test_muddy_real_world_centroids_still_label_correctly.
+
+2. SHOTS WERE FALLING OUTSIDE THEIR OWN POSSESSION.
+   A possession is built from touches, and a touch ends the instant the ball
+   leaves her hands -- so a shot's arc starts a few frames AFTER the possession
+   that produced it. HARD's possession 3 ended at frame 1179 and its shot began
+   at 1187, and the shot was reported as belonging to no possession at all.
+   Wrong on the basketball too: a ball in the air is still the shooting team's
+   possession. Fixed with a bounded look-back, reusing the 2s ceiling
+   measured_stats already uses for shooter attribution rather than inventing a
+   second number for the same fact.
+   Pinned by test_a_shot_just_after_a_possession_belongs_to_it.
+
+### Results on all three clips (team labels checked BY EYE against the video)
+
+  TEST1   2 possessions   4/4 tracks correct    colour separation 29.8
+  HARD    4 possessions   8/9 correct, 1 blurry crop inconclusive      108.9
+  TEST2   2 possessions   5/5 tracks correct                           132.4
+
+The floor for that separation is 12. The weakest real case (TEST1) is 2.5x
+above it, so the threshold is not fitted to one clip. It is still a FIRST GUESS
+and must not be lowered to rescue a future clip.
+
+### What is NOT proven yet -- read before trusting this
+- Only ~15-40s of footage per clip, 2-4 possessions each. Nobody has run it on
+  a full game, so the possession COUNT has never been checked against a real
+  one.
+- The out-of-bounds rule has never actually fired: all three clips have zero
+  off-court touches. The code path is unit-tested but has not seen real film.
+- HARD's track 930 could not be judged from its crop (motion blur). Not wrong,
+  just unverified.
+- Two shots (TEST1 f164, TEST2 f146) are attributed to NO possession. Both are
+  honest abstentions -- no touch was recorded near them -- not bugs.

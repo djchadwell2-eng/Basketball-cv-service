@@ -32,6 +32,11 @@ import sys
 
 _ROOT = os.path.dirname(os.path.abspath(__file__))
 
+# Pure logic (no cv2/numpy), so importing it keeps this module dependency-light
+# the same way the geometry constants below do.
+sys.path.insert(0, os.path.join(_ROOT, "phase2"))
+import team_possessions  # noqa: E402
+
 # Court geometry -- mirrors spikes/shot_location.py (kept local so this
 # module and its tests stay dependency-light: no cv2/numpy import).
 # COURT_LEN is only the DEFAULT. The real length varies by gym (TEST2's floor
@@ -204,8 +209,37 @@ def attribute_shooter(touches, arc_start_frame):
     return best
 
 
+def build_possessions(poss_doc):
+    """TEAM POSSESSIONS for the web contract -- whose ball, from when to when.
+
+    A POSSESSION is a team concept and is NOT a touch: several touches (pass,
+    pass, drive, shoot) happen inside one possession. The two are kept as
+    separate keys in the contract precisely so the app cannot conflate them.
+    See phase2/team_possessions.py for the end rules.
+
+    Passed straight through rather than reshaped -- the fields the film room
+    needs (team, frame span, seconds, why it ended) are already the fields the
+    layer produces.
+    """
+    if not poss_doc:
+        return [], None
+    poss = poss_doc.get("possessions", [])
+    by_team = {}
+    for p in poss:
+        by_team[p["team"]] = by_team.get(p["team"], 0) + 1
+    return poss, {
+        "n_possessions": len(poss),
+        "by_team": by_team,
+        "seconds_by_team": {
+            t: round(sum(p["seconds"] for p in poss if p["team"] == t), 1)
+            for t in by_team},
+        "teams": poss_doc.get("teams", []),
+    }
+
+
 def build_measured_stats(clip, box_doc, loc_doc, att_doc, court_len=COURT_LEN,
-                         touch_doc=None, make_miss_results=None):
+                         touch_doc=None, make_miss_results=None,
+                         poss_doc=None):
     """Assemble the web-ready contract from the loaded docs."""
     # attempt lookup by frame span -> shot_type / hoop for a located shot
     att_by_span = {(a["start_frame"], a["end_frame"]): a
@@ -259,6 +293,17 @@ def build_measured_stats(clip, box_doc, loc_doc, att_doc, court_len=COURT_LEN,
                       ambiguous=is_ambiguous(p.get("team")))
                  for p in box_doc.get("players", [])]
 
+    # Stamp each shot with the possession it happened in, so the film room can
+    # jump from a shot to the whole sequence that produced it. A shot that
+    # lands outside every possession keeps possession_index None rather than
+    # being snapped to the nearest one.
+    possessions, poss_summary = build_possessions(poss_doc)
+    if possessions:
+        team_possessions.tag_shots(shots, possessions)
+    else:
+        for s in shots:
+            s["possession_index"] = None
+
     n_attributed = sum(1 for s in shots if s["shooter_number"] is not None)
 
     return {
@@ -272,6 +317,23 @@ def build_measured_stats(clip, box_doc, loc_doc, att_doc, court_len=COURT_LEN,
             # assumption as a measurement. Both facts ride in the contract so
             # the app cannot overpromise, the same way make_miss_available does.
             "touches_available": bool(touch_doc),
+            # Possessions are a SEPARATE layer from touches and may be absent
+            # on their own: a clip can have perfectly good touches and still be
+            # unable to say whose ball it is, because the two jersey colours
+            # could not be told apart on that footage. False means "we did not
+            # answer", never "there were no possessions".
+            "possessions_available": bool(possessions),
+            "possession_note": (
+                "A possession is a TEAM having the ball until they lose it -- "
+                "several touches happen inside one. It ends when the other team "
+                "gets the ball or the ball goes out of bounds (which restarts it "
+                "even for the same team -- a film-room cut, not the stat-sheet "
+                "rule). Teams come from the jersey colours entered at setup."
+                if possessions else
+                "No possessions for this clip: either the ball layer has not run, "
+                "or the two jersey colours could not be told apart on this "
+                "footage. The system abstained rather than guess which team had "
+                "the ball."),
             # --- PER-PLAYER SHOTS. The player tab's heat map reads these.
             # Available does NOT mean verified: no ground truth for WHO took a
             # shot has ever existed in this project (only which arcs are real
@@ -303,6 +365,8 @@ def build_measured_stats(clip, box_doc, loc_doc, att_doc, court_len=COURT_LEN,
         "shot_distribution": shot_distribution([s["zone"] for s in shots]),
         "touches": touches,
         "touch_summary": touch_summary,
+        "possessions": possessions,
+        "possession_summary": poss_summary,
     }
 
 
@@ -347,6 +411,11 @@ def generate(clip):
     # shipping an empty list the UI might read as "she never had the ball".
     tp = os.path.join(_ROOT, "spikes", "out", f"{clip}_ball_touches.json")
     touch = _load(tp) if os.path.exists(tp) else None
+    # OPTIONAL and separately so: the possession layer abstains on its own
+    # whenever the two jersey colours cannot be told apart on this footage, so
+    # a clip can have touches but no possessions. Absent means "not answered".
+    pp = os.path.join(_ROOT, "spikes", "out", f"{clip}_team_possessions.json")
+    poss = _load(pp) if os.path.exists(pp) else None
 
     # Try to load make/miss results from scoreboard analysis
     make_miss_results = None
@@ -376,7 +445,7 @@ def generate(clip):
         print(f"[measured_stats] warning: could not load make/miss data: {e}")
 
     out = build_measured_stats(clip, box, loc, att, court_length_for(clip), touch,
-                              make_miss_results)
+                              make_miss_results, poss)
     # Says WHY there are no shots: a skipped layer reads very differently from
     # a game where the ball was watched and nobody shot.
     out["meta"]["shot_layer_available"] = os.path.exists(
@@ -398,6 +467,12 @@ def generate(clip):
               f"({ts['pct_inferred']:.0f}% inferred)  zones {ts['zone_counts']}")
     else:
         print(f"  ball touches: none for this clip (ball layer not run)")
+    ps = out["possession_summary"]
+    if ps:
+        print(f"  possessions: {ps['n_possessions']}  "
+              f"by team {ps['by_team']}  seconds {ps['seconds_by_team']}")
+    else:
+        print(f"  possessions: none for this clip (see meta.possession_note)")
     print(f"  wrote {out_path}")
     return out
 

@@ -129,7 +129,10 @@ def main():
         stats.add_frame(frame_index, team_positions)
 
     # --- 5. Derive team stats -------------------------------------------------
-    possessions = stats.estimate_possessions()
+    # NO possession/pace numbers here any more. They used to be guessed from
+    # which half of the floor the bodies stood on, which is not how possession
+    # works. Real possessions come from the ball + jersey colour
+    # (phase2/team_possessions.py) and are reported there, not invented here.
     team_stats = {
         "team_a": {
             "court_coverage": round(stats.court_coverage("team_a"), 3),
@@ -141,17 +144,16 @@ def main():
             "avg_spacing_ft": round(stats.avg_spacing("team_b"), 2),
             "position_samples": len(stats.positions["team_b"]),
         },
-        "possessions_total": len(possessions),
-        "pace_possessions_per_minute": stats.pace_per_minute(possessions),
-        "possession_estimate_note": "APPROXIMATE -- derived from court-side "
-                                    "occupancy, not ball tracking.",
     }
 
     # --- 6. Write JSON --------------------------------------------------------
     output = build_output(
         game_id=game_id,
         fps=fps,
-        team_events=possessions,
+        # Empty on purpose: this path never produced real team_events, it
+        # passed the court-side possession GUESS through this slot. The guess
+        # is gone; nothing fabricated takes its place.
+        team_events=[],
         heatmap_data=stats.positions,
         frames_processed=frames_processed,
         players_dropped_off_court=players_dropped_off_court,
@@ -164,8 +166,6 @@ def main():
     print(f"  frames processed:            {frames_processed}")
     print(f"  off-court detections dropped: {players_dropped_off_court}")
     print(f"  camera-motion-lost frames:   {camera.frames_motion_lost}")
-    print(f"  approx possessions:          {len(possessions)} "
-          f"({team_stats['pace_possessions_per_minute']}/min)")
     print("Render heatmaps with:  python render_heatmaps.py --input "
           f"{args.output}")
 

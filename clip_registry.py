@@ -138,3 +138,112 @@ def has_calibration(doc: dict) -> bool:
 
 def has_roster(doc: dict) -> bool:
     return any((t.get("numbers") or []) for t in (doc.get("teams") or []))
+
+
+# ---------------------------------------------------------------------------
+# Jersey colours: free text from the setup form -> a rough BGR reference.
+#
+# WHAT THIS IS FOR, and what it deliberately is NOT. The colour a coach types
+# ("white", "green/yellow") is NOT the colour that jersey actually is on this
+# footage -- a white jersey under gym lights reads grey, and a dark green one
+# reads near-black. So these values must never be used as absolute targets to
+# match a crop against.
+#
+# They are used for ONE job: putting the two teams in ORDER. The real colours
+# are measured from the footage itself (phase2/touch_teams.py clusters the
+# bodies actually on screen), which handles lighting for free; the typed names
+# only decide WHICH of the two measured clusters is the home team and which is
+# the away team. Getting that ordering right is a far easier question than
+# matching an absolute colour, which is why it is split this way.
+# ---------------------------------------------------------------------------
+
+# BGR (OpenCV order), not RGB.
+_COLOR_WORDS = {
+    "white": (255, 255, 255), "silver": (192, 192, 192),
+    "grey": (128, 128, 128), "gray": (128, 128, 128),
+    "black": (0, 0, 0),
+    "red": (0, 0, 255), "crimson": (60, 20, 220), "maroon": (0, 0, 128),
+    "cardinal": (30, 20, 150), "burgundy": (32, 0, 128),
+    "orange": (0, 165, 255), "yellow": (0, 255, 255), "gold": (0, 215, 255),
+    "green": (0, 128, 0), "kelly": (60, 160, 70), "forest": (34, 80, 34),
+    "teal": (128, 128, 0), "turquoise": (208, 224, 64),
+    "blue": (255, 0, 0), "navy": (128, 0, 0), "royal": (225, 105, 65),
+    "columbia": (235, 190, 130), "carolina": (235, 190, 130),
+    "purple": (128, 0, 128), "violet": (211, 0, 138),
+    "pink": (203, 192, 255), "brown": (42, 42, 165), "tan": (140, 180, 210),
+}
+
+# Modifiers that shift a colour rather than name one ("dark green", "light blue").
+_DARK = 0.55
+_LIGHT = 1.6
+
+
+def parse_jersey_color(text):
+    """Free-text jersey colour -> a rough (B, G, R), or None if unrecognisable.
+
+    Handles the shapes the setup form actually produces: a single word
+    ("white"), a modifier ("dark green"), and a school's two colours
+    ("green/yellow", "white/red"). Several colours are AVERAGED -- the shirt is
+    mostly the first colour with trim in the second, and for the ordering job
+    described above an average separates two teams perfectly well.
+
+    Returns None rather than a default when nothing is recognised. A guessed
+    colour would silently mis-assign every possession in the game; refusing
+    lets the caller say so out loud.
+    """
+    if not text:
+        return None
+    words = [w for w in re.split(r"[^a-z]+", str(text).lower()) if w]
+
+    found, pending = [], 1.0
+    for w in words:
+        if w == "dark":
+            pending = _DARK
+            continue
+        if w in ("light", "bright"):
+            pending = _LIGHT
+            continue
+        bgr = _COLOR_WORDS.get(w)
+        if bgr is None:
+            pending = 1.0
+            continue
+        found.append(tuple(max(0.0, min(255.0, c * pending)) for c in bgr))
+        pending = 1.0
+
+    if not found:
+        return None
+    n = len(found)
+    return tuple(sum(c[i] for c in found) / n for i in range(3))
+
+
+def team_colors(doc: dict):
+    """The two teams and their reference colours, or None if we cannot tell.
+
+    -> [{"name":.., "jersey_color":.., "bgr":(b,g,r)}, ...] with exactly TWO
+    entries, or None.
+
+    None means the possession layer must ABSTAIN rather than guess: without two
+    distinguishable colours there is no honest way to say which team has the
+    ball. Cases that return None -- fewer or more than two teams, a missing or
+    unrecognisable colour, or BOTH teams typed as the same colour (which is
+    either a setup mistake or genuinely unplayable footage; either way we
+    cannot separate them).
+    """
+    teams = doc.get("teams") or []
+    if len(teams) != 2:
+        return None
+    out = []
+    for t in teams:
+        bgr = parse_jersey_color(t.get("jersey_color"))
+        if bgr is None:
+            return None
+        out.append({"name": t.get("name"), "jersey_color": t.get("jersey_color"),
+                    "bgr": bgr})
+    if out[0]["bgr"] == out[1]["bgr"]:
+        return None
+    return out
+
+
+def has_team_colors(doc: dict) -> bool:
+    """Enough colour information to attempt possession detection?"""
+    return team_colors(doc) is not None

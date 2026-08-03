@@ -28,7 +28,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(_HERE), "spikes"))
 
 from clip_config import ACTIVE_CLIP as CLIP
 import oncourt
-import possessions
+import window_boundaries
 import roster
 import windows as winmod
 from tracking import Track
@@ -64,8 +64,9 @@ def main():
     frames, doc = load(TRACKS_JSON)
     span_start, fps = doc["span_start"], doc["fps"]
 
-    # WINDOWS = detected possessions (fixed-window fallback is loud inside).
-    boundaries, wlabel = possessions.load_windows(CLIP)
+    # WINDOWS = court-side cut points, NOT possessions (fixed-window
+    # fallback is loud inside). Real possessions: team_possessions.py.
+    boundaries, wlabel = window_boundaries.load_windows(CLIP)
 
     # ROI-MASK SEEDING: only on-court tracks are auto-trusted. Off-court bodies
     # stay UNKNOWN (their events are still stamped honestly; the box score
