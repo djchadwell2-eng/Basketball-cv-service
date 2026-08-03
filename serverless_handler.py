@@ -125,6 +125,30 @@ def _install_uploaded_clip(clip_name: str, doc: dict, span=None) -> None:
     importlib.reload(clips_config)
 
 
+def _cache_covers(path: str, config) -> bool:
+    """Does this cache file describe THIS clip and THIS span?
+
+    "The file exists" is not the same question, and getting them confused cost
+    a whole parallel run: workers are reused between jobs, and a cache path
+    carries only the clip name -- not the span -- so slice 7 arrived on a warm
+    worker holding slice 2's cache, decided there was nothing to do, and
+    reported success in 0 seconds having copied the WRONG FRAMES as its own
+    output. Six of ten slices did this. Nothing crashed; the merge would simply
+    have produced a game that never happened.
+    """
+    if not os.path.exists(path):
+        return False
+    try:
+        import json
+        with open(path, encoding="utf-8") as fh:
+            head = json.load(fh)
+    except (OSError, ValueError):
+        return False
+    return (head.get("clip") == config.name
+            and head.get("span_start") == config.tracking_span_start
+            and head.get("span_len") == config.tracking_span_len)
+
+
 def _build_caches(config) -> None:
     """Track the span and decide who is on court -- the two caches run_clip
     REFUSES to run without. On a baked-in baseline these ship in the image; a
@@ -137,22 +161,22 @@ def _build_caches(config) -> None:
     progress(config.name, f"device: cuda={torch.cuda.is_available()} "
                           f"{torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU ONLY'}")
 
-    if not os.path.exists(config.tracks_cache_path):
+    if not _cache_covers(config.tracks_cache_path, config):
         progress(config.name, f"STAGE tracking {config.tracking_span_len} frames ...")
         t = time.time()
         cache_tracks.cache(config)
         progress(config.name, f"STAGE tracking done in {time.time() - t:.0f}s")
     else:
-        progress(config.name, "tracks cache present -- reusing")
+        progress(config.name, "tracks cache already covers this span -- reusing")
 
     oncourt_path = os.path.join(_ROOT, "phase2", "out", f"{config.name}_oncourt.json")
-    if not os.path.exists(oncourt_path):
+    if not _cache_covers(oncourt_path, config):
         progress(config.name, "STAGE on-court cache ...")
         t = time.time()
         cache_oncourt.cache(config)
         progress(config.name, f"STAGE on-court done in {time.time() - t:.0f}s")
     else:
-        progress(config.name, "on-court cache present -- reusing")
+        progress(config.name, "on-court cache already covers this span -- reusing")
 
 
 CHUNK_DIR = os.path.join(VOLUME_ROOT, "chunks")
@@ -187,11 +211,28 @@ def run_chunk(clip: str, doc: dict, start: int, length: int, index: int) -> dict
     t0 = time.time()
     _build_caches(cfg)
 
+    # Check what is about to be handed over is actually THIS slice's frames.
+    # The belt to _cache_covers' braces: a slice that publishes the wrong span
+    # corrupts the merged game silently, and silence is the failure mode that
+    # costs a day.
+    oncourt_src = os.path.join(_ROOT, "phase2", "out", f"{clip}_oncourt.json")
+    for p in (cfg.tracks_cache_path, oncourt_src):
+        if not _cache_covers(p, cfg):
+            raise ValueError(
+                f"chunk {index}: {os.path.basename(p)} does not cover "
+                f"{start}..+{length} -- refusing to publish it")
+
     import shutil
     tracks_dst, oncourt_dst = _chunk_paths(clip, index)
     os.makedirs(os.path.dirname(tracks_dst), exist_ok=True)
     shutil.copy(cfg.tracks_cache_path, tracks_dst)
-    shutil.copy(os.path.join(_ROOT, "phase2", "out", f"{clip}_oncourt.json"), oncourt_dst)
+    shutil.copy(oncourt_src, oncourt_dst)
+    # Written to a NETWORK volume by a worker that is about to vanish. Confirm
+    # the bytes are actually there and readable before saying "done" -- slices
+    # 0 and 1 of the first parallel run reported success and left no file.
+    for p in (tracks_dst, oncourt_dst):
+        if not os.path.exists(p) or os.path.getsize(p) == 0:
+            raise IOError(f"chunk {index}: {p} did not land on the volume")
 
     dt = time.time() - t0
     progress(clip, f"CHUNK {index}: done in {dt:.0f}s")
@@ -227,6 +268,13 @@ def merge_chunks(clip: str, doc: dict, chunks: list) -> dict:
         offset = (c["index"] + 1) * 1_000_000
         with open(tp, encoding="utf-8") as fh:
             tdoc = json.load(fh)
+        # Third check, at the point of use: a slice file that describes the
+        # wrong frames must never be glued into the game.
+        got = (tdoc.get("span_start"), tdoc.get("span_len"))
+        if got != (c["start"], c["length"]):
+            raise ValueError(
+                f"slice {c['index']} covers {got[0]}..+{got[1]}, expected "
+                f"{c['start']}..+{c['length']} -- refusing to merge")
         for fr in tdoc["frames"]:
             for t in fr["tracks"]:
                 t["track_id"] += offset
