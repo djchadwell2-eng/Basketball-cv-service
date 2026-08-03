@@ -31,6 +31,61 @@ class ShotMakeResult(TypedDict):
     score_change_time_sec: float | None
 
 
+SCOREBOARD_PROMPT = (
+    "Look at this basketball scoreboard. What is the home score (the LEFT "
+    "number) and the away score (the RIGHT number)? Answer ONLY in this "
+    "format, no other text: Home: X Away: X\n"
+    "If you cannot read it, answer: Home: ? Away: ?"
+)
+
+
+def _reread(client, image_data):
+    """Read the same crop again -> (home, away), or None if it cannot be read.
+
+    Used only to confirm a detected score change (see the call site). Any
+    failure returns None, which the caller treats as disagreement -- an
+    unconfirmable change must not become a confirmed make."""
+    try:
+        r = client.models.generate_content(
+            model="gemma-4-26b-a4b-it",
+            contents=[SCOREBOARD_PROMPT,
+                      {"inline_data": {"mime_type": "image/jpeg",
+                                       "data": image_data}}])
+        h, a = _parse_response(r.text.strip())
+        return None if h is None or a is None else (h, a)
+    except Exception:
+        return None
+
+
+def is_scoring_play(last_home, last_away, home, away):
+    """Could basketball have produced this change in the score?
+
+    WHY THIS EXISTS (found 2026-08-02 on TEST1). The reader used to treat ANY
+    difference from the previous reading as a made basket. On a real run that
+    produced "MAKE [0,0]->[1,0]" (a one-point field goal) and, worse,
+    "MAKE [1,0]->[0,0]" -- a score going DOWN being confirmed as a basket. A
+    scoreboard number cannot decrease, so that was never a make; it was the
+    vision model misreading a small, low-contrast crop.
+
+    That failure mode is the one this project forbids everywhere else: the
+    make/miss layer's entire promise is "the scoreboard CONFIRMS makes"
+    (DJ's rule), and a confirmation built on a misread is worse than no answer.
+
+    A real made basket moves exactly ONE team's score UP by 1, 2 or 3 (free
+    throw, field goal, three). Anything else -- a decrease, both teams moving at
+    once, or a jump of 4+ -- is the board being misread, and is refused.
+
+    NOTE this cannot catch every misread: a wrong reading that happens to look
+    like a legal +2 still passes. It removes the impossible ones, which is a
+    floor, not a guarantee.
+    """
+    dh, da = home - last_home, away - last_away
+    if dh and da:
+        return False                     # both teams cannot score at once
+    delta = dh or da
+    return delta in (1, 2, 3)            # up by a legal amount; 0 handled by caller
+
+
 def detect_makes_by_gemma_fast(
     clip_name: str,
     shots_json_path: str,
@@ -102,6 +157,9 @@ def detect_makes_by_gemma_fast(
 
         last_home, last_away = confirmed_home, confirmed_away
         found_score_change = False
+        errors = []                  # why a frame could not be read, if it could not
+        misreads = []                # score moves basketball cannot produce
+        unstable = []                # changes a second read would not confirm
 
         print(f"  Shot {i+1}/{len(shots_sorted)}: ", end="", flush=True)
 
@@ -126,7 +184,8 @@ def detect_makes_by_gemma_fast(
                 response = client.models.generate_content(
                     model="gemma-4-26b-a4b-it",
                     contents=[
-                        "Basketball scoreboard. Home: ? Away: ? Answer ONLY: Home: X Away: X",
+                        # See SCOREBOARD_PROMPT for why the wording matters.
+                        SCOREBOARD_PROMPT,
                         {
                             "inline_data": {
                                 "mime_type": "image/jpeg",
@@ -140,7 +199,30 @@ def detect_makes_by_gemma_fast(
                 home, away = _parse_response(text)
 
                 if home is not None and away is not None:
-                    if (home, away) != (last_home, last_away):
+                    if (home, away) == (last_home, last_away):
+                        last_home, last_away = home, away
+                        print(".", end="", flush=True)
+                    elif is_scoring_play(last_home, last_away, home, away):
+                        # CONFIRM BEFORE BELIEVING IT. A make is declared off a
+                        # SINGLE reading of one frame, and the readings are not
+                        # stable on the frames that matter: TEST1 frame 274 --
+                        # the frame that decides this very shot -- read as 1, 1
+                        # and 12 across three attempts (2026-08-02). The
+                        # impossible-move guard cannot help, because 1 and 2 are
+                        # both legal scores.
+                        # So the deciding frame is read once more and the change
+                        # only counts if the second read AGREES. Cost is one
+                        # extra call per DETECTED CHANGE (a handful per game),
+                        # not per frame -- the cheapest possible place to spend
+                        # it, since a disagreement here is the difference
+                        # between a confirmed make and a fabricated one.
+                        second = _reread(client, image_data)
+                        if second != (home, away):
+                            unstable.append(
+                                f"f{frame_num} read {[home, away]} then "
+                                f"{list(second) if second else 'unreadable'}")
+                            print("~", end="", flush=True)
+                            continue
                         score_from = [last_home, last_away]
                         score_to = [home, away]
                         score_change_frame = frame_num
@@ -150,14 +232,46 @@ def detect_makes_by_gemma_fast(
                         found_score_change = True
                         print(f"MAKE {score_from}->{score_to}")
                     else:
-                        last_home, last_away = home, away
-                        print(".", end="", flush=True)
+                        # The number moved in a way basketball cannot produce,
+                        # so it is a MISREAD OF THE BOARD, not a basket. Ignored
+                        # rather than confirmed -- see is_scoring_play.
+                        misreads.append(f"{[last_home, last_away]}->{[home, away]}")
+                        print("?", end="", flush=True)
 
             except Exception as e:
+                # NEVER swallow this. It used to bind `e` and print a bare "E",
+                # so a run that read nothing at all looked identical to one
+                # that read the board fine and simply saw no score change --
+                # and "unknown" is a legitimate answer here, which is exactly
+                # what made the difference invisible (2026-08-02). The reasons
+                # are collected and reported once per shot rather than per
+                # frame, so a rate limit does not spam a hundred lines.
+                errors.append(f"{type(e).__name__}: {e}")
                 print("E", end="", flush=True)
 
         if not found_score_change:
-            print("unknown")
+            if unstable:
+                # The most dangerous case, so it is named plainly: we SAW a
+                # legal-looking score change and could not reproduce it on a
+                # second read. Before this check that would have shipped as a
+                # confirmed make.
+                print(f"unknown  <- score change NOT REPRODUCIBLE on a second "
+                      f"read, so not confirmed: {'; '.join(unstable[:2])}")
+            elif misreads:
+                print(f"unknown  <- {len(misreads)} impossible score move(s) "
+                      f"REFUSED (board misread, not a basket): "
+                      f"{'; '.join(misreads[:2])}")
+            elif errors:
+                # Say WHY there is no answer: a board we could not reach is not
+                # the same fact as a board that showed no points.
+                seen = []
+                for msg in errors:
+                    if msg not in seen:
+                        seen.append(msg)
+                print(f"unknown  <- {len(errors)} read(s) FAILED, not "
+                      f"'no score change': {'; '.join(seen[:2])}")
+            else:
+                print("unknown")
 
         results.append(
             ShotMakeResult(

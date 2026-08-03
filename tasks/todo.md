@@ -6284,3 +6284,79 @@ and must not be lowered to rescue a future clip.
   just unverified.
 - Two shots (TEST1 f164, TEST2 f146) are attributed to NO possession. Both are
   honest abstentions -- no touch was recorded near them -- not bugs.
+
+---
+
+# GEMMA KEY FIX -- and what it uncovered, 2026-08-02
+
+## The ask: "the Gemma reader isn't firing"
+FIXED, and the cause was exactly as suspected.
+
+ROOT CAUSE: every consumer reads os.environ.get("GEMINI_API_KEY") --
+measured_stats.py and all six spikes/gemma_*/gemini_* scripts -- and NOTHING in
+this repo ever put it there. .env.local was being read by nobody. It never
+errored: a missing key just means "Gemma not configured", so it fell through to
+the slower OCR reader and looked installed while never running.
+
+FIX: new env_local.py loads both .env.local files (this service first, then the
+web app's) into the environment, never overwriting a real env var. measured_stats
+now PRINTS which file the key came from, or says loudly that it has none. That
+silence was the actual defect -- a missing key and a working one behaved
+identically from the outside.
+
+ALSO FOUND: the two .env.local files hold DIFFERENT GEMINI_API_KEY values (53
+chars here vs 39 in the app). The service copy is the one added when the Gemma
+reader was built, so it wins. Worth cleaning up on your side eventually.
+
+## Three real bugs found while verifying it actually worked
+
+1. ANY score change counted as a make. Including impossible ones -- a real run
+   produced "MAKE [1,0]->[0,0]", a score going DOWN confirmed as a basket.
+   FIX: is_scoring_play() -- a make moves exactly ONE team's score UP by 1, 2
+   or 3. Decreases, both-teams-at-once and jumps of 4+ are refused as misreads.
+
+2. The fast reader's prompt never said which side was home. Measured on TEST1
+   frame 300 (truth 2-0), three runs each:
+        old terse prompt:  0-2, 2-0, 2-0   <- swapped home/away 1 in 3
+        prompt with LEFT/RIGHT named: 2-0, 2-0, 2-0   <- stable
+   A home/away swap looks exactly like a score change, which is how it
+   manufactured makes. FIX: the prompt now names LEFT and RIGHT.
+
+3. Errors were swallowed as a bare "E" with the exception discarded. A run that
+   read NOTHING looked identical to one that read fine and saw no score change
+   -- and "unknown" is a legitimate answer here, which is what made it
+   invisible. FIX: reasons are collected and reported per shot.
+
+Also added: a detected score change is now RE-READ once and only counts if the
+second read agrees. Costs one extra call per detected change, not per frame.
+
+## THE IMPORTANT PART -- make/miss is NOT as accurate as the handoff claims
+
+The handoff records make/miss as "PRODUCTION READY / VERY HIGH confidence /
+100% accuracy". That does not survive checking. On TEST1:
+
+  The board at frame 274 is PARTIALLY OCCLUDED (a dark diagonal crosses the
+  digit). Gemma reads Milford's score as "1" -- 4 times out of 4. It is really
+  2: frame 300, 0.4s later, reads 2-0 stably on every attempt.
+
+  The reads are REPRODUCIBLY wrong, so neither the re-read check nor the
+  impossible-move guard can catch it. Both 1 and 2 are legal scores.
+
+  It CASCADES. TEST1's two shots are LAYUPS -- shot locations (6.7, 27.5) and
+  (5.7, 26.4) ft, i.e. at the rim, so each is worth 2 and the score can never
+  pass through 1. What actually happens:
+      shot 2: 0 -> "1"  declared MAKE   (a basket WAS made; numbers wrong)
+      shot 3: "1" -> 2  declared MAKE   (FALSE -- the score never moved here)
+  So the current output contains one make that did not happen.
+
+  This is not a regression from today's work -- today's changes REMOVED false
+  makes. It was there before and was being reported as 100% accurate.
+
+## What would actually fix it (NOT done -- needs your call on cost)
+- Bigger / upscaled scoreboard crop, or crop just the digits rather than the
+  whole board. The crop is currently 22% of frame width and includes logos,
+  team names, period, fouls and the clock.
+- Read a frame where the board is NOT occluded (check a few frames and take the
+  ones that agree) instead of a fixed +30/+90 offset.
+- Sanity-check the score against the shot's own value: a layup cannot be +1.
+Each costs more API calls, which is your call, not mine.

@@ -37,6 +37,9 @@ _ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(_ROOT, "phase2"))
 import team_possessions  # noqa: E402
 
+sys.path.insert(0, _ROOT)
+import env_local  # noqa: E402
+
 # Court geometry -- mirrors spikes/shot_location.py (kept local so this
 # module and its tests stay dependency-light: no cv2/numpy import).
 # COURT_LEN is only the DEFAULT. The real length varies by gym (TEST2's floor
@@ -420,9 +423,22 @@ def generate(clip):
     # Try to load make/miss results from scoreboard analysis
     make_miss_results = None
     try:
+        # Put the key in the environment first. Every reader here asks
+        # os.environ for it and NOTHING used to put it there, so .env.local was
+        # read by nobody and Gemma silently never ran (found 2026-08-02).
+        env_local.load()
         # Try Gemma (vision-based) first - works on all scoreboard styles
         api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            # SAY SO. A missing key and a working one used to look identical
+            # from the outside, which is exactly how this hid for a session.
+            print("[measured_stats] no GEMINI_API_KEY in the environment or "
+                  "either .env.local -- the universal Gemma reader is NOT "
+                  "running; falling back to OCR (broadcast-style boards only)",
+                  flush=True)
         if api_key:
+            print(f"[measured_stats] GEMINI_API_KEY from "
+                  f"{env_local.found('GEMINI_API_KEY')}", flush=True)
             from spikes import gemma_make_miss_fast
             shots_path = os.path.join(_ROOT, "spikes", "out", f"{clip}_shot_attempts.json")
             try:
