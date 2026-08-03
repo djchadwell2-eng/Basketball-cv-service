@@ -155,7 +155,104 @@ def _build_caches(config) -> None:
         progress(config.name, "on-court cache present -- reusing")
 
 
-def run_analysis(clip_name: str, doc: dict | None = None, span=None) -> dict:
+CHUNK_DIR = os.path.join(VOLUME_ROOT, "chunks")
+
+
+def _chunk_paths(clip: str, index: int):
+    d = os.path.join(CHUNK_DIR, clip)
+    return (os.path.join(d, f"{index:03d}_tracks.json"),
+            os.path.join(d, f"{index:03d}_oncourt.json"))
+
+
+def run_chunk(clip: str, doc: dict, start: int, length: int, index: int) -> dict:
+    """ONE SLICE of a game, on one worker.
+
+    The expensive stages -- tracking every body and working out where the
+    camera points -- look at one frame at a time and never look back, so they
+    split cleanly: ten workers on a tenth of the game each finish in a tenth of
+    the time, for the same money (RunPod bills by the second).
+
+    Only the caches are built here. The identity stages are NOT run per slice:
+    who a player is has to be decided over the whole game, not ten times over.
+
+    Results go to the shared volume, because this worker is about to disappear.
+    """
+    _install_uploaded_clip(clip, doc, (start, length))
+    import clip_config
+    cfg = clip_config.get_clip(clip)
+    if cfg is None:
+        raise ValueError(f"chunk {index}: clip {clip} not usable")
+
+    progress(clip, f"CHUNK {index}: frames {start}..{start + length}")
+    t0 = time.time()
+    _build_caches(cfg)
+
+    import shutil
+    tracks_dst, oncourt_dst = _chunk_paths(clip, index)
+    os.makedirs(os.path.dirname(tracks_dst), exist_ok=True)
+    shutil.copy(cfg.tracks_cache_path, tracks_dst)
+    shutil.copy(os.path.join(_ROOT, "phase2", "out", f"{clip}_oncourt.json"), oncourt_dst)
+
+    dt = time.time() - t0
+    progress(clip, f"CHUNK {index}: done in {dt:.0f}s")
+    return {"index": index, "start": start, "length": length,
+            "seconds": round(dt, 1), "tracks": tracks_dst}
+
+
+def merge_chunks(clip: str, doc: dict, chunks: list) -> dict:
+    """Glue the slices back together, then analyse the whole game once.
+
+    TRACK IDS ARE PER-SLICE. Each worker's tracker counted from one, so slice
+    3's "player 4" and slice 4's "player 4" are strangers. Ids are therefore
+    offset per slice, which keeps them distinct and honest: a player who
+    crosses a seam becomes TWO tracked identities rather than one identity
+    silently stitched from two different people. Over-merging would invent a
+    player who was never on the floor; splitting one only costs a name, and
+    naming is a step the coach already has.
+    """
+    import json
+    starts = [c["start"] for c in chunks]
+    full_start = min(starts)
+    full_len = max(c["start"] + c["length"] for c in chunks) - full_start
+
+    _install_uploaded_clip(clip, doc, (full_start, full_len))
+    import clip_config
+    cfg = clip_config.get_clip(clip)
+
+    merged_tracks, merged_oncourt = [], []
+    for c in sorted(chunks, key=lambda c: c["start"]):
+        tp, op = _chunk_paths(clip, c["index"])
+        if not (os.path.exists(tp) and os.path.exists(op)):
+            raise FileNotFoundError(f"slice {c['index']} missing on the volume ({tp})")
+        offset = (c["index"] + 1) * 1_000_000
+        with open(tp, encoding="utf-8") as fh:
+            tdoc = json.load(fh)
+        for fr in tdoc["frames"]:
+            for t in fr["tracks"]:
+                t["track_id"] += offset
+            merged_tracks.append(fr)
+        with open(op, encoding="utf-8") as fh:
+            odoc = json.load(fh)
+        for fr in odoc["frames"]:
+            fr["tracks"] = {str(int(k) + offset): v for k, v in (fr.get("tracks") or {}).items()}
+            merged_oncourt.append(fr)
+
+    merged_tracks.sort(key=lambda f: f["frame_index"])
+    merged_oncourt.sort(key=lambda f: f["frame_index"])
+    head = {"clip": clip, "span_start": full_start, "span_len": full_len}
+    with open(cfg.tracks_cache_path, "w", encoding="utf-8") as fh:
+        json.dump({**head, "frames": merged_tracks}, fh)
+    with open(os.path.join(_ROOT, "phase2", "out", f"{clip}_oncourt.json"), "w",
+              encoding="utf-8") as fh:
+        json.dump({**head, "frames": merged_oncourt}, fh)
+
+    progress(clip, f"MERGE: {len(chunks)} slices -> {len(merged_tracks)} frames "
+                   f"({full_start}..{full_start + full_len})")
+    return run_analysis(clip, doc, (full_start, full_len), caches_ready=True)
+
+
+def run_analysis(clip_name: str, doc: dict | None = None, span=None,
+                 caches_ready: bool = False) -> dict:
     if doc:
         _install_uploaded_clip(clip_name, doc, span)
     else:
@@ -170,7 +267,7 @@ def run_analysis(clip_name: str, doc: dict | None = None, span=None) -> dict:
             f"no clip {clip_name} -- not a built-in, and no usable clips/{clip_name}.json "
             f"(a registry clip needs a roster AND a tracking span)")
 
-    if doc:
+    if doc and not caches_ready:
         _build_caches(config)
 
     progress(clip_name, "STAGE run_clip (calibration -> events -> identity -> box score)")
@@ -263,6 +360,31 @@ def handler(job):
 
     # A look at the mounted volume: proves the film landed where the job will
     # expect it, without spending GPU minutes to find out.
+    # ONE SLICE of a game. Ten of these run at once, on ten workers.
+    if job_input.get("mode") == "chunk":
+        clip = job_input.get("clip", "")
+        t0 = time.time()
+        try:
+            out = run_chunk(clip, job_input["config"], int(job_input["start"]),
+                            int(job_input["length"]), int(job_input["index"]))
+            return {"ok": True, "mode": "chunk", **out}
+        except Exception as e:
+            return {"ok": False, "mode": "chunk", "index": job_input.get("index"),
+                    "seconds": round(time.time() - t0, 1),
+                    "error": str(e), "traceback": traceback.format_exc()}
+
+    # The slices back into one game, then the identity stages over all of it.
+    if job_input.get("mode") == "merge":
+        clip = job_input.get("clip", "")
+        t0 = time.time()
+        try:
+            stats = merge_chunks(clip, job_input["config"], job_input["chunks"])
+            return {"ok": True, "mode": "merge", "clip": clip,
+                    "seconds": round(time.time() - t0, 1), "measured_stats": stats}
+        except Exception as e:
+            return {"ok": False, "mode": "merge", "clip": clip,
+                    "error": str(e), "traceback": traceback.format_exc()}
+
     # Can the GPU do the CAMERA ANCHOR too? Speed AND agreement in feet against
     # the CPU path -- see spikes/gpu_anchor_bench.py. Nothing local has CUDA, so
     # this measurement can only happen here.
