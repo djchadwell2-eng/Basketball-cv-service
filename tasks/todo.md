@@ -6714,3 +6714,65 @@ one click and cannot delete anybody.
    fell back to EasyOCR while others built the Gemma client, so ONE run silently
    used TWO different readers on different crops. Now behind a lock, and the
    engine is warmed once before the pool starts.
+
+### FIRST FULL STAGE6 RUN WITH THE VISION READER -- TEST1, 2026-08-03
+                              EasyOCR      Gemma
+  auto-confirmed (AGREE)         5           9
+  crops actually spent         356         230
+  review queue                46->41      46->37
+  disagreement flags             1           2
+More names from FEWER crops -- the early-exit rounds stop attempting a candidate
+once she reads.
+
+GEMMA FIXED A FALSE SWAP FLAG. EasyOCR misread #32 as "3" on track 17 and raised
+a possible-swap flag; Gemma read #32 and confirmed her. That is a review item
+DJ would have had to open, deleted before he ever saw it -- exactly the
+human-input saving he adopted this for.
+
+GEMMA ALSO GOT TWO WRONG, AND THIS IS THE IMPORTANT PART:
+  t138 jersey plainly reads 44; Gemma said 14   (position said 44)
+  t15  jersey reads 10 (partly cut by the crop); Gemma said 13, EasyOCR said 10
+Both were partly occluded or clipped at the crop edge. BOTH WERE CAUGHT. Neither
+became a stat: they raised disagreement flags and went to the review queue,
+because a read only auto-confirms when it AGREES with an independent position
+hypothesis. The two-signal design contains the vision model's errors rather than
+trusting it -- and 6 candidates with NO position hypothesis got no confirmation
+at all, which is the same rule doing its job from the other direction.
+NET on the review queue: 9 removed, 2 added, and one of the two added is a real
+mistake DJ should overrule. Still a clear reduction in what a human must handle.
+
+HONEST CAVEAT: my readings of those two crops are eyeball calls on a small
+image, and DJ is the authority on his own footage -- t15 in particular is cut
+off at the edge. If he reads them differently the scoreline changes.
+
+## THE CONFIDENCE METER -- corroboration across crops, 2026-08-03
+
+DJ asked for a confidence meter so a misread still reaches a human.
+
+WHAT THE EXISTING NUMBER COULD NOT DO. read_confidence is the agreement fraction
+across three reads OF THE SAME PICTURE. That catches a wobbly crop, but both of
+the reader's real mistakes on TEST1 came back UNANIMOUS at 1.00 and were still
+wrong -- a jersey plainly reading 44 read as 14 three times, one reading 10 read
+as 13. Asking the same clipped picture again just gets the same wrong answer
+with full marks.
+
+WHAT WAS ADDED. A confident read must now survive a SECOND, DIFFERENT crop of
+the same candidate. Two pictures disagreeing is precisely the evidence that one
+is unreadable, and it is evidence repeated reads of one picture can never give.
+Every confirmed read carries a `corroboration` field:
+    corroborated       two different crops, same number -- strongest
+    single_crop_only   only one crop was ever legible -- kept, flagged to review
+    conflict_A_vs_B    two legible crops disagreed -> NOT confirmed, sent to the
+                       human queue
+A second crop that is simply unreadable is NOT a conflict -- most crops are
+unreadable, which is the whole reason this stage accumulates across a window.
+
+COST is small and bounded: only candidates that already read get a second look
+(9-17 per clip), never the 30-odd who never read at all. Early exit is untouched.
+
+AND A BUG IN MY OWN TEST HARNESS, caught before it produced numbers: switching
+clips by setting clip_config.ACTIVE_CLIP alone is NOT enough. window_boundaries
+reads the court length from spikes/clips_config.ACTIVE, so running HARD with only
+the first selector changed would have segmented HARD's windows on TEST1's court.
+run_clip._sync_and_guard() sets BOTH and fails loud if they disagree -- the runs
+now go through it.

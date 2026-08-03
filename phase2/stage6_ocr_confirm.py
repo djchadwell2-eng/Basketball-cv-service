@@ -191,6 +191,68 @@ def main():
         print(f"[stage6] attempt round {rnd + 1}: {len(jobs)} crop(s), "
               f"{len(best)} candidate(s) now read", flush=True)
 
+    # --- CORROBORATION: the same number, off a DIFFERENT picture of her -----
+    #
+    # WHY (measured on TEST1, 2026-08-03). The vision reader's confidence is how
+    # many of its repeated reads agreed, and that catches a wobbly crop -- but
+    # its two real mistakes were UNANIMOUS and still wrong: a jersey plainly
+    # reading 44 came back 14 three times running, and one reading 10 came back
+    # 13. Asking the same picture again cannot fix a picture that is clipped or
+    # half-occluded; it just gets the same wrong answer with full marks.
+    #
+    # So a confident read now has to survive a SECOND, DIFFERENT crop of the
+    # same candidate. Two pictures disagreeing is exactly the evidence that one
+    # of them is unreadable, and it is evidence three reads of one picture can
+    # never produce.
+    #
+    # Cost is small and bounded: only candidates that ALREADY read get a second
+    # look (9-17 per clip here), not the 30-odd who never read at all. Early
+    # exit still applies to everyone else.
+    corroboration = {}                       # (win,id) -> "corroborated" | ...
+    verify_jobs = []
+    for key, (_n, _c, f, _bb) in best.items():
+        alt = next(((g, gb) for (g, gb) in picked_by_key[key] if g != f), None)
+        if alt is None:
+            corroboration[key] = "single_crop_only"   # she has no other picture
+        else:
+            verify_jobs.append((key, *alt))
+    if verify_jobs:
+        with ThreadPoolExecutor(max_workers=OCR_WORKERS) as ex:
+            vres = list(ex.map(_attempt, verify_jobs))
+        conflicts = []
+        for key, f, bb, reads in vres:
+            first = best[key][0]
+            conf_reads = [(n, c) for (n, c) in reads
+                          if c >= ocr_reader.OCR_CONFIRM_THRESHOLD]
+            if not conf_reads:
+                # The second picture was not legible. That is NOT a conflict --
+                # most crops are unreadable, which is the whole reason this
+                # pipeline accumulates across a window. Kept, but marked so a
+                # human can see it rested on one picture.
+                corroboration[key] = "single_crop_only"
+                continue
+            second = max(conf_reads, key=lambda r: r[1])[0]
+            if second == first:
+                corroboration[key] = "corroborated"
+            else:
+                # TWO legible pictures of one girl disagree. One of them is a
+                # misread and we cannot tell which, so she is NOT auto-confirmed
+                # -- she goes to the human queue, which is the point.
+                corroboration[key] = f"conflict_{first}_vs_{second}"
+                conflicts.append((key, first, second, f))
+        for (key, a, b_, f) in conflicts:
+            del best[key]
+        if conflicts:
+            print(f"[stage6] CORROBORATION rejected {len(conflicts)} read(s) -- a "
+                  f"second crop of the same girl read a DIFFERENT number:")
+            for (key, a, b_, f) in conflicts:
+                print(f"    w{key[0]} id{key[1]}: first said #{a}, second crop "
+                      f"(f{f}) said #{b_} -> sent to review, not confirmed")
+    n_corr = sum(1 for v in corroboration.values() if v == "corroborated")
+    n_single = sum(1 for v in corroboration.values() if v == "single_crop_only")
+    print(f"[stage6] confidence: {n_corr} read(s) corroborated by a second crop, "
+          f"{n_single} rest on a single crop (kept, but flagged for review)")
+
     # --- apply the three outcomes to the accumulated best read ---
     outcomes = {"agree": [], "disagree": [], "no_confident_read": [],
                 "no_position_hypothesis": []}
@@ -269,6 +331,13 @@ def main():
         if b is not None:
             row.update({"read_number": b[0], "read_confidence": round(b[1], 3),
                         "read_frame": b[2], "read_bbox": [round(v, 1) for v in b[3]]})
+        # HOW SURE ARE WE, in a form a human can sort by. read_confidence alone
+        # is not enough: the reader's worst mistakes came back unanimous (1.00)
+        # off a clipped crop. This says whether a SECOND picture of her agreed.
+        #   corroborated      two different crops, same number -- strongest
+        #   single_crop_only  only one crop was ever legible -- worth an eyeball
+        #   conflict_A_vs_B   two crops disagreed -- NOT confirmed, needs a human
+        row["corroboration"] = corroboration.get(key)
         return row
 
     out_doc = {
