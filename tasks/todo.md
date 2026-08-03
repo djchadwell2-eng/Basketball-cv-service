@@ -6604,3 +6604,113 @@ f110 stays wrong. Fixing it needs the touch layer to see the real shooter's
 3-frame contact WITHOUT admitting every 3-frame noise contact -- which the
 measurement above shows is not a threshold you can just lower. Left open and
 honest rather than papered over.
+
+## GEMMA vs EASYOCR ON JERSEY NUMBERS -- MEASURED, 2026-08-03
+
+Same crops for both engines: stage6's own best-crops-first selection (largest
+boxes per track, >= MIN_OCR_HEIGHT, spaced by OCR_STRIDE), same closed-set
+roster filter, same jersey_crop(). Ground truth = my eyeball reads off a
+rendered contact sheet; only crops I could read confidently were labelled.
+
+### THE HEADLINE
+                     correct    wrong    non-players wrongly named
+  EasyOCR @0.85         1         0                0
+  Gemma (unanimous-of-3) 12        1                1
+On the SAME crops. EasyOCR read essentially nothing -- consistent with
+DECISIONS 4b/4c, which measured 22 confident reads out of 232 crops on TEST1
+and 7 of ~395 on HARD.
+
+  TEST1: Gemma got 3/3 of the "13" crops, 3/3 of the "14" crops, 3/4 of the
+         "23" crops. EasyOCR: zero confident reads on any of them.
+  HARD:  Gemma got 3/3 of the "24" crops (the close-up player DECISIONS 4b
+         singled out as "perfectly legible to a human"). EasyOCR got 1 of 3.
+
+### UNANIMOUS-OF-3 IS A WORKING CONFIDENCE PROXY
+A VLM has no calibrated score, so three independent reads must AGREE or the
+crop is refused. It earned its place twice:
+  TEST1 #25 (a real "23"):   [3, 30, 3]    -> refused, not mis-named
+  HARD  #7  (a REFEREE):     [13, 10, 10]  -> refused
+That referee is the important one. MAJORITY-of-3 would have named him "10". The
+bar has to be unanimity; do not weaken it to raise the read rate.
+
+### THE ONE REAL FAILURE, AND THE FIX FOR IT
+TEST1 #22 is not a player at all -- it is the SCOREBOARD GRAPHIC, which the
+tracker made a "player" track out of (track 467). Gemma read it as a number
+unanimously, three times out of three. The closed-set filter cannot help: the
+number it invented is on the roster.
+This is a tracker input problem, not a reading problem, and there is a free fix
+already sitting in the config: every clip marks its scorebug rectangle in
+clips_config exclude_regions. A player box lying inside that rectangle is not a
+player and must never be OCR'd, by either engine. No new human input.
+19 of 19 genuine non-players on HARD (referees, a coach in red, a courtside
+adult) were correctly refused, so this is the scoreboard specifically, not
+non-players in general.
+
+### SPEED AND COST
+  sequential:        7.8 s/call  -- unusable
+  16 parallel:       1.65 s/call -- but the API started rate-limiting
+  6 parallel + retry: ~2 s/call  -- stable, 0 failures
+Each crop needs 3 calls. A clip attempting ~40 candidates x 3 crops x 3 reads is
+~360 calls, roughly 12 minutes at the stable rate. That is too slow for a full
+game TODAY, and it lands squarely in the batching/multi-machine work DJ already
+has running.
+COST: not confirmed against real billing. Extrapolating from the scoreboard
+reader's measured $0.008/game over a handful of calls gives order $0.5/clip for
+360 jersey calls -- an ESTIMATE, to be checked before any full-game run.
+
+### RECOMMENDATION
+Adopt, behind the existing read_jersey() seam, with THREE conditions:
+  1. unanimous-of-3 or refuse (never majority);
+  2. skip any box inside the clip's marked scorebug rectangle;
+  3. keep OCR_CONFIRM_THRESHOLD's role -- this feeds the same
+     promote_via_second_signal gate, it does not get a new path to CONFIRMED.
+Not adopted yet -- awaiting DJ's go-ahead.
+
+## ADOPTING THE VISION JERSEY READER, 2026-08-03
+
+DJ: make it the official system -- the human-input saving is worth paying for.
+
+### ADOPTED
+- read_jersey() now uses Gemma when a key is present, EasyOCR otherwise. The
+  seam this module was built around, used for the first time.
+- CONFIDENCE = AGREEMENT FRACTION. Three independent reads; the reported
+  confidence is how many agreed / how many were asked. Unanimous = 1.00,
+  2-of-3 = 0.67. So the EXISTING OCR_CONFIRM_THRESHOLD (0.85) enforces
+  unanimity by itself -- no second dial was added, and the old one still means
+  exactly what it always meant. A refusal counts against agreement, and an API
+  error is not a vote.
+- The engine says out loud which reader is in use, and JERSEY_ENGINE=easyocr
+  forces the old one. A silent fallback is what hid the scoreboard key bug for
+  a whole session.
+
+### THE SCOREBUG GUARD DJ ASKED FOR -- BUILT, MEASURED, NOT SHIPPED
+The plan was to skip any body box inside the clip's marked exclude_regions
+rectangle. It is written up in ocr_reader.py so nobody rebuilds it.
+IT WOULD HAVE DELETED REAL PLAYERS. Those rectangles are SIFT masks, drawn
+generously over the whole burned-in corner -- TEST2's covers the BENCH, and the
+guard skipped tracks 16 and 22, whose "24" and "13" are the most legible numbers
+in that clip (rendered and eyeballed). Motion does not separate them either: the
+static graphic drifts 0.67 px/frame, a player standing on the bench 1.95.
+Deleting two readable players to prevent one graphic misread is a bad trade, so
+it was reverted rather than shipped.
+INSTEAD: the pipeline already has a designed path for "this track is not a
+player" -- roster.load_ref_tracks, the same human ref/bench labels that stop
+referees being credited with the ball. Labelling the scoreboard track once costs
+one click and cannot delete anybody.
+
+### TWO REAL BUGS THE ADOPTION EXPOSED
+1. STAGE6 WAS FAR TOO SLOW FOR A NETWORK READER. A plain nested loop over
+   43 candidates x 10 crops x 3 reads is over an hour; the first run timed out
+   with nothing written. Fixed WITHOUT touching the attempt budget or the
+   threshold, by changing only how the same crops are spent:
+     - PARALLEL rounds (6 workers; 16 was faster per call but rate-limited);
+     - EARLY EXIT -- picks are already sorted biggest-crop-first, so a candidate
+       who reads confidently on her clearest crop skips her remaining nine.
+   Measured effect on TEST1: round 1 tried 45 crops and read 7 candidates,
+   round 2 tried 31 and reached 13, round 3 tried 24 and reached 17. The job
+   list shrinks every round instead of grinding through all 430.
+2. THE ENGINE CHOICE WAS NOT THREAD-SAFE. With workers running, several threads
+   entered the lazy initialiser at once: some printed "no GEMINI_API_KEY" and
+   fell back to EasyOCR while others built the Gemma client, so ONE run silently
+   used TWO different readers on different crops. Now behind a lock, and the
+   engine is warmed once before the pool starts.

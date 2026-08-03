@@ -18,6 +18,7 @@ import json
 import os
 import sys
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 
 import cv2
 
@@ -143,21 +144,52 @@ def main():
     print(f"[stage6] loaded {len(imgs)} frame(s) for OCR attempts "
           f"(span holds {doc['span_len']} -- targeted read, not the whole span)")
 
-    # --- temporal OCR accumulation per candidate ---
+    # --- temporal OCR accumulation per candidate, IN ROUNDS -----------------
+    # Round N attempts every still-unread candidate's Nth-best crop, all in
+    # parallel, then drops the ones that got a confident read before round N+1.
+    #
+    # WHY (measured 2026-08-03). EasyOCR runs locally and a plain nested loop was
+    # fine. The vision reader is a network call taking ~7.8 s on its own, and it
+    # makes GEMMA_READS of them per crop -- TEST1's 43 candidates x 10 crops x 3
+    # reads is over an hour of waiting, and the first attempt at this timed out.
+    # Two changes fix it without touching the attempt BUDGET or the threshold:
+    #   PARALLEL: the reads are independent, so they overlap. 6 workers measured
+    #     stable end to end; 16 was faster per call but the API rate-limited.
+    #   BEST-CROP-FIRST + EARLY EXIT: picks are already sorted biggest-first, so
+    #     a candidate whose clearest crop reads confidently needs none of her
+    #     remaining nine. On real clips most candidates either read immediately
+    #     or never, so this removes the bulk of the calls.
+    # Neither changes WHICH crops are eligible, only how many get spent.
+    OCR_WORKERS = 6
     attempts = crops_any = crops_conf = 0
     best = {}                               # (win,id) -> (number, conf, frame, bbox)
-    for key in candidates:
-        for (f, bb) in picked_by_key[key]:
-            crop = ocr_reader.jersey_crop(imgs[f], bb)
-            reads = ocr_reader.read_jersey(crop, roster.ROSTER_NUMBERS)   # closed-set
+
+    def _attempt(job):
+        key, f, bb = job
+        crop = ocr_reader.jersey_crop(imgs[f], bb)
+        return key, f, bb, ocr_reader.read_jersey(crop, roster.ROSTER_NUMBERS)
+
+    max_round = max((len(v) for v in picked_by_key.values()), default=0)
+    for rnd in range(max_round):
+        jobs = [(key, *picked_by_key[key][rnd])
+                for key in candidates
+                if key not in best and len(picked_by_key[key]) > rnd]
+        if not jobs:
+            break
+        with ThreadPoolExecutor(max_workers=OCR_WORKERS) as ex:
+            results = list(ex.map(_attempt, jobs))
+        for key, f, bb, reads in results:
             attempts += 1
-            if reads:
-                crops_any += 1
-                n, c = max(reads, key=lambda r: r[1])
-                if c >= ocr_reader.OCR_CONFIRM_THRESHOLD:
-                    crops_conf += 1
-                    if key not in best or c > best[key][1]:
-                        best[key] = (n, c, f, bb)
+            if not reads:
+                continue
+            crops_any += 1
+            n, c = max(reads, key=lambda r: r[1])
+            if c >= ocr_reader.OCR_CONFIRM_THRESHOLD:
+                crops_conf += 1
+                if key not in best or c > best[key][1]:
+                    best[key] = (n, c, f, bb)
+        print(f"[stage6] attempt round {rnd + 1}: {len(jobs)} crop(s), "
+              f"{len(best)} candidate(s) now read", flush=True)
 
     # --- apply the three outcomes to the accumulated best read ---
     outcomes = {"agree": [], "disagree": [], "no_confident_read": [],
