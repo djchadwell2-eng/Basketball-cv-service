@@ -84,6 +84,20 @@ COURT_WID = s4.COURT_WID      # 50
 
 
 # ==============================================================================
+def _use_gpu_anchor() -> bool:
+    """GPU anchor unless explicitly switched off (CV_GPU_ANCHOR=0), and only
+    where it is actually possible. An env switch exists so a suspect result can
+    be re-run on the CPU path without editing code."""
+    import os
+    if os.environ.get("CV_GPU_ANCHOR", "1") == "0":
+        return False
+    try:
+        import gpu_anchor
+        return gpu_anchor.available()
+    except Exception:
+        return False
+
+
 def build_court_anchor():
     """Return (H_court, anchor, fps, total) for the ACTIVE clip.
 
@@ -109,6 +123,25 @@ def build_court_anchor():
 
     kf_imgs = s2.extract_frames(s2.VIDEO_PATH, KF)   # keyframe images for matching
     KF_arr = np.array(KF)
+
+    # THE SAME ANSWER, 80x SOONER, when there is a GPU to do it on.
+    #
+    # This match is the pipeline's scaling wall: 47 s/frame on a full game =
+    # 2,240 hours, which is why only ~15-second clips were ever possible. The
+    # kornia version measures 0.588 s/frame and agrees with the OpenCV answer
+    # to 0.008 ft mean / 0.11 ft max on DJ's own game, with zero failures --
+    # a tenth of an inch, against a court he calls perfect at 0.21 ft.
+    #
+    # Falls back silently when there is no CUDA, so DJ's laptop and the test
+    # suite run exactly as before. See gpu_anchor.py.
+    if _use_gpu_anchor():
+        try:
+            import gpu_anchor
+            gpu = gpu_anchor.GpuAnchor(kf_imgs, KF, Hs_opt, s2.EXCLUDE_REGIONS)
+            print(f"  anchor: GPU (kornia SIFT), {len(KF)} keyframes described once")
+            return H_court, gpu, fps, total
+        except Exception as e:                      # any doubt -> the proven path
+            print(f"  anchor: GPU unavailable ({e}) -- using CPU SIFT")
 
     def anchor(f, frame_bgr):
         k = int(KF_arr[np.argmin(np.abs(KF_arr - f))])      # nearest keyframe
