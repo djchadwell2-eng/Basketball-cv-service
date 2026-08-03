@@ -25,6 +25,16 @@ RUN python -c "import easyocr; easyocr.Reader(['en'], gpu=False, verbose=False)"
 # every clip's multi-GB debug overlays.
 COPY . .
 
+# WHICH COMMIT IS THIS? RunPod reuses warm workers between jobs, and pointing
+# the template at a new image does not evict one that is already running. A job
+# then lands on yesterday's code and fails in ways that look like today's bug:
+# one 44-minute run was spent chasing a ModuleNotFoundError that had already
+# been fixed, on a worker that had never seen the fix. Every response now
+# carries the sha it actually ran, so a stale worker is obvious in one line
+# instead of an afternoon.
+ARG GIT_SHA=unknown
+RUN echo "$GIT_SHA" > /app/IMAGE_SHA
+
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 

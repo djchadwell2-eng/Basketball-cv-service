@@ -392,8 +392,23 @@ def speedtest(frames: int = 60) -> dict:
     }
 
 
+def image_sha() -> str:
+    """The commit this container was built from -- see the Dockerfile."""
+    try:
+        with open(os.path.join(_ROOT, "IMAGE_SHA"), encoding="utf-8") as fh:
+            return fh.read().strip()[:12]
+    except OSError:
+        return "unknown"
+
+
 def handler(job):
     job_input = job.get("input", {}) if isinstance(job, dict) else {}
+
+    # Answers "is this worker running the code I think it is?" in one job.
+    if job_input.get("mode") == "version":
+        return {"ok": True, "mode": "version", "image": image_sha(),
+                "modes": ["chunk", "merge", "exec", "subsample", "anchorbench",
+                          "progress", "volume", "speedtest", "version"]}
 
     # A measure-only job: answers "is the GPU fast enough to build on?" without
     # needing a real clip, a video upload, or any caches.
@@ -416,7 +431,7 @@ def handler(job):
         try:
             out = run_chunk(clip, job_input["config"], int(job_input["start"]),
                             int(job_input["length"]), int(job_input["index"]))
-            return {"ok": True, "mode": "chunk", **out}
+            return {"ok": True, "mode": "chunk", "image": image_sha(), **out}
         except Exception as e:
             return {"ok": False, "mode": "chunk", "index": job_input.get("index"),
                     "seconds": round(time.time() - t0, 1),
@@ -462,7 +477,7 @@ def handler(job):
             with open(path, encoding="utf-8") as fh:
                 exec(compile(fh.read(), path, "exec"), ns)
             out = ns["run"](**(job_input.get("args") or {}))
-            return {"ok": True, "mode": "exec", "script": name,
+            return {"ok": True, "mode": "exec", "script": name, "image": image_sha(),
                     "seconds": round(time.time() - t0, 1), "result": out}
         except Exception as e:
             return {"ok": False, "mode": "exec", "script": name,
@@ -479,7 +494,7 @@ def handler(job):
             import gpu_anchor_bench
             out = gpu_anchor_bench.subsample(clip, job_input.get("starts", [600]),
                                              int(job_input.get("frames", 300)))
-            return {"ok": "error" not in out, "mode": "subsample", **out}
+            return {"ok": "error" not in out, "mode": "subsample", "image": image_sha(), **out}
         except Exception as e:
             return {"ok": False, "mode": "subsample", "error": str(e),
                     "traceback": traceback.format_exc()}
