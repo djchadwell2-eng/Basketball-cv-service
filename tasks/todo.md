@@ -6360,3 +6360,63 @@ The handoff records make/miss as "PRODUCTION READY / VERY HIGH confidence /
   ones that agree) instead of a fixed +30/+90 offset.
 - Sanity-check the score against the shot's own value: a layup cannot be +1.
 Each costs more API calls, which is your call, not mine.
+
+## THE THREE SCOREBOARD FIXES -- DONE, 2026-08-03
+
+All three done, plus a fourth bug the first three uncovered. 386 tests pass.
+
+### FIX 1 -- crop to the board, not a guessed rectangle
+The crop was a hardcoded fraction (bottom 28%, left 22% of the frame). Wrong in
+BOTH directions: on TEST1 it swept in the court, a referee and the sponsor
+banner; on TEST2 the board is 580 px wide and the crop was 422 px, so THE AWAY
+SCORE WAS BEING CUT OFF ENTIRELY.
+Fixed by reusing the scorebug rectangle every clip ALREADY has -- clips_config
+exclude_regions, marked by a human so SIFT ignores the burned-in graphic. Exact
+per clip, zero new human input. Crop is also upscaled 3x for the model.
+Verified by rendering the new crops and looking at them.
+
+### FIX 2 -- read more than two frames
+Was a fixed pair (+0.5s, +1.5s) with no way to tell a readable board from one
+with a referee in front of it. Now five frames across the window after the shot,
+stopping as soon as the score settles. TEST1's deciding frame (274) is occluded
+by a dark diagonal; frame 300 reads perfectly, and this is what reaches it.
+
+### FIX 3 -- check the score change against the shot's own value
+We already know WHERE every shot was taken and therefore what it is worth. A
+layup cannot be worth 1. paint -> 2 only, three -> 3 only, midrange -> 1 or 2
+(a free throw sits at about the same distance as a midrange jumper, so refusing
+1 there would delete real makes). An unlocated shot gives NO opinion and is
+never rejected for lack of evidence.
+
+### A HYPOTHESIS I TESTED AND THREW AWAY
+Both boards show the PERIOD as a number between the two scores (TEST2 literally
+reads "2 [1] 2"), so I suspected the model was reading the period as a score. I
+wrote a layout-aware prompt naming LEFT/RIGHT and telling it to ignore the
+period, fouls and clock, and measured it head to head: IDENTICAL results on all
+three frames. Hypothesis wrong, prompt not added -- f274's digit is genuinely
+occluded, not confused with a neighbour.
+
+### FIX 4 -- THE CLIP DOES NOT START AT 0-0 (found by the guards above)
+The running score was seeded (0, 0), which is only true of a clip opening at
+tip-off. HARD really starts 15-12 and TEST2 starts 2-2. So the FIRST reading of
+those clips looked like a colossal score change and shipped as a made basket --
+"MAKE [0,0]->[15,12]". This was invisible until FIX 3's guard started refusing
+it. The baseline is now READ from a frame before the first shot (one extra call)
+and a first reading is never itself a make.
+
+### Results after all four (each shot re-checked against the video)
+  TEST1  baseline 0-0     shot 2 = MAKE 0->2 (real, and the score is now right,
+                          it used to say 0->1);  shot 3 = unknown -- THE FAKE
+                          MAKE IS GONE
+  HARD   baseline 15-12, flagged mid-game;  both shots unknown (the score never
+                          moves in this clip, so nothing can be confirmed)
+  TEST2  baseline 2-2, flagged mid-game;  all three unknown (score static at 2-2)
+
+Fewer makes than before, and that is the point: the ones removed were not real.
+Under DJ's rule the scoreboard CONFIRMS makes and can never prove a miss, so
+"unknown" is a legitimate, honest answer and the only safe one when the board
+did not move.
+
+### Still true, still not fixed
+A misread that happens to look like a legal jump FOR THAT ZONE still passes.
+These guards remove the impossible, which is a floor, not a guarantee.

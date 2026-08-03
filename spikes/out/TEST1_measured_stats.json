@@ -217,11 +217,17 @@
       "shooter_track_id": null,
       "shooter_method": null,
       "shooter_verified": false,
-      "make_miss_outcome": "unknown",
-      "make_miss_score_from": null,
-      "make_miss_score_to": null,
-      "make_miss_score_change_frame": null,
-      "make_miss_score_change_time_sec": null,
+      "make_miss_outcome": "candidate_make",
+      "make_miss_score_from": [
+        0,
+        0
+      ],
+      "make_miss_score_to": [
+        2,
+        0
+      ],
+      "make_miss_score_change_frame": 304,
+      "make_miss_score_change_time_sec": 5.066666666666666,
       "possession_index": null
     },
     {
@@ -238,17 +244,11 @@
       "shooter_track_id": 49,
       "shooter_method": "last_seen_holding_ball",
       "shooter_verified": false,
-      "make_miss_outcome": "candidate_make",
-      "make_miss_score_from": [
-        0,
-        0
-      ],
-      "make_miss_score_to": [
-        0,
-        2
-      ],
-      "make_miss_score_change_frame": 320,
-      "make_miss_score_change_time_sec": 10.67,
+      "make_miss_outcome": "unknown",
+      "make_miss_score_from": null,
+      "make_miss_score_to": null,
+      "make_miss_score_change_frame": null,
+      "make_miss_score_change_time_sec": null,
       "possession_index": 0
     }
   ],

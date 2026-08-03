@@ -39,6 +39,118 @@ SCOREBOARD_PROMPT = (
 )
 
 
+# --- FIX 1: crop to the board the human already marked, and enlarge it -------
+#
+# The old crop was a hardcoded fraction of the frame (bottom 28%, left 22%). It
+# was wrong in both directions: on TEST1 it swept in the court, a referee's legs
+# and the sponsor banner below the board, and on TEST2 it was NARROWER than the
+# board (580 px of scorebug, 422 px of crop) so it cut the away score off.
+#
+# Every clip ALREADY records its scorebug rectangle -- clips_config
+# exclude_regions, marked by a human so SIFT ignores the burned-in graphic. That
+# is exactly the box wanted here, it is per-clip accurate, and reusing it costs
+# no new human input (the same argument touch_teams makes for jersey colours).
+UPSCALE = 3          # small digits; VLMs read an enlarged crop far better
+_PAD = 0.02          # a hair of margin so a slightly tight box keeps its edges
+
+
+def scoreboard_region(clip_cfg, frame_w, frame_h):
+    """(x1, y1, x2, y2) of the scorebug in native pixels.
+
+    Falls back to the old fixed fraction when a clip has no marked region, so a
+    clip that was never marked still gets an answer rather than an exception --
+    but the marked box is always preferred because it is measured, not guessed.
+    """
+    regions = (clip_cfg or {}).get("exclude_regions") if isinstance(clip_cfg, dict) \
+        else getattr(clip_cfg, "exclude_regions", None)
+    if regions:
+        # The scorebug is the region a human drew for it. If a clip ever marks
+        # several, take the largest -- the board is the big one.
+        x1, y1, x2, y2 = max(regions, key=lambda r: (r[2] - r[0]) * (r[3] - r[1]))
+        px, py = (x2 - x1) * _PAD, (y2 - y1) * _PAD
+        x1, y1, x2, y2 = x1 - px, y1 - py, x2 + px, y2 + py
+    else:
+        x1, y1, x2, y2 = 0.0, frame_h * 0.72, frame_w * 0.22, float(frame_h)
+    return (max(0, int(x1)), max(0, int(y1)),
+            min(frame_w, int(round(x2))), min(frame_h, int(round(y2))))
+
+
+def scoreboard_crop(frame, clip_cfg, upscale=UPSCALE):
+    """The scoreboard, cropped to its marked box and enlarged. None if empty."""
+    import cv2
+    h, w = frame.shape[:2]
+    x1, y1, x2, y2 = scoreboard_region(clip_cfg, w, h)
+    if x2 <= x1 or y2 <= y1:
+        return None
+    crop = frame[y1:y2, x1:x2]
+    if crop.size == 0:
+        return None
+    if upscale and upscale != 1:
+        crop = cv2.resize(crop, None, fx=upscale, fy=upscale,
+                          interpolation=cv2.INTER_CUBIC)
+    return crop
+
+
+# --- FIX 3: does this score change match the shot that supposedly caused it? --
+#
+# We already know WHERE every shot was taken (spikes/shot_locations.json, court
+# feet) and therefore what it was worth. A layup cannot be worth 1. That is free
+# evidence the reader was never using, and it is what catches the TEST1 failure:
+# an occluded "2" read reproducibly as "1" survives every other guard here,
+# because 1 and 2 are both legal scores -- but not both legal for a shot at the
+# rim.
+_POINTS_BY_ZONE = {
+    "paint": (2,),          # layup/dunk. Never 1, never 3.
+    "midrange": (1, 2),     # a jumper is 2; a free throw also lands here (~15ft)
+    "three": (3,),          # behind the arc
+}
+
+
+def points_allowed(zone):
+    """Which score jumps this shot could possibly have caused. Unknown zone ->
+    None, meaning "no opinion", and the caller must not filter on it: an
+    unlocated shot is missing evidence, not evidence of a problem."""
+    return _POINTS_BY_ZONE.get(zone)
+
+
+def _zones_by_span(clip_name):
+    """{(start_frame, end_frame): zone} from the shot chart this clip already
+    produced. Empty dict when the shot-location layer has not run -- the caller
+    then simply has no zone opinion, which is treated as "no opinion", never as
+    a reason to reject a make."""
+    path = os.path.join(_HERE, "out", f"{clip_name}_shot_locations.json")
+    if not os.path.exists(path):
+        return {}
+    try:
+        import measured_stats
+        doc = json.load(open(path, encoding="utf-8"))
+        court_len = measured_stats.court_length_for(clip_name)
+    except Exception:
+        return {}
+    out = {}
+    for loc in doc.get("locations", []):
+        ft = loc.get("court_feet")
+        if loc.get("status") != "located" or not ft:
+            continue
+        zone, _dist = measured_stats.classify_zone(ft[0], ft[1], court_len)
+        out[(loc["start_frame"], loc["end_frame"])] = zone
+    return out
+
+
+def _read_frame_score(client, cap, frame_num, calib):
+    """The score on one frame of the video -> (home, away), or None."""
+    import cv2
+    cap.set(cv2.CAP_PROP_POS_FRAMES, max(0, int(frame_num)))
+    ok, frame = cap.read()
+    if not ok:
+        return None
+    crop = scoreboard_crop(frame, calib)
+    if crop is None:
+        return None
+    _ok, jpg = cv2.imencode(".jpg", crop)
+    return _reread(client, base64.standard_b64encode(jpg.tobytes()).decode("utf-8"))
+
+
 def _reread(client, image_data):
     """Read the same crop again -> (home, away), or None if it cannot be read.
 
@@ -57,7 +169,7 @@ def _reread(client, image_data):
         return None
 
 
-def is_scoring_play(last_home, last_away, home, away):
+def is_scoring_play(last_home, last_away, home, away, zone=None):
     """Could basketball have produced this change in the score?
 
     WHY THIS EXISTS (found 2026-08-02 on TEST1). The reader used to treat ANY
@@ -75,15 +187,28 @@ def is_scoring_play(last_home, last_away, home, away):
     throw, field goal, three). Anything else -- a decrease, both teams moving at
     once, or a jump of 4+ -- is the board being misread, and is refused.
 
-    NOTE this cannot catch every misread: a wrong reading that happens to look
-    like a legal +2 still passes. It removes the impossible ones, which is a
-    floor, not a guarantee.
+    ZONE, when given, is the shot's own zone from its measured court position,
+    and it is what catches the case the rest of this cannot. TEST1's board is
+    partially occluded at the deciding frame and Gemma reads "2" as "1" four
+    times out of four -- reproducibly, so re-reading agrees with itself, and
+    both 1 and 2 are legal scores so the check above passes. But that shot was
+    taken at (6.7, 27.5) ft: a LAYUP, and a layup is never worth 1. The shot
+    chart already knew that and nobody was asking it.
+
+    NOTE this still cannot catch every misread: a wrong reading that happens to
+    look like a legal jump FOR THAT ZONE still passes. It removes the impossible
+    ones, which is a floor, not a guarantee.
     """
     dh, da = home - last_home, away - last_away
     if dh and da:
         return False                     # both teams cannot score at once
     delta = dh or da
-    return delta in (1, 2, 3)            # up by a legal amount; 0 handled by caller
+    if delta not in (1, 2, 3):           # up by a legal amount; 0 handled by caller
+        return False
+    allowed = points_allowed(zone)
+    if allowed is not None and delta not in allowed:
+        return False                     # not worth that many from where she shot
+    return True
 
 
 def detect_makes_by_gemma_fast(
@@ -120,6 +245,11 @@ def detect_makes_by_gemma_fast(
     if not shots:
         return []
 
+    # WHERE each shot was taken -> what it could be worth (FIX 3). Optional on
+    # purpose: a clip with no located shots still gets make/miss, it just loses
+    # this one cross-check rather than failing.
+    zones = _zones_by_span(clip_name)
+
     # Get the clip's video
     clip_config_map = {
         "TEST1": clip_config.TEST1_CLIP,
@@ -140,14 +270,57 @@ def detect_makes_by_gemma_fast(
     client = google.genai.Client(api_key=api_key)
 
     shots_sorted = sorted(shots, key=lambda s: s[0])
-    confirmed_home, confirmed_away = 0, 0
+    # THE SCORE AT THE START OF THIS CLIP IS NOT ZERO. This used to be seeded
+    # (0, 0), which is only true of a clip that opens at tip-off. HARD starts at
+    # 15-12 and TEST2 at 2-2, so the very first reading looked like a colossal
+    # score change and was reported as a made basket -- "MAKE [0,0]->[15,12]".
+    # Found 2026-08-03, once the impossible-move guard started refusing it
+    # instead of shipping it.
+    # None means "we have not established a baseline yet". The first successful
+    # reading SETS it and is never itself a make: seeing a score for the first
+    # time is not evidence that it just changed.
+    confirmed_home, confirmed_away = None, None
     results = []
 
     print(f"[gemma_fast] Detecting makes for {len(shots_sorted)} shots...")
 
+    # The CALIBRATION config carries the marked scorebug box (FIX 1). Separate
+    # from clip_config, which is the pipeline half -- see clip_registry's
+    # docstring on why this project has two.
+    try:
+        import clips_config
+        calib = clips_config.CLIPS.get(clip_name)
+    except Exception:
+        calib = None
+    if not (calib or {}).get("exclude_regions"):
+        print(f"[gemma_fast] no marked scorebug region for {clip_name} -- "
+              f"falling back to the fixed frame fraction (less accurate)")
+
+    # SEED THE BASELINE FROM BEFORE THE FIRST SHOT. Without this the first shot
+    # spends its frames just learning what the score already was and can never
+    # be judged. One extra call buys the whole clip an answer for shot 1.
+    seed_frame = max(0, shots_sorted[0][0] - 30)
+    seeded = _read_frame_score(client, cap, seed_frame, calib)
+    if seeded:
+        confirmed_home, confirmed_away = seeded
+        print(f"[gemma_fast] score before the first shot (f{seed_frame}): "
+              f"{confirmed_home}-{confirmed_away}"
+              + ("  <- NOT 0-0; this clip starts mid-game"
+                 if seeded != (0, 0) else ""))
+    else:
+        print(f"[gemma_fast] could not read the board before the first shot -- "
+              f"the first reading during shot 1 will set the baseline instead")
+
     for i, (start, end, hoop) in enumerate(shots_sorted):
-        # Key frames to read: 30 frames (0.5s), 90 frames (1.5s) after shot
-        key_frames = [end + 30, end + 90]
+        # FIX 2: LOOK AT MORE THAN TWO FRAMES. The old pair (+0.5s, +1.5s) had
+        # no way to tell a board it could read from one a referee was standing
+        # in front of -- and TEST1's deciding frame is exactly that, a dark
+        # diagonal across the digits. Spreading the reads over the window after
+        # the shot means an obstruction that lasts a moment no longer decides
+        # the answer, and agreement ACROSS frames replaces trust in any one of
+        # them. Still cheap: these stop as soon as the score is settled.
+        key_frames = [end + 15, end + 30, end + 60, end + 90, end + 120]
+        zone = zones.get((start, end))
 
         score_from = None
         score_to = None
@@ -172,9 +345,10 @@ def detect_makes_by_gemma_fast(
             if not ok:
                 continue
 
-            # Crop scoreboard
-            h, w = frame.shape[:2]
-            crop = frame[int(h * 0.72) : int(h * 1.0), int(w * 0.0) : int(w * 0.22)]
+            # Crop to the marked scorebug and enlarge it (FIX 1).
+            crop = scoreboard_crop(frame, calib)
+            if crop is None:
+                continue
 
             # Send to Gemma
             _, jpg = cv2.imencode(".jpg", crop)
@@ -199,10 +373,17 @@ def detect_makes_by_gemma_fast(
                 home, away = _parse_response(text)
 
                 if home is not None and away is not None:
-                    if (home, away) == (last_home, last_away):
+                    if last_home is None:
+                        # FIRST EVER READING: this is the scoreboard as the clip
+                        # found it, not a change. Seeing 15-12 for the first time
+                        # says nothing about whether a basket was just made.
+                        last_home, last_away = home, away
+                        confirmed_home, confirmed_away = home, away
+                        print("=", end="", flush=True)
+                    elif (home, away) == (last_home, last_away):
                         last_home, last_away = home, away
                         print(".", end="", flush=True)
-                    elif is_scoring_play(last_home, last_away, home, away):
+                    elif is_scoring_play(last_home, last_away, home, away, zone):
                         # CONFIRM BEFORE BELIEVING IT. A make is declared off a
                         # SINGLE reading of one frame, and the readings are not
                         # stable on the frames that matter: TEST1 frame 274 --
@@ -235,7 +416,16 @@ def detect_makes_by_gemma_fast(
                         # The number moved in a way basketball cannot produce,
                         # so it is a MISREAD OF THE BOARD, not a basket. Ignored
                         # rather than confirmed -- see is_scoring_play.
-                        misreads.append(f"{[last_home, last_away]}->{[home, away]}")
+                        why = "impossible score move"
+                        dh, da = home - last_home, away - last_away
+                        delta = dh or da
+                        allowed = points_allowed(zone)
+                        if not (dh and da) and delta in (1, 2, 3) and allowed:
+                            why = (f"a {zone} shot cannot be worth {delta} "
+                                   f"(only {'/'.join(map(str, allowed))})")
+                        misreads.append(
+                            f"f{frame_num} {[last_home, last_away]}->"
+                            f"{[home, away]}: {why}")
                         print("?", end="", flush=True)
 
             except Exception as e:
