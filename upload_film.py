@@ -35,8 +35,14 @@ import clip_registry  # noqa: E402
 # The volume and its datacenter. Both are fixed by which volume the serverless
 # endpoint mounts -- an object written to another region's endpoint would be
 # invisible to the workers.
-VOLUME_ID = os.environ.get("RUNPOD_VOLUME_ID", "6miabyja6y")
-DATACENTER = os.environ.get("RUNPOD_VOLUME_DC", "US-IL-1")
+# US-NC-1, not the original US-IL-1. A network volume PINS every worker to its
+# datacenter, and US-IL-1 ran out of GPUs: workers were allocated and then
+# throttled indefinitely -- no error, no queue movement, for hours. Detaching
+# the volume let workers start in minutes, which is what proved it. US-NC-1
+# answered a probe with zero queue delay, and (unlike US-TX-3, which took the
+# volume and then had nowhere to upload to) it has an S3 endpoint.
+VOLUME_ID = os.environ.get("RUNPOD_VOLUME_ID", "r5hc0v2j7v")
+DATACENTER = os.environ.get("RUNPOD_VOLUME_DC", "US-NC-1")
 S3_ENDPOINT = f"https://s3api-{DATACENTER.lower()}.runpod.io/"
 
 # Where the worker will find it: /runpod-volume/<key>

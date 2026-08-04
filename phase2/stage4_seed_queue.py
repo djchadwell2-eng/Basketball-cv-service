@@ -178,14 +178,24 @@ def main():
 
     # --- a still per window start: seeded GREEN, off-court skipped RED ---
     # (the ROI-mask eyeball artifact: crowd/bench should be red, players green)
-    cap = cv2.VideoCapture(CLIP.video_path)
+    # SEEK ONCE PER STILL, not a rewind-and-scan per window.
+    #
+    # This wrote its eyeball artifact by rewinding to frame 0 and grabbing
+    # forward to the window's seed frame -- for EVERY window. Measured on a
+    # 300-frame span starting at frame 127,200: 68.9 s, which was 80% of the
+    # entire identity tail, all of it decoding frames it threw away. It also
+    # got worse the longer the game: more windows, each rescanning further.
+    #
+    # fast_frames seeks and verifies where it landed (5.4x, exact, pixel
+    # identical -- proven 2026-07-31), so the pictures are the same pictures.
+    import fast_frames
+    stills = fast_frames.read_frames(CLIP.video_path,
+                                     [sf for (sf, _s, _k) in seed_frames.values()])
     for w, (sf, seeded, skipped) in seed_frames.items():
-        cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-        for _ in range(sf):
-            cap.grab()
-        ok, frame = cap.read()
-        if not ok:
+        frame = stills.get(sf)
+        if frame is None:
             continue
+        frame = frame.copy()            # drawn on below; never scribble on the cache
         _fi, seed_tracks = frames[sf - span_start]
         seeded_set = set(seeded)
         for t in seed_tracks:
@@ -202,7 +212,6 @@ def main():
                     (20, 34), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
         cv2.imwrite(os.path.join(OUT_DIR, f"{CLIP.name}_stage4_seed_w{w}_f{sf}.jpg"),
                     cv2.resize(frame, (1280, 720)))
-    cap.release()
     print(f"saved seed stills (green=seeded on-court, red=skipped off-court) in {OUT_DIR}")
 
 
