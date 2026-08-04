@@ -6776,3 +6776,52 @@ reads the court length from spikes/clips_config.ACTIVE, so running HARD with onl
 the first selector changed would have segmented HARD's windows on TEST1's court.
 run_clip._sync_and_guard() sets BOTH and fails loud if they disagree -- the runs
 now go through it.
+
+## ANCHOR SUBSAMPLING -- RESULTS (run by DJ; recorded here 2026-08-04)
+
+These were measured in an earlier session and never written down. Recording them
+now so the question is settled in the repo rather than in someone's scrollback.
+The question: can we anchor the camera every Nth frame instead of every frame,
+and what does it cost in FEET on the court?
+
+RUN 1 -- TEST1, 150 frames, CPU anchor as reference
+  every 2nd..60th frame: mean 0.01 ft, max 0.05-0.13 ft, flat at every setting.
+  PROVES NOTHING: the camera barely moves in that clip.
+
+RUN 2 -- DJ's game, minute 0.3, 300 frames, CPU anchor as reference
+  N     hold / interp mean      hold / interp max
+  2     0.03 / 0.01             0.36 / 0.36
+  5     0.06 / 0.04             1.29 / 1.29
+  10    0.10 / 0.09             2.26 / 2.26
+  15    0.14 / 0.10             2.53 / 2.53
+  30    0.23 / 0.14             2.53 / 2.53
+  60    0.32 / 0.32             1.45 / 1.45
+
+RUN 3 -- DJ's game, 60 frames per spot, GPU anchor as reference (most trusted)
+  minute 0.3 (camera settled, near a marked spot)
+    N=2..30: mean 0.006-0.008, 95th 0.020-0.024, max 0.052-0.074 ft
+  minute 33 (deep in a gap, camera roaming)
+    N=2   mean 0.101  95th 0.343  max 0.755
+    N=5   mean 0.105  95th 0.385  max 0.844
+    N=10  mean 0.102  95th 0.375  max 0.775
+    N=15  mean 0.110  95th 0.407  max 0.812
+    N=30  mean 0.127  95th 0.523  max 0.974
+  (interp; "hold" slightly worse, up to 1.016 ft)
+
+WHAT IT SAYS
+1. Where the camera is settled, skipping is nearly free -- hundredths of a foot.
+2. In live play it costs up to a foot -- BUT even N=2 costs 0.755 ft there. That
+   error is therefore NOT from skipping. It is the ANCHOR ITSELF being jittery
+   in that stretch of film, and skipping more barely worsens it.
+3. Runs 2 and 3 disagree at the same spot (2.26 ft vs 0.08 ft max) because they
+   use DIFFERENT REFERENCES: run 2 against the old CPU anchor, run 3 against the
+   GPU one. The GPU anchor is markedly steadier frame to frame.
+
+DECISION (DJ): DO NOT SUBSAMPLE. Anchoring every frame now costs 4.1 GPU-hours,
+about 25 minutes across 10 machines. Subsampling is a lever we can leave alone.
+
+A SEPARATE FINDING WORTH KEEPING, not about speed at all: point 2 means a
+player's court position carries roughly 0.1 ft mean / 0.75 ft worst-case of
+anchor noise during roaming play, even with no subsampling. Zones are feet wide
+so zone calls are safe, but any future measurement finer than about a foot has
+to reckon with this floor.
