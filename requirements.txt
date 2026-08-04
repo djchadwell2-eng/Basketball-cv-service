@@ -9,3 +9,8 @@ easyocr==1.7.2
 # Local/setup-side only -- the worker reads the mounted volume directly.
 boto3
 kornia
+
+# phase2/ocr_reader.py reads jersey numbers with Gemma via google.genai.
+# Without it the worker silently falls back to EasyOCR, which reads far fewer
+# numbers on this footage -- a quieter failure than a crash, and worse.
+google-genai
