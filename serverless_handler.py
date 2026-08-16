@@ -16,6 +16,7 @@ Returns:    the same {clip}_measured_stats.json contract the web app's
 """
 from __future__ import annotations
 
+import gc
 import os
 import re
 import sys
@@ -241,6 +242,66 @@ def run_chunk(clip: str, doc: dict, start: int, length: int, index: int) -> dict
             "seconds": round(dt, 1), "tracks": tracks_dst}
 
 
+def merge_streamed(clip: str, ordered: list, kind: str, out_path: str, head: dict) -> int:
+    """Glue the slices into one cache holding ONE SLICE IN MEMORY AT A TIME.
+
+    THE PROBLEM THIS AVOIDS. The first version read every slice into a list and
+    dumped the lot at the end. Measured on a real slice: 160 MB of JSON becomes
+    0.38 GB of Python objects (2.4x), so a ten-slice game is ~5.2 GB of data on
+    top of ~3 GB of models -- and the worker's memory limit is not something
+    this project has ever been told. It would have been discovered by paying
+    for ten slices and losing them at the last step.
+
+    Streaming makes the question go away rather than answering it: the frames
+    are written out as they are read, so peak memory is one slice (~0.4 GB) no
+    matter how long the game is. Slices are contiguous and processed in start
+    order, so the output is already frame-ordered -- no global sort, which was
+    the other thing that needed everything in memory at once.
+
+    Returns the number of frames written.
+    """
+    import json
+    written = 0
+    with open(out_path, "w", encoding="utf-8") as out:
+        out.write("{")
+        for k, v in head.items():
+            out.write(json.dumps(k) + ":" + json.dumps(v) + ",")
+        out.write('"frames":[')
+        for c in ordered:
+            tp, op = _chunk_paths(clip, c["index"])
+            path = tp if kind == "tracks" else op
+            if not os.path.exists(path):
+                raise FileNotFoundError(f"slice {c['index']} missing on the volume ({path})")
+            with open(path, encoding="utf-8") as fh:
+                sdoc = json.load(fh)
+            # Checked at the point of use: a slice describing the wrong frames
+            # must never be glued into the game.
+            got = (sdoc.get("span_start"), sdoc.get("span_len"))
+            if got != (c["start"], c["length"]):
+                raise ValueError(
+                    f"slice {c['index']} {kind} covers {got[0]}..+{got[1]}, expected "
+                    f"{c['start']}..+{c['length']} -- refusing to merge")
+            # Track ids restart at 1 in every slice, so they are offset per
+            # slice. A player crossing a seam becomes TWO tracked identities
+            # rather than one stitched from two different people.
+            offset = (c["index"] + 1) * 1_000_000
+            for fr in sdoc["frames"]:
+                if kind == "tracks":
+                    for t in fr["tracks"]:
+                        t["track_id"] += offset
+                else:
+                    fr["tracks"] = {str(int(k) + offset): v
+                                    for k, v in (fr.get("tracks") or {}).items()}
+                if written:
+                    out.write(",")
+                out.write(json.dumps(fr))
+                written += 1
+            del sdoc                       # let the slice go before the next one
+            gc.collect()
+        out.write("]}")
+    return written
+
+
 def merge_chunks(clip: str, doc: dict, chunks: list) -> dict:
     """Glue the slices back together, then analyse the whole game once.
 
@@ -261,41 +322,14 @@ def merge_chunks(clip: str, doc: dict, chunks: list) -> dict:
     import clip_config
     cfg = clip_config.get_clip(clip)
 
-    merged_tracks, merged_oncourt = [], []
-    for c in sorted(chunks, key=lambda c: c["start"]):
-        tp, op = _chunk_paths(clip, c["index"])
-        if not (os.path.exists(tp) and os.path.exists(op)):
-            raise FileNotFoundError(f"slice {c['index']} missing on the volume ({tp})")
-        offset = (c["index"] + 1) * 1_000_000
-        with open(tp, encoding="utf-8") as fh:
-            tdoc = json.load(fh)
-        # Third check, at the point of use: a slice file that describes the
-        # wrong frames must never be glued into the game.
-        got = (tdoc.get("span_start"), tdoc.get("span_len"))
-        if got != (c["start"], c["length"]):
-            raise ValueError(
-                f"slice {c['index']} covers {got[0]}..+{got[1]}, expected "
-                f"{c['start']}..+{c['length']} -- refusing to merge")
-        for fr in tdoc["frames"]:
-            for t in fr["tracks"]:
-                t["track_id"] += offset
-            merged_tracks.append(fr)
-        with open(op, encoding="utf-8") as fh:
-            odoc = json.load(fh)
-        for fr in odoc["frames"]:
-            fr["tracks"] = {str(int(k) + offset): v for k, v in (fr.get("tracks") or {}).items()}
-            merged_oncourt.append(fr)
-
-    merged_tracks.sort(key=lambda f: f["frame_index"])
-    merged_oncourt.sort(key=lambda f: f["frame_index"])
+    ordered = sorted(chunks, key=lambda c: c["start"])
     head = {"clip": clip, "span_start": full_start, "span_len": full_len}
-    with open(cfg.tracks_cache_path, "w", encoding="utf-8") as fh:
-        json.dump({**head, "frames": merged_tracks}, fh)
-    with open(os.path.join(_ROOT, "phase2", "out", f"{clip}_oncourt.json"), "w",
-              encoding="utf-8") as fh:
-        json.dump({**head, "frames": merged_oncourt}, fh)
+    oncourt_out = os.path.join(_ROOT, "phase2", "out", f"{clip}_oncourt.json")
 
-    progress(clip, f"MERGE: {len(chunks)} slices -> {len(merged_tracks)} frames "
+    n_frames = merge_streamed(clip, ordered, "tracks", cfg.tracks_cache_path, head)
+    merge_streamed(clip, ordered, "oncourt", oncourt_out, head)
+
+    progress(clip, f"MERGE: {len(chunks)} slices -> {n_frames} frames "
                    f"({full_start}..{full_start + full_len})")
     return run_analysis(clip, doc, (full_start, full_len), caches_ready=True)
 
