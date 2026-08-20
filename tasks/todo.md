@@ -6825,3 +6825,154 @@ player's court position carries roughly 0.1 ft mean / 0.75 ft worst-case of
 anchor noise during roaming play, even with no subsampling. Zones are feet wide
 so zone calls are safe, but any future measurement finer than about a foot has
 to reckon with this floor.
+
+# ============================================================================
+# PLAN -- cut the cost and the clock of one full game (written 2026-08-19)
+# ============================================================================
+# Full review with all the arithmetic: COST_AND_SPEED_REVIEW.md
+# Nothing below has been done yet. NOT STARTED -- waiting for DJ to say go.
+#
+# The one thing that matters most: as written, the identity tail CANNOT finish a
+# 95-minute game. Two places in it read every frame it needs into memory at once
+# (measured: 6.38 MB per frame). Stage 4 would hold about 3.6 GB, stage 6 tens of
+# GB. Only 3.85 GB of worker memory has ever been proven. So buying the last two
+# slices first would mean paying ~$1.20 and then losing the run at the last step.
+# Fix the memory first, prove it on slices we ALREADY own, then buy.
+
+## Free, safe, do first (no cloud spend, output provably unchanged)
+- [x] 1. stage4_seed_queue: draw its seed stills one at a time instead of
+      loading every window's frame into one dict first. Same pictures, same files.
+- [x] 2. stage6_ocr_confirm: same fix for the OCR frames.
+- [ ] 3. Write the two caches compact instead of indent=2. Measured: whole game
+      1.99 GB -> 0.82 GB, and the parsed content is identical (checked).
+- [ ] 4. run_tracking.extract_subclip: seek to the slice instead of winding the
+      film from frame 0. Uses the same seek-and-verify helper already proven
+      pixel-identical on this film. Saves ~$0.43 and 3.9 min off the last slice.
+- [ ] 5. Load each merged cache once instead of nine times (~3.9 min off the
+      tail). Needs a check that no stage writes to the shared copy.
+
+## Then prove it on data we already paid for
+- [ ] 6. workersMax -> 1, workersStandby -> 0 (console), one version job. ~$0.01
+- [ ] 7. Merge slices 0-1 only, run the tail on 34,224 frames. ~$0.05
+- [ ] 8. Merge slices 0-7, run the tail on 136,896 frames (80% of the game).
+      $0.30-0.90. If this finishes, the tail is proven at real scale.
+
+## Only then, buy the missing film
+- [ ] 9.  Slice 8 alone. ~$0.61
+- [ ] 10. Slice 9 alone. ~$0.61
+- [ ] 11. Real merge + tail over all ten. $0.30-0.90
+Total estimate $1.90-$3.10 with today's EasyOCR reader.
+
+## Bigger wins, each needs one cheap experiment first
+- [ ] 12. Batch the SIFT on the GPU. ~70 ms of the 86 ms per frame is GPU work
+      running one image at a time. A 2x = $2.20 and ~10 min off every slice.
+      Experiment (~$0.05): 60 frames batched vs not, compared IN FEET.
+- [ ] 13. Fan out the three Gemma reads per crop (6 calls in flight today, 18
+      after). Up to 3x off the tail. Experiment (~$0.05) on TEST1.
+- [ ] 14. Ask RunPod to raise the 10-worker cap, and split the ANCHOR finer than
+      the TRACKING. Anchor is stateless per frame so extra slices are free;
+      tracking is not -- every extra tracking slice is another seam that splits a
+      player in two. Same dollars, 24.5 min -> 9.8 min.
+
+## DJ's call, because it CHANGES THE NUMBERS
+- [ ] 15. Delete the temp-mp4 round trip. Biggest single win (~$2.15, ~10 min a
+      slice) -- but measured today, that mp4 copy is NOT the film: it differs by
+      up to 76 grey levels and the detector loses 1-3 people per frame on it.
+      Removing it should make the box score BETTER, but it will move numbers DJ
+      has already seen. Not doing it without a yes.
+
+## Landmine, leave alone
+- export_span re-encodes the WHOLE span to mp4 (~83 min, ~12 GB for this game).
+  It is harmless today only because it looks the clip up the old way and fails,
+  and the failure is caught. "Fixing" it to use get_clip would silently add over
+  an hour to every full-game run. Do not tidy it without a rewrite.
+
+## REVIEW -- the memory fix (done 2026-08-19)
+
+WHAT WAS WRONG. Two stages in the identity tail read every frame they needed
+into one dictionary before using any of them. A 1080p frame costs 6.38 MB of
+memory (measured). That is fine on a 15-second clip and fatal on a game.
+
+WHAT I CHANGED -- three files, 88 lines added, 21 removed:
+
+1. fast_frames.py -- ADDED iter_read_frames(). Same seek-then-verify read as
+   read_frames, same fall-back to the slow scan when a seek misses, but it
+   yields one frame at a time instead of building a dict of all of them.
+   read_frames is untouched, so no existing caller changed behaviour.
+
+2. phase2/stage4_seed_queue.py -- draws its seed stills as each frame arrives
+   instead of loading every window's frame first. Also drops a redundant
+   frame copy, since each frame is now used once and released.
+
+3. phase2/stage6_ocr_confirm.py -- KEEPS THE CROP, NOT THE FRAME. It streams
+   the picked frames once, cuts each jersey crop while that frame is in hand,
+   and keeps only the crops. The .copy() on the crop is load-bearing:
+   jersey_crop returns a numpy view, which would have kept the whole 6.22 MB
+   frame alive and undone the fix. The confirmed-player stills at the end of
+   the stage now re-read their handful of frames one at a time as well.
+
+MEASURED, on TEST1's real OCR pool:
+   before   215 whole frames held at once = 1,372 MB
+   after    356 crops held                =     3.3 MB      (417x less)
+Same ratio of OCR frames to span on a 95-minute game:
+   before   ~80,000 frames = ~509 GB      after  ~1.22 GB
+The old code's own comment said its pool "scales with candidates, never with
+clip length" -- but candidates scale with clip length, which is why it read 47%
+of TEST1's whole span.
+
+PROOF IT CHANGED NOTHING. Ran stage4 + stage6 on TEST1 with the fixed code and
+again with the original (git checkout), jersey engine forced to EasyOCR so the
+comparison is deterministic. All 9 artifacts -- every seed still, every OCR
+confirm still, the review queue and the OCR outcomes JSON -- are IDENTICAL BYTE
+FOR BYTE. 395 tests still pass. Timing on TEST1 is unchanged within noise
+(stage6 75-101 s fixed vs 82 s original, across runs).
+
+STILL OPEN from the plan above: items 3, 4, 5 (compact JSON, seek instead of
+wind, load each cache once) and everything below them.
+
+## SCOREBOARD TIMELINE -- FIRST GROUND TRUTH FROM A WHOLE GAME, 2026-08-19
+
+New tool: `spikes/scoreboard_timeline.py`. Walks all 95 minutes reading only the
+scorebug -- no camera anchor, no tracking, no ball detection. 571 samples every
+10s, then every candidate change re-read on both sides.
+
+RESULT on FULL_GAME (32 min wall clock, CPU):
+  confirmed scoring plays        47
+  final score seen               54 - 68
+  points inside confirmed plays  home 45, away 55  (= 100 of 122 points, 82%)
+  points inside unreadable gaps  home 9, away 13
+  samples readable               222/571 (39%) -- rest are pre-game, sponsor
+                                 ads on the scorebug, timeouts
+  rejected as misreads           11
+  unconfirmed (recheck disagreed) 10
+
+WHY WE BELIEVE IT -- four independent checks, none of them "it looks right":
+  1. ZERO non-monotonic steps across 47 plays. The score never once goes
+     backwards, which a hallucinating reader would not manage by luck.
+  2. Points per play: 12 ones, 22 twos, 12 threes. A real basketball
+     distribution.
+  3. THE FREE THROWS LAND WHERE FREE THROWS LAND. Of the twelve 1-point plays,
+     EIGHT fall after minute 75 -- the end-game fouling stretch. Nothing in the
+     reader knows about game clock or fouling strategy; that pattern can only
+     come from the actual game.
+  4. Only 2 plays show both teams scoring at once, and both sit across a
+     readable gap where the window genuinely hid two baskets.
+
+WHAT IT IS NOT: timing is only as good as the 10s sample -- a basket happened
+somewhere inside window_s, not at time_s. And 18% of the scoring sits in
+unreadable stretches, so this is 82% of the game, not all of it.
+
+A BUG THIS EXPOSED IN MY OWN FIRST VERSION, worth keeping: the confirmation pass
+originally required all 3 re-reads to succeed and treated an API error exactly
+like an illegible board. In a 150-call burst that threw away 24 of 29 real score
+changes -- frames the coarse pass had read perfectly seconds earlier. A failed
+CALL is missing evidence about our network; an unreadable BOARD is evidence
+about the film, and collapsing them lost most of the game. Reads now retry with
+backoff, and a frame confirms on >= MIN_AGREE reads that all agree.
+
+### WHAT THIS UNLOCKS (the reason it was built)
+47 timestamped baskets = 47 windows where we KNOW a shot went in. Running the
+expensive pipeline on ~20 four-second windows around them costs ~6 CPU-hours and
+yields ~20 shots with KNOWN OUTCOMES, against the 8 shots / 1 known outcome we
+have today. That is what turns shooting %, make/miss accuracy, shot-detection
+recall and shooter attribution into measured numbers instead of "seems to work".
