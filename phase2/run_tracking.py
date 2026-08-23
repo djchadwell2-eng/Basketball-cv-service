@@ -34,8 +34,23 @@ def extract_subclip(video_path, start, length):
     fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
     w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    for _ in range(start):
-        cap.grab()
+    # SEEK to the slice instead of winding the whole film past it. This is the
+    # last place still doing the rewind that fast_frames and iter_frames were
+    # already fixed for. It matters most on the slice that gates everything
+    # else: slice 9 of a ten-way split starts at frame 154,008, so it wound
+    # through 154,008 frames it threw away -- MEASURED 172 s, and on a worker
+    # every one of those frames is pulled off a network volume.
+    #
+    # Same rule as everywhere else: seek, CHECK where we landed, and wind if it
+    # missed. MEASURED 2026-08-19 on this film at frame 60,000: the subclip is
+    # byte-for-byte identical (same sha256) and the skip is 538x faster.
+    if start > 0:
+        cap.set(cv2.CAP_PROP_POS_FRAMES, start)
+        if int(cap.get(cv2.CAP_PROP_POS_FRAMES)) != start:      # seek missed
+            cap.release()
+            cap = cv2.VideoCapture(video_path)
+            for _ in range(start):
+                cap.grab()
     tmp = os.path.join(tempfile.gettempdir(), f"{CLIP.name}_span_{start}_{length}.mp4")
     writer = cv2.VideoWriter(tmp, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
     n = 0
