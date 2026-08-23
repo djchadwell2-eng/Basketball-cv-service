@@ -42,7 +42,12 @@ def _creds():
     key = os.environ.get("RUNPOD_API_KEY")
     eid = os.environ.get("RUNPOD_ENDPOINT_ID")
     if not (key and eid) and os.path.exists(APP_ENV):
-        env = dict(re.findall(r"^([A-Z_]+)=(.*)$", open(APP_ENV, encoding="utf-8").read(), re.M))
+        # [A-Z_0-9], not [A-Z_]: the S3 keys are RUNPOD_S3_ACCESS_KEY and
+        # RUNPOD_S3_SECRET_KEY, and a name class without digits cannot match the
+        # "3". So the two variables this file needs to UPLOAD anything were the
+        # exact two it could never read, and every lab run died at the upload
+        # with "MISSING S3 CREDENTIALS" while the credentials sat in the file.
+        env = dict(re.findall(r"^([A-Z_0-9]+)=(.*)$", open(APP_ENV, encoding="utf-8").read(), re.M))
         key = key or env.get("RUNPOD_API_KEY", "").strip().strip('"')
         eid = eid or env.get("RUNPOD_ENDPOINT_ID", "").strip().strip('"')
         for k in ("RUNPOD_S3_ACCESS_KEY", "RUNPOD_S3_SECRET_KEY"):

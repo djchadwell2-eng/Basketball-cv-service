@@ -146,19 +146,63 @@ def build_hoop_track(video_path, span_start, span_len, anchors):
     print("[hoop_anchor] recovering optimized keyframe transforms (Hs_opt) ...")
     KF, ref_pos, Hs_opt, L_opt, tags = s4.run_optimization()
 
-    def _anchor_ref900(keyframe, pixel, label):
-        pos = KF.index(keyframe)
-        ref900 = project_point(Hs_opt[pos], *pixel)
+    sift = cv2.SIFT_create(nfeatures=NFEAT)
+    _kf_db_for_anchor = [None]           # built lazily; only a non-keyframe needs it
+
+    def _anchor_ref900(frame_idx, pixel, label):
+        """The rim, in reference-900 pixels, from a mark made on ANY frame.
+
+        A rim marked ON A KEYFRAME is the original path: that keyframe's solved
+        transform carries it directly.
+
+        A rim marked on any OTHER frame now works too, and it has to. The camera
+        does not visit both baskets in the handful of frames calibration
+        happened to land on -- on DJ's own game (2026-08-22) the right-hand
+        basket appears in NONE of the five keyframes, so the shot layer was
+        simply unreachable for that game. Requiring a keyframe was never a
+        geometric limit, only where the code happened to look.
+
+        The maths is the SAME maths the per-frame carrying loop below already
+        runs on every frame of the clip: SIFT-match the frame to its nearest
+        keyframe for Hfk, then compose Hs_opt[pos] @ Hfk. Same rotation-only
+        assumption, same MIN_INLIERS floor -- a mark on a frame that will not
+        match is REFUSED rather than carried on a weak homography, because a
+        misplaced rim silently moves every shot location that depends on it.
+        """
+        if frame_idx in KF:
+            pos = KF.index(frame_idx)
+            ref900 = project_point(Hs_opt[pos], *pixel)
+            src = f"keyframe {frame_idx}"
+        else:
+            if _kf_db_for_anchor[0] is None:
+                _kf_db_for_anchor[0] = _keyframe_db(video_path, KF, sift)
+            cap = cv2.VideoCapture(video_path)
+            cap.set(cv2.CAP_PROP_POS_FRAMES, int(frame_idx))
+            ok, img = cap.read()
+            cap.release()
+            if not ok:
+                raise SystemExit(
+                    f"{label} rim: frame {frame_idx} could not be read")
+            m = _match_frame(img, sift, _kf_db_for_anchor[0])
+            if m is None:
+                raise SystemExit(
+                    f"{label} rim was marked on frame {frame_idx}, which does "
+                    f"not match any keyframe strongly enough (< {MIN_INLIERS} "
+                    f"inliers). Mark it on a frame with more of the court in "
+                    f"view -- a weak match would place the rim wrong and move "
+                    f"every shot location with it.")
+            pos, Hfk, inl, ratio = m
+            ref900 = project_point(Hs_opt[pos] @ Hfk, *pixel)
+            src = (f"frame {frame_idx} via keyframe {KF[pos]} "
+                   f"({inl} inliers, ratio {ratio:.2f})")
         assert ref900 is not None, f"{label} rim anchor projected to a degenerate point"
-        print(f"[hoop_anchor] {label} rim anchor: keyframe {keyframe} px {pixel} "
+        print(f"[hoop_anchor] {label} rim anchor: {src} px {pixel} "
               f"-> ref-900 px {tuple(round(v, 1) for v in ref900)}")
         return ref900
 
     rim_ref900_far = _anchor_ref900(*anchors["far"], "far")
     rim_ref900_near = _anchor_ref900(*anchors["near"], "near")
-
-    sift = cv2.SIFT_create(nfeatures=NFEAT)
-    kf_db = _keyframe_db(video_path, KF, sift)
+    kf_db = _kf_db_for_anchor[0] or _keyframe_db(video_path, KF, sift)
 
     cap = cv2.VideoCapture(video_path)
     frame_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
