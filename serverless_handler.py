@@ -242,6 +242,27 @@ def run_chunk(clip: str, doc: dict, start: int, length: int, index: int) -> dict
             "seconds": round(dt, 1), "tracks": tracks_dst}
 
 
+def _header_of(path: str, limit: int = 65536) -> dict:
+    """A slice's header fields WITHOUT parsing its frames.
+
+    Both cache writers emit the scalars before "frames", so a bounded read gets
+    them for the price of one seek instead of a gigabyte of JSON. Falls back to
+    a full parse if the layout is ever different, so it cannot be wrong -- only
+    slower, and only then.
+    """
+    import json
+    with open(path, encoding="utf-8") as fh:
+        prefix = fh.read(limit)
+    cut = prefix.find('"frames"')
+    if cut > 0:
+        try:
+            return json.loads(prefix[:cut].rstrip().rstrip(",") + "}")
+        except ValueError:
+            pass
+    with open(path, encoding="utf-8") as fh:
+        return {k: v for k, v in json.load(fh).items() if k != "frames"}
+
+
 def merge_streamed(clip: str, ordered: list, kind: str, out_path: str, head: dict) -> int:
     """Glue the slices into one cache holding ONE SLICE IN MEMORY AT A TIME.
 
@@ -263,6 +284,24 @@ def merge_streamed(clip: str, ordered: list, kind: str, out_path: str, head: dic
     import json
     written = 0
     expect = None                      # the frame index the game must continue at
+
+    # THE MERGED CACHE MUST LOOK LIKE A CACHE. A slice carries fps (and, for the
+    # on-court kind, margin_ft and video_path); the merged file carried only
+    # clip/span_start/span_len, so the tail hit `KeyError: 'fps'` in
+    # stage3_windows the first time it was ever asked to read a merged game.
+    # Nobody had met it because the merge and the tail had never run together --
+    # every previous tail read a cache run_tracking wrote directly.
+    # Carry the first slice's own header, with this merge's clip and span
+    # winning, so nothing downstream can tell a merged game from a tracked one.
+    if ordered:
+        tp, op = _chunk_paths(clip, ordered[0]["index"])
+        try:
+            src = _header_of(tp if kind == "tracks" else op)
+            head = {**{k: v for k, v in src.items()
+                       if k not in ("clip", "span_start", "span_len")}, **head}
+        except (OSError, ValueError):
+            pass                       # a missing header is caught per-slice below
+
     with open(out_path, "w", encoding="utf-8") as out:
         out.write("{")
         for k, v in head.items():
