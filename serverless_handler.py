@@ -262,6 +262,7 @@ def merge_streamed(clip: str, ordered: list, kind: str, out_path: str, head: dic
     """
     import json
     written = 0
+    expect = None                      # the frame index the game must continue at
     with open(out_path, "w", encoding="utf-8") as out:
         out.write("{")
         for k, v in head.items():
@@ -286,6 +287,26 @@ def merge_streamed(clip: str, ordered: list, kind: str, out_path: str, head: dic
             # rather than one stitched from two different people.
             offset = (c["index"] + 1) * 1_000_000
             for fr in sdoc["frames"]:
+                # THE HEADER IS NOT THE FRAMES. The check above catches a slice
+                # that ADMITS to covering the wrong span; it cannot catch one
+                # whose header is right and whose contents are another slice's
+                # -- which is exactly what happened when warm workers reused a
+                # previous job's cache and six of ten slices published somebody
+                # else's frames under their own name. Downstream stages index
+                # this file BY POSITION (frames[f - span_start]), so a gap or a
+                # jump does not crash, it silently attributes one girl's floor
+                # time to another. One integer compare per frame turns that into
+                # a refusal. It cannot fire on honest slices: run_tracking emits
+                # span_start + i, contiguous, by construction.
+                fi = fr["frame_index"]
+                if expect is None:
+                    expect = fi
+                if fi != expect:
+                    raise ValueError(
+                        f"slice {c['index']} {kind}: frame {fi} where {expect} was "
+                        f"expected -- the merged game would have a hole or a jump "
+                        f"in it. Refusing to merge (re-run this slice).")
+                expect = fi + 1
                 if kind == "tracks":
                     for t in fr["tracks"]:
                         t["track_id"] += offset
@@ -426,6 +447,55 @@ def speedtest(frames: int = 60) -> dict:
     }
 
 
+def machine() -> dict:
+    """What is this worker actually made of?
+
+    RAM has been the project's largest [UNKNOWN]: the merge job holds the whole
+    game's tracking, and the only figure ever established is ">=3.85 GB", which
+    is not a limit but the high-water mark of a run that happened to survive.
+    Sizing the tail against a number nobody has read is how you pay for ten
+    slices and lose them at the last step. Disk matters for the same reason --
+    the merged caches are written to the CONTAINER, not the volume.
+
+    Deliberately no psutil: /proc and statvfs are already there, and a new
+    dependency for one measurement is a new way for a cold start to fail.
+    """
+    out = {}
+    try:
+        mem = {}
+        with open("/proc/meminfo", encoding="utf-8") as fh:
+            for line in fh:
+                k, _, v = line.partition(":")
+                mem[k] = v.strip()
+        for key, field in (("MemTotal", "ram_total_gb"), ("MemAvailable", "ram_available_gb")):
+            if key in mem:
+                out[field] = round(int(mem[key].split()[0]) / 1e6, 2)
+    except Exception:
+        pass
+    try:
+        out["cpu_count"] = os.cpu_count()
+    except Exception:
+        pass
+    import shutil                       # cross-platform; os.statvfs is Unix-only
+    for label, path in (("container", _ROOT), ("volume", VOLUME_ROOT)):
+        try:
+            du = shutil.disk_usage(path)
+            out[f"{label}_disk_free_gb"] = round(du.free / 1e9, 2)
+            out[f"{label}_disk_total_gb"] = round(du.total / 1e9, 2)
+        except Exception:
+            out[f"{label}_disk_free_gb"] = None
+    try:
+        import torch
+        out["cuda"] = torch.cuda.is_available()
+        if out["cuda"]:
+            out["gpu"] = torch.cuda.get_device_name(0)
+            out["gpu_vram_gb"] = round(
+                torch.cuda.get_device_properties(0).total_memory / 1e9, 1)
+    except Exception:
+        pass
+    return out
+
+
 def image_sha() -> str:
     """The commit this container was built from -- see the Dockerfile."""
     try:
@@ -441,6 +511,7 @@ def handler(job):
     # Answers "is this worker running the code I think it is?" in one job.
     if job_input.get("mode") == "version":
         return {"ok": True, "mode": "version", "image": image_sha(),
+                "machine": machine(),
                 "modes": ["chunk", "merge", "exec", "subsample", "anchorbench",
                           "progress", "volume", "speedtest", "version"]}
 
