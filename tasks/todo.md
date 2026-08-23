@@ -6976,3 +6976,75 @@ expensive pipeline on ~20 four-second windows around them costs ~6 CPU-hours and
 yields ~20 shots with KNOWN OUTCOMES, against the 8 shots / 1 known outcome we
 have today. That is what turns shooting %, make/miss accuracy, shot-detection
 recall and shooter attribution into measured numbers instead of "seems to work".
+
+## REVIEW -- the full-scale rehearsal, and what it caught (2026-08-22)
+
+Ran the whole identity tail at real game size ON THE LAPTOP, for free, before
+spending anything. It caught three things, all of which would have hit AFTER the
+money was spent.
+
+### 1. A crash on the film's black opening  [FIXED]
+DJ's game opens with ~15 pure-black frames (brightness 0.0, zero SIFT keypoints
+-- MEASURED). event_frames for a whole game starts at the span start, i.e.
+frame 0. stage2_generate_events did `H_court @ T` without checking T, so it died
+on the first frame it looked at -- after ten slices and a merge were paid for.
+Now it skips a frame it cannot place, the same fail-open rule oncourt.build has
+always used. CONFIRMED ON REAL DATA: a byte-range read of the real slice 0 on
+the volume shows 6 frames with "anchor": null at the opening, and zero in four
+mid-game samples. So they are rare -- which is exactly why cutting the black
+frames instead would have been the wrong fix: the stage would still have died
+the first time the camera got blocked mid-game, one paid run later.
+NOT DONE, deliberately: trimming the film / moving the span start. The 8 paid-for
+slices are stamped "frames 0..136,895"; changing the span makes them not match,
+the merge refuses them, and the whole game gets re-bought (~$7) to save 15 frames.
+
+### 2. The merge would swallow a corrupted slice  [FIXED]
+Tested with a slice whose header was right and whose FRAMES were another
+slice's: it merged silently, frame indices jumping 199 -> 50,000. Downstream
+stages index that file BY POSITION, so it does not crash -- it credits one
+girl's floor time to another. This is the same failure that wasted the earlier
+parallel run. merge_streamed now checks contiguity, one integer compare per
+frame, and refuses with the slice number. Cannot fire on honest slices
+(run_tracking emits span_start + i by construction); verified good slices and a
+subset merge (0-1) still merge clean.
+
+### 3. Two scaling walls  [FIXED]
+MEASURED at 1 / 2 / 4 slices before any fix:
+    peak memory   1.26 / 2.18 / 3.89 GB   -> ~0.88 GB per slice, ~9.2 GB a game
+    stage3_windows  65 / 263 / 1156 s     -> 6-8x per doubling, ~5.7 h a game
+Worker memory ever proven: >=3.85 GB. Job cap: 180 min. Both walls land inside
+the game, at roughly 40% of it.
+
+  a) THE QUADRATIC was one list. IdentityStateMachine kept lost identities in a
+     flat list and scanned it end to end for every new track. Nothing leaves
+     that list except on a relink, so over a game it grows without bound
+     (MEASURED 32,481 entries at 34,224 frames). It is now keyed by track id --
+     the ONLY key _match_lost ever accepts, since its first act was to skip
+     every identity whose track_id differed. 250.0 s -> 1.1 s at 34,224 frames,
+     and linear again. PROVEN IDENTICAL: identical md5 of a full dump of the
+     machine state (every identity, state, track id, break record, lost-pool
+     ORDER, active order, confirmations) over TEST1's real tracks AND 20,000
+     frames of full-game-scale data.
+     Worth noting WHERE it lived: the unbounded machine is a printed diagnostic
+     in stage3_windows ("relinks the boundary prevents"). The windowed machine
+     the pipeline actually uses resets per window and was always linear.
+
+  b) THE MEMORY was the same body counted twice. Each stage's load() held the
+     parsed JSON AND the Track objects built from it, and nothing downstream
+     reads doc["frames"] again -- only clip/fps/span_start/span_len. Dropped it
+     after building. Track also got __slots__: there are millions of them
+     (~34 bodies x 171,120 frames per stage) and each was carrying an attribute
+     dictionary bigger than the two values it holds. 48 bytes each now.
+
+### Also built
+serverless_handler "version" mode now reports the WORKER'S ACTUAL RAM, CPU
+count, container disk and volume disk. Worker RAM has been this project's
+largest [UNKNOWN] -- ">=3.85 GB" is a high-water mark of a run that survived,
+not a limit -- and the merge job's whole size question rests on it. One cheap
+job now answers it instead of an assumption. Reads /proc/meminfo and
+shutil.disk_usage; never raises (verified on Windows, where both are absent).
+
+### Still open
+- Re-measure at 1/2/4 slices with both fixes in (running).
+- Read the worker's real RAM before sizing anything further.
+- Compact JSON + load-each-cache-once: still not done, still worth doing.
