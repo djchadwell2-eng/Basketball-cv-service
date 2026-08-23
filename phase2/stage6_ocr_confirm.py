@@ -184,7 +184,17 @@ def main():
     #     remaining nine. On real clips most candidates either read immediately
     #     or never, so this removes the bulk of the calls.
     # Neither changes WHICH crops are eligible, only how many get spent.
-    OCR_WORKERS = 6
+    # 32, not 6. MEASURED on the worker against real crops from DJ's own film:
+    #   1 thread  0.0581 s/crop     6 threads 0.0357     32 threads 0.0250
+    #   96 threads 0.0250 -- no better, the interpreter's lock is the ceiling
+    # Over a whole game (~150,000 crops, measured) that is 89 minutes at 6 and
+    # 62 at 32, inside a job RunPod kills at 180. Nothing about WHICH crops are
+    # read, how many attempts a candidate gets, or the confirm threshold moves;
+    # the rounds are still lock-step and ex.map still returns in order, so the
+    # accumulated best read is the same one.
+    # The 6 was measured against the GEMMA reader, where the limit was the API
+    # rate, not the CPU -- keep that in mind before raising it for that engine.
+    OCR_WORKERS = 32 if ocr_reader._get_engine() is None else 6
     attempts = crops_any = crops_conf = 0
     best = {}                               # (win,id) -> (number, conf, frame, bbox)
 

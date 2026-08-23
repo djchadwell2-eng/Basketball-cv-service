@@ -391,7 +391,63 @@ def merge_chunks(clip: str, doc: dict, chunks: list) -> dict:
 
     progress(clip, f"MERGE: {len(chunks)} slices -> {n_frames} frames "
                    f"({full_start}..{full_start + full_len})")
-    return run_analysis(clip, doc, (full_start, full_len), caches_ready=True)
+    stats = run_analysis(clip, doc, (full_start, full_len), caches_ready=True)
+    publish_results(clip)
+    return stats
+
+
+RESULT_DIR = os.path.join(VOLUME_ROOT, "results")
+
+
+def publish_results(clip: str) -> dict:
+    """Put the run's OUTPUT somewhere that outlives the worker.
+
+    The numbers come back in the job response, but the PICTURES do not, and the
+    pictures are how a human checks whether the numbers are true: each
+    ocr_confirm still shows a player's box with the number the reader gave her,
+    and each seed still shows who was counted as on the floor. They are written
+    to the container, which vanishes seconds after the job ends -- so up to now
+    the only way to see whether a name was right was to not be able to.
+
+    Seed stills are capped. A 95-minute game has hundreds of identity windows
+    and one still each; a coach checking accuracy needs a spread, not all of
+    them, and the volume is shared with the film.
+    """
+    import glob
+    import shutil
+    out_dir = os.path.join(RESULT_DIR, clip)
+    os.makedirs(out_dir, exist_ok=True)
+    src = os.path.join(_ROOT, "phase2", "out")
+    published = {"confirm_stills": 0, "seed_stills": 0, "json": 0}
+
+    # every confirmed read -- these are the accuracy evidence, and there is one
+    # per player named, not one per frame
+    for p in sorted(glob.glob(os.path.join(src, f"{clip}_ocr_confirm_*.jpg"))):
+        shutil.copy(p, out_dir)
+        published["confirm_stills"] += 1
+
+    seeds = sorted(glob.glob(os.path.join(src, f"{clip}_stage4_seed_*.jpg")))
+    step = max(1, len(seeds) // 40)                 # ~40 spread across the game
+    for p in seeds[::step][:40]:
+        shutil.copy(p, out_dir)
+        published["seed_stills"] += 1
+
+    for pat in (f"{clip}_box_score.json", f"{clip}_box_score.csv",
+                f"{clip}_review_queue.json", f"{clip}_ocr_confirms.json",
+                f"{clip}_id_windows.json", f"{clip}_player_events_merged.json"):
+        p = os.path.join(src, pat)
+        if os.path.exists(p):
+            shutil.copy(p, out_dir)
+            published["json"] += 1
+    for pat in (f"{clip}_measured_stats.json", f"{clip}_team_possessions.json",
+                f"{clip}_ball_touches.json", f"{clip}_shot_locations.json"):
+        p = os.path.join(_ROOT, "spikes", "out", pat)
+        if os.path.exists(p):
+            shutil.copy(p, out_dir)
+            published["json"] += 1
+
+    progress(clip, f"PUBLISHED {published} -> {out_dir}")
+    return published
 
 
 def run_analysis(clip_name: str, doc: dict | None = None, span=None,
