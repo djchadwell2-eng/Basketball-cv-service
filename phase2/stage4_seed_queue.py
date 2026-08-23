@@ -54,6 +54,14 @@ def load(path):
     frames = [(fr["frame_index"],
                [Track(t["track_id"], tuple(t["bbox"])) for t in fr["tracks"]])
               for fr in doc["frames"]]
+    # THE PARSED JSON IS DROPPED ONCE THE TRACKS ARE BUILT. Holding both meant
+    # every body in every frame existed twice over -- once as the dict json
+    # parsed, once as the Track built from it -- and nothing downstream ever
+    # reads doc["frames"] again; only the header fields (clip/fps/span). On a
+    # 15-second clip that duplication is invisible. MEASURED at full-game
+    # scale it was ~0.88 GB per slice, heading for ~9 GB on a whole game
+    # against the 3.85 GB of worker memory this project has ever proven.
+    doc.pop("frames", None)
     return frames, doc
 
 
@@ -188,14 +196,19 @@ def main():
     #
     # fast_frames seeks and verifies where it landed (5.4x, exact, pixel
     # identical -- proven 2026-07-31), so the pictures are the same pictures.
+    #
+    # ONE STILL IN MEMORY AT A TIME. Reading them all into a dict first held a
+    # 6.38 MB frame per window (MEASURED): a 15-second clip has one or two, but
+    # a 95-minute game has hundreds -- ~3.6 GB resident at HARD's rate of one
+    # window per 10 seconds, against the only worker memory ever proven,
+    # >=3.85 GB. Same frames, same JPGs, written as each one arrives.
     import fast_frames
-    stills = fast_frames.read_frames(CLIP.video_path,
-                                     [sf for (sf, _s, _k) in seed_frames.values()])
-    for w, (sf, seeded, skipped) in seed_frames.items():
-        frame = stills.get(sf)
-        if frame is None:
-            continue
-        frame = frame.copy()            # drawn on below; never scribble on the cache
+    # window starts are distinct frames by construction (a window IS a stretch
+    # between two of them), so one seed frame belongs to exactly one window.
+    window_of_seed = {sf: (w, seeded, skipped)
+                      for w, (sf, seeded, skipped) in seed_frames.items()}
+    for sf, frame in fast_frames.iter_read_frames(CLIP.video_path, list(window_of_seed)):
+        w, seeded, skipped = window_of_seed[sf]
         _fi, seed_tracks = frames[sf - span_start]
         seeded_set = set(seeded)
         for t in seed_tracks:

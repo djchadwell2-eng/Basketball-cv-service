@@ -40,9 +40,18 @@ OUT_JSON = os.path.join(_HERE, "out", f"{CLIP.name}_player_events.json")
 def load(path):
     with open(path, encoding="utf-8") as f:
         doc = json.load(f)
-    return [(fr["frame_index"],
-             [Track(t["track_id"], tuple(t["bbox"])) for t in fr["tracks"]])
-            for fr in doc["frames"]], doc
+    frames = [(fr["frame_index"],
+               [Track(t["track_id"], tuple(t["bbox"])) for t in fr["tracks"]])
+              for fr in doc["frames"]]
+    # THE PARSED JSON IS DROPPED ONCE THE TRACKS ARE BUILT. Holding both meant
+    # every body in every frame existed twice over -- once as the dict json
+    # parsed, once as the Track built from it -- and nothing downstream ever
+    # reads doc["frames"] again; only the header fields (clip/fps/span). On a
+    # 15-second clip that duplication is invisible. MEASURED at full-game
+    # scale it was ~0.88 GB per slice, heading for ~9 GB on a whole game
+    # against the 3.85 GB of worker memory this project has ever proven.
+    doc.pop("frames", None)
+    return frames, doc
 
 
 def spans(frame_states):

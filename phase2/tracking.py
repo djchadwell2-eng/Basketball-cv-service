@@ -28,6 +28,15 @@ TRACKER_CONFIG = "bytetrack.yaml"
 @dataclass
 class Track:
     """One tracked body in one frame. Continuity only -- NOT an identity."""
+    # __slots__ because there are MILLIONS of these: a 95-minute game holds ~34
+    # bodies in each of 171,120 frames, and every identity stage builds one
+    # object per body per frame. Without slots each carries its own attribute
+    # dictionary, which costs more than the two values it exists to hold. No
+    # field has a default, so declaring the slots by hand is safe here (a
+    # default would collide with the slot descriptor) and works on any Python.
+    # Nothing anywhere attaches extra attributes to a Track -- checked before
+    # this was added, and slots will now say so loudly if anything tries.
+    __slots__ = ("track_id", "bbox")
     track_id: int
     bbox: tuple[float, float, float, float]     # (x1, y1, x2, y2) pixels
 

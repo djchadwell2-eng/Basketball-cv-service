@@ -64,6 +64,44 @@ def read_frames(video_path, indices, verify=True):
     return out
 
 
+def iter_read_frames(video_path, indices, verify=True):
+    """The SAME seek-and-verify read as read_frames, but YIELDS (index, frame)
+    in increasing order instead of building a dict of every frame first.
+
+    WHY THIS EXISTS. read_frames holds every frame it read. A 1080p frame costs
+    6.38 MB of process memory (MEASURED 2026-08-19), so a caller wanting one
+    still per identity window over a 95-minute game holds ~3.6 GB at once --
+    more than the only worker memory this project has ever proven (>=3.85 GB).
+    Callers that use each frame once and drop it were paying for all of them.
+
+    Same guarantee as read_frames: seek, CHECK where we landed, and fall back to
+    the sequential scan for any frame the seek missed -- so the pictures are the
+    same pictures, and a file that seeks badly is still read correctly. A frame
+    that cannot be read at all is skipped, exactly as read_frames omits it.
+    """
+    need = sorted(set(int(i) for i in indices))
+    if not need:
+        return
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        raise RuntimeError(f"could not open video: {video_path}")
+    try:
+        for idx in need:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
+            ok, fr = cap.read()
+            if ok and verify:
+                # POS_FRAMES points at the NEXT frame after a successful read.
+                ok = int(cap.get(cv2.CAP_PROP_POS_FRAMES)) - 1 == idx
+            if ok:
+                yield idx, fr
+                continue
+            missed = _sequential(video_path, [idx])      # slow path, per frame
+            if idx in missed:
+                yield idx, missed[idx]
+    finally:
+        cap.release()
+
+
 def _sequential(video_path, indices):
     """The slow, unconditionally-correct read: scan from 0, take what we pass."""
     need = sorted(set(indices))

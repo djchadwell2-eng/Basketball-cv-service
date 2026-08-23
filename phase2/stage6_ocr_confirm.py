@@ -48,9 +48,18 @@ MAX_ATTEMPTS = 10        # cap reads per candidate
 def load(path):
     with open(path, encoding="utf-8") as f:
         doc = json.load(f)
-    return [(fr["frame_index"],
-             [Track(t["track_id"], tuple(t["bbox"])) for t in fr["tracks"]])
-            for fr in doc["frames"]], doc
+    frames = [(fr["frame_index"],
+               [Track(t["track_id"], tuple(t["bbox"])) for t in fr["tracks"]])
+              for fr in doc["frames"]]
+    # THE PARSED JSON IS DROPPED ONCE THE TRACKS ARE BUILT. Holding both meant
+    # every body in every frame existed twice over -- once as the dict json
+    # parsed, once as the Track built from it -- and nothing downstream ever
+    # reads doc["frames"] again; only the header fields (clip/fps/span). On a
+    # 15-second clip that duplication is invisible. MEASURED at full-game
+    # scale it was ~0.88 GB per slice, heading for ~9 GB on a whole game
+    # against the 3.85 GB of worker memory this project has ever proven.
+    doc.pop("frames", None)
+    return frames, doc
 
 
 def main():
@@ -138,11 +147,26 @@ def main():
         if picked:
             attempted_cands.add(key)
 
-    # --- NOW load only the frames actually picked (targeted, single pass) ---
-    needed_frames = sorted({f for picked in picked_by_key.values() for (f, _bb) in picked})
-    imgs = dict(s2mk.iter_frames(CLIP.video_path, needed_frames))
-    print(f"[stage6] loaded {len(imgs)} frame(s) for OCR attempts "
-          f"(span holds {doc['span_len']} -- targeted read, not the whole span)")
+    # --- NOW cut only the crops actually picked (targeted, single pass) -----
+    # KEEP THE CROP, NOT THE FRAME. This used to hold every picked frame in one
+    # dict, at a MEASURED 6.38 MB each. That is fine for a 15-second clip whose
+    # whole span is 461 frames, and fatal for a game: the pool is one frame per
+    # OCR attempt, so a few thousand candidates is tens of gigabytes, against
+    # the only worker memory ever proven (>=3.85 GB). A jersey crop is a few
+    # kilobytes, and it is the only part of the frame this stage ever looks at.
+    #
+    # .copy() is not optional: jersey_crop returns a numpy VIEW, which would
+    # keep the whole 6.22 MB frame alive and undo the entire fix.
+    by_frame = defaultdict(list)
+    for key, picked in picked_by_key.items():
+        for (f, bb) in picked:
+            by_frame[f].append((key, bb))
+    crops = {}                              # (key, frame) -> jersey crop
+    for f, im in s2mk.iter_frames(CLIP.video_path, sorted(by_frame)):
+        for (key, bb) in by_frame[f]:
+            crops[(key, f)] = ocr_reader.jersey_crop(im, bb).copy()
+    print(f"[stage6] cut {len(crops)} crop(s) from {len(by_frame)} frame(s) for OCR "
+          f"attempts (span holds {doc['span_len']} -- targeted read, one frame at a time)")
 
     # --- temporal OCR accumulation per candidate, IN ROUNDS -----------------
     # Round N attempts every still-unread candidate's Nth-best crop, all in
@@ -166,7 +190,7 @@ def main():
 
     def _attempt(job):
         key, f, bb = job
-        crop = ocr_reader.jersey_crop(imgs[f], bb)
+        crop = crops[(key, f)]          # cut above, while its frame was in hand
         return key, f, bb, ocr_reader.read_jersey(crop, roster.ROSTER_NUMBERS)
 
     max_round = max((len(v) for v in picked_by_key.values()), default=0)
@@ -309,15 +333,24 @@ def main():
           f"(via seed + {via_2nd} via second_signal). Continuity confirmations = 0.")
 
     # --- stills: OCR-confirmed players (green + jersey number) ---
+    # Re-read just these frames, one at a time. They are only the players who
+    # were actually named -- a handful, not the whole attempt pool -- so this
+    # costs one seek each and holds one frame, instead of keeping every OCR
+    # frame alive to the end of the stage for the sake of a few pictures.
+    confirmed_by_frame = defaultdict(list)
     for (key, b) in outcomes["agree"]:
-        n, c, f, bb = b
-        img = imgs[f].copy()
-        x1, y1, x2, y2 = [int(v) for v in bb]
-        cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 3)
-        cv2.putText(img, f"#{n} CONFIRMED via OCR ({c:.2f})", (x1, y1 - 8),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-        cv2.imwrite(os.path.join(OUT_DIR, f"{clip}_ocr_confirm_w{key[0]}_id{key[1]}_f{f}.jpg"),
-                    cv2.resize(img, (1280, 720)))
+        confirmed_by_frame[b[2]].append((key, b))
+    for f, img in s2mk.iter_frames(CLIP.video_path, sorted(confirmed_by_frame)):
+        for (key, b) in confirmed_by_frame[f]:
+            n, c, _f, bb = b
+            still = img.copy()          # one frame, possibly two players on it
+            x1, y1, x2, y2 = [int(v) for v in bb]
+            cv2.rectangle(still, (x1, y1), (x2, y2), (0, 255, 0), 3)
+            cv2.putText(still, f"#{n} CONFIRMED via OCR ({c:.2f})", (x1, y1 - 8),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            cv2.imwrite(
+                os.path.join(OUT_DIR, f"{clip}_ocr_confirm_w{key[0]}_id{key[1]}_f{f}.jpg"),
+                cv2.resize(still, (1280, 720)))
     print(f"\nsaved OCR-confirm stills in {OUT_DIR}")
 
     # --- PERSIST the outcomes (they are the pipeline's most valuable signal;
