@@ -104,7 +104,26 @@ class IdentityStateMachine:
 
     def __init__(self):
         self._by_track: dict[int, Identity] = {}   # active track_id -> Identity
-        self._lost: list[Identity] = []            # occluded, awaiting reappearance
+        # occluded, awaiting reappearance -- KEYED BY THE TRACK ID THEY WERE
+        # LOST UNDER, because that is the only key _match_lost ever accepts.
+        #
+        # This was a flat list, scanned end to end for every reappearance. On a
+        # 15-second clip the pool holds a handful and nobody notices. Over a
+        # whole game nothing ever leaves it except on a relink, so it grows all
+        # game -- MEASURED on a full-game-sized cache: 8,124 lost identities at
+        # 8,556 frames, 32,481 at 34,224 -- and the scan is paid once per new
+        # track. That is quadratic, and it showed: 5.1 s -> 30.4 s -> 250.0 s
+        # for each doubling of the game, heading for HOURS on 171,120 frames,
+        # inside a job that is killed at three.
+        #
+        # A dict changes nothing about WHICH identities are considered: the old
+        # loop's first act was to skip every identity whose track_id differed,
+        # and an identity's track_id cannot change while it is in this pool (it
+        # is reassigned only after being removed). Same candidates, same order,
+        # found directly instead of by search. _lost_seq preserves the global
+        # insertion order that lost() used to report.
+        self._lost: dict[int, list[Identity]] = {}
+        self._lost_seq = 0
         self._all: list[Identity] = []
         self.breaks: list[dict] = []               # log of occlusion/relink events
         # Every CONFIRMED transition, emitted by the gate itself. This is the
@@ -207,7 +226,9 @@ class IdentityStateMachine:
                 ident.evidence = {"reason": "occlusion",
                                   "lost_after_frame": ident.last_seen_frame,
                                   "lost_track_id": tid}
-                self._lost.append(ident)
+                ident._lost_seq = self._lost_seq
+                self._lost_seq += 1
+                self._lost.setdefault(tid, []).append(ident)
 
         # 2. continuing + new tracks
         for t in tracks:
@@ -221,7 +242,13 @@ class IdentityStateMachine:
         matches = self._match_lost(t, frame_index)      # [(ident, evidence), ...]
         if matches and self._is_confident(matches):
             ident, ev = matches[0]
-            self._lost.remove(ident)
+            # remove BEFORE track_id is reassigned below -- the pool is keyed by
+            # the id it was lost under
+            bucket = self._lost.get(ident.track_id)
+            if bucket:
+                bucket.remove(ident)
+                if not bucket:
+                    del self._lost[ident.track_id]
             old_track = ident.track_id
             ident.track_id = t.track_id
             ident.state = IdentityState.CANDIDATE       # the CEILING for continuity
@@ -252,8 +279,8 @@ class IdentityStateMachine:
         """Lost identities that plausibly relink to this reappearance, by motion."""
         cx, cy = _center(t.bbox)
         out = []
-        for ident in self._lost:
-            if ident.track_id != t.track_id:
+        for ident in self._lost.get(t.track_id, ()):
+            if ident.track_id != t.track_id:        # structural now; kept as a belt
                 # SAME TRACK ID ONLY. A relink onto a DIFFERENT track id means
                 # overruling ByteTrack: it looked at this new body, declined to
                 # call it the lost one, and we bridge the gap anyway on nothing
@@ -304,7 +331,9 @@ class IdentityStateMachine:
         return list(self._by_track.values())
 
     def lost(self) -> list[Identity]:
-        return list(self._lost)
+        # sorted by _lost_seq so callers see the SAME order the flat list gave
+        return sorted((i for b in self._lost.values() for i in b),
+                      key=lambda i: i._lost_seq)
 
     def all_identities(self) -> list[Identity]:
         return list(self._all)
