@@ -45,6 +45,17 @@ def main():
 
         # Per-frame homography from the DIRECT nearest-keyframe anchor.
         T, inliers, reproj, kf = anchor(f, frame)
+        if T is None:
+            # A frame the anchor cannot place carries NO team_event -- the same
+            # fail-open rule oncourt.build already applies. Without this the
+            # stage crashed on `H_court @ T`, and the frame that does it is not
+            # exotic: DJ's game opens with ~15 BLACK frames (brightness 0.0,
+            # zero SIFT keypoints, MEASURED 2026-08-19) and event_frames starts
+            # at the span start, which for a whole game is frame 0. The crash
+            # would land AFTER the ten slices and the merge were paid for.
+            print(f"  f={f:>4}  anchor match FAILED -- no team_event for this "
+                  f"frame (fail-open, not guessed)")
+            continue
         p2f = H_court @ T
         feet2px = np.linalg.inv(p2f)
         ctr_px = feet2px @ np.array([st.COURT_LEN / 2.0, st.COURT_WID / 2.0, 1.0])
