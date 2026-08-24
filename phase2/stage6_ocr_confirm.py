@@ -122,6 +122,40 @@ def main():
                  if i.ever_unresolved and i.state is not IdentityState.CONFIRMED]
     candidates = [k for k in all_cands if _on_court(k)]           # the OCR pool
     off_court_candidates = len(all_cands) - len(candidates)
+
+    # THE BUDGET: spend the reader where it buys the most floor time.
+    #
+    # A 95-minute game offers 23,288 candidates for a roster of about 24 girls
+    # (MEASURED). Those are TRACKING FRAGMENTS, not people -- every time a
+    # player is occluded and re-acquired she becomes another candidate -- and
+    # most of them are worth almost nothing: a fragment lasting five frames
+    # credits a sixth of a second of floor time, while one lasting half a minute
+    # is a real line on the box score. Reading them all is 698,000 vision calls;
+    # reading the biggest ones first buys nearly all the value for a fraction of
+    # that, and it turns cost from something you discover into a number you set.
+    #
+    # WHAT IT DOES NOT DO: lose anybody. A candidate that is not read stays
+    # exactly what it is today -- CANDIDATE, in the coach's review queue, never
+    # confirmed and never guessed. The skipped count is printed and persisted,
+    # so an unread pool can never look like an unreadable one.
+    #
+    # Default 0 = no budget, so every existing clip and all 395 tests behave
+    # exactly as before; a whole game sets it deliberately.
+    budget = int(os.environ.get("CV_OCR_MAX_CANDIDATES", "0") or 0)
+    skipped_for_budget = 0
+    if budget and len(candidates) > budget:
+        floor_time = {k: len(active_log[k]) for k in candidates}
+        # frames of presence, then the key itself so ties break the same way
+        # every run -- a budget that shuffles under you is not a measurement.
+        candidates = sorted(candidates, key=lambda k: (-floor_time[k], k))[:budget]
+        skipped_for_budget = len(floor_time) - len(candidates)
+        kept = sum(floor_time[k] for k in candidates)
+        total = sum(floor_time.values())
+        print(f"[stage6] BUDGET {budget}: reading {len(candidates)} of "
+              f"{len(floor_time)} candidates, the ones carrying the most floor "
+              f"time -- {kept / max(1, total):.1%} of all tracked presence. The "
+              f"other {skipped_for_budget} stay CANDIDATE in the review queue "
+              f"(not read, NOT unreadable).", flush=True)
     before_review = [k for k, i in ident_of.items()
                      if i.ever_unresolved and i.state is not IdentityState.CONFIRMED
                      and _on_court(k)]
@@ -390,6 +424,10 @@ def main():
         "seed_policy": "ROI-mask: on-court majority per (window, track)",
         "attempt_policy": "best_crops_first_v2",
         "off_court_candidates_excluded": off_court_candidates,
+        # NOT READ is not the same as UNREADABLE. Persisted so a budgeted run
+        # can never be mistaken for a run where the reader tried and failed.
+        "candidate_budget": budget or None,
+        "candidates_skipped_for_budget": skipped_for_budget,
         "readability": {
             "crops_attempted": attempts, "crops_any_read": crops_any,
             "crops_confident_read": crops_conf,
