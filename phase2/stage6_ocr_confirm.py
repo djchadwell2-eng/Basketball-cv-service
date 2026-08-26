@@ -166,17 +166,44 @@ def main():
     for key in candidates:
         frs = [(f, bb) for (f, bb) in active_log[key]
                if bb and (bb[3] - bb[1]) >= MIN_OCR_HEIGHT]
-        # BEST-CROPS-FIRST (attempt policy v2): legibility tracks box size
-        # (montage diagnosis, DECISIONS 4b), so spend the attempt budget on the
-        # candidate's LARGEST boxes, keeping picks >= OCR_STRIDE frames apart
-        # so attempts aren't near-duplicate frames. Budget/threshold unchanged.
-        frs.sort(key=lambda fb: -(fb[1][3] - fb[1][1]))
-        picked = []
+        # BEST CROP IN EACH SLICE OF HER TIME (attempt policy v3).
+        #
+        # v2 sorted by box height and required picks to be OCR_STRIDE=2 frames
+        # apart. Size is the right legibility proxy (montage diagnosis,
+        # DECISIONS 4b) but two frames is a fifteenth of a second, so "spread"
+        # was never enforced in any meaningful sense: the ten biggest boxes are
+        # the ten frames where she was nearest the camera, which are usually
+        # consecutive.
+        #
+        # MEASURED on real on-court tracks from DJ's game: the ten attempts span
+        # 1.6 s at the median against a 4.3 s tracked life, and 30% of players
+        # get ALL TEN inside a single second. Ten pictures of one instant, at one
+        # angle. If her back is turned for that second, every attempt fails and
+        # she is recorded as unreadable -- when she was only ever shown once.
+        #
+        # A jersey number is unreadable because of ANGLE far more often than
+        # because of size: the crop montage is full of backs, side-ons, arms and
+        # a referee, next to a perfectly crisp 23. Attempts are therefore spread
+        # over her whole time on screen -- her frames are cut into MAX_ATTEMPTS
+        # slices and the LARGEST box in each is taken, so every attempt is a
+        # different moment and each is still the best look available then.
+        # Measured effect: 2.2x wider window, same number of attempts, same cost.
+        #
+        # Still ordered biggest-first afterwards, so the early rounds (and the
+        # early exit) still spend on her clearest look.
+        if not frs:                     # never big enough to try: no attempts
+            picked_by_key[key] = []
+            continue
+        span_lo, span_hi = frs[0][0], frs[-1][0]        # active_log is frame-ordered
+        width = max(1, span_hi - span_lo + 1)
+        best_in_slice = {}
         for (f, bb) in frs:
-            if all(abs(f - g) >= OCR_STRIDE for (g, _b) in picked):
-                picked.append((f, bb))
-            if len(picked) >= MAX_ATTEMPTS:
-                break
+            s = min(MAX_ATTEMPTS - 1, (f - span_lo) * MAX_ATTEMPTS // width)
+            cur = best_in_slice.get(s)
+            if cur is None or (bb[3] - bb[1]) > (cur[1][3] - cur[1][1]):
+                best_in_slice[s] = (f, bb)
+        picked = sorted(best_in_slice.values(),
+                        key=lambda fb: -(fb[1][3] - fb[1][1]))[:MAX_ATTEMPTS]
         picked_by_key[key] = picked
         if picked:
             attempted_cands.add(key)

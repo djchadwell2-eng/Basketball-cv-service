@@ -39,6 +39,10 @@ _UPSCALE = 4                     # both engines do better on upscaled small crop
 # [13, 10, 10]. Majority-of-3 would have named that referee "10".
 GEMMA_READS = 3
 GEMMA_MODEL = "gemma-4-26b-a4b-it"
+# Milliseconds. A read that has not come back in this long is not coming back
+# usefully: a legible crop answers in ~8 s (MEASURED), so 90 s is generous, and
+# the alternative is a thread that waits forever (see _init_engine).
+GEMMA_TIMEOUT_MS = 90_000
 
 # The reported confidence is the AGREEMENT FRACTION, not a probability, and that
 # is deliberate: with 3 reads, unanimous = 1.00 and 2-of-3 = 0.67, so the
@@ -99,7 +103,21 @@ def _init_engine():
         return None
     try:
         import google.genai
-        _engine = google.genai.Client(api_key=key)
+        # A CALL THAT NEVER RETURNS IS WORSE THAN A CALL THAT FAILS. There was
+        # no timeout here at all, and a single hung request blocks its thread
+        # forever: measured 2026-08-24, a sheet request stopped responding and
+        # sat for 28 minutes with no error and no progress. In a stage that
+        # makes tens of thousands of these, one hang burns the whole job until
+        # RunPod's 180-minute cap kills it -- after the slices have been paid
+        # for. _gemma_once already treats a failure as "not evidence", so a
+        # timeout costs one crop's read and nothing else.
+        try:
+            _engine = google.genai.Client(
+                api_key=key, http_options={"timeout": GEMMA_TIMEOUT_MS})
+        except TypeError:              # older SDK without http_options
+            _engine = google.genai.Client(api_key=key)
+            print("[ocr_reader] WARNING: this google-genai cannot take a "
+                  "timeout -- a hung call will block until the job is killed")
         print(f"[ocr_reader] jersey reader: Gemma {GEMMA_MODEL}, "
               f"unanimous-of-{GEMMA_READS}")
     except Exception as e:
@@ -250,7 +268,23 @@ GRID_COLS = 4
 _CELL_W, _CELL_H = 372, 356
 # Cells are labelled with LETTERS, never digits. A digit painted next to a
 # jersey is an invitation to read the label as the number.
-_CELL_LABELS = "ABCDEFGHIJKL"
+_CELL_LABELS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+
+def _cell_labels(n):
+    """n distinct letter labels: A..Z, then AA, AB, ... Still never a digit.
+
+    A fixed twelve-letter alphabet silently capped how big a sheet could ever
+    be -- raising GRID_CELLS past it crashed rather than saying so, which is a
+    poor way for a limit to announce itself.
+    """
+    out = []
+    i = 0
+    while len(out) < n:
+        q, r = divmod(i, 26)
+        out.append((_CELL_LABELS[q - 1] if q else "") + _CELL_LABELS[r])
+        i += 1
+    return out
 
 
 def _grid_image(crops):
@@ -259,6 +293,7 @@ def _grid_image(crops):
     n = len(crops)
     rows = (n + GRID_COLS - 1) // GRID_COLS
     canvas = np.zeros((rows * _CELL_H, GRID_COLS * _CELL_W, 3), np.uint8)
+    labs = _cell_labels(n)
     labels = []
     for i, c in enumerate(crops[:GRID_CELLS]):
         r, col = divmod(i, GRID_COLS)
@@ -267,8 +302,9 @@ def _grid_image(crops):
         canvas[y0:y0 + h, x0:x0 + w] = c[:h, :w]
         cv2.rectangle(canvas, (x0, y0), (x0 + _CELL_W - 2, y0 + _CELL_H - 2),
                       (0, 255, 255), 2)
-        lab = _CELL_LABELS[i]
-        cv2.rectangle(canvas, (x0 + 2, y0 + 2), (x0 + 34, y0 + 30), (0, 0, 0), -1)
+        lab = labs[i]
+        cv2.rectangle(canvas, (x0 + 2, y0 + 2),
+                      (x0 + 14 + 20 * len(lab), y0 + 30), (0, 0, 0), -1)
         cv2.putText(canvas, lab, (x0 + 8, y0 + 25),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
         labels.append(lab)
