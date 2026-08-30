@@ -478,9 +478,27 @@
   "calibration_approved": true,
   "calibration_approved_at": "2026-07-31T22:33:23.352Z",
   "volume_key": "films/Full_Game_9eb8bf2a.mp4",
-  "volume_id": "6miabyja6y",
+  "volume_id": "r5hc0v2j7v",
   "volume_bytes": 3617656127,
-  "uploaded_at": "2026-07-31T23:01:42Z",
-  "tracking_span_start": 127200,
-  "tracking_span_len": 300
+  "uploaded_at": "2026-08-03T18:41:38Z",
+  "tracking_span_start": 0,
+  "tracking_span_len": 171120,
+  "hoop_anchors": {
+    "near": [
+      166842,
+      [
+        392.7,
+        223.2
+      ]
+    ],
+    "far": [
+      154008,
+      [
+        1310.6,
+        137.6
+      ]
+    ]
+  },
+  "ball_span_start": 0,
+  "ball_span_len": 171120
 }

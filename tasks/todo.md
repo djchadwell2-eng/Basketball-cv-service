@@ -7048,3 +7048,362 @@ shutil.disk_usage; never raises (verified on Windows, where both are absent).
 - Re-measure at 1/2/4 slices with both fixes in (running).
 - Read the worker's real RAM before sizing anything further.
 - Compact JSON + load-each-cache-once: still not done, still worth doing.
+
+## THE OVERNIGHT RUN -- A HARNESS BUG, AND WHAT SURVIVED IT, 2026-08-22/23
+
+FIRST ATTEMPT RAN 7 WINDOWS AND HALF OF IT WAS GARBAGE.
+Symptom: every window reported 0 touches and 0 possessions, while shot arcs were
+still being found. Looked like a touch-layer failure. It was not.
+Root cause, found by comparing the inputs' frame ranges:
+    ball detections  68541..68690   (window 7 -- correct)
+    tracks           43547..43696   (window 1 -- STALE)
+    on-court         43547..43696   (window 1 -- STALE)
+phase2/run_tracking.py binds SPAN_START/SPAN_LEN from ACTIVE_CLIP as MODULE-LEVEL
+constants, so the second `import run_tracking` inside one process is a no-op and
+re-tracks the first window's frames forever. The ball stages take their span as
+an argument, so they moved while the bodies did not -- the two never overlapped,
+and the join had nothing to work with (frame_reasons was completely EMPTY, not
+full of "no_ball", which is what gave it away).
+DJ's own note for this repo already said it: ONE CLIP PER PROCESS.
+
+WHAT SURVIVED: the shot numbers. Shot detection reads ball detections, the hoop
+track and trajectories -- never the player tracks. 3 of 7 known baskets had an
+arc detected (43%), and that figure stands.
+WHAT WAS VOID: every touch, naming and possession number from that run. Not a
+real zero -- two halves of different moments compared against each other.
+
+FIX: each window now runs in its OWN PROCESS (run_basket_windows --one-window),
+so every module rebinds. Verified directly rather than by waiting an hour --
+a fresh process asked for spans 43547 / 68541 / 92560 bound exactly those.
+
+ALSO SETTLED TODAY
+- Rim clicks: the shot layer needed two rim pixels and the right-hand basket
+  appears in NONE of this game's five calibration keyframes, so it was
+  unreachable. hoop_anchor now carries a rim marked on ANY frame by SIFT-matching
+  it to the nearest keyframe -- the same maths it already runs per frame -- and
+  REFUSES a weak match rather than placing the rim on a bad homography.
+  DJ marked near=f166842, far=f154008 (neither a keyframe). Verified by eye: the
+  rim carried from f166842 lands on the ring at f151200, f158700 and f171000,
+  15,000+ frames away, off a thin 40-inlier anchor match.
+- The rim clicker offers the whole game (45 frames), not just keyframes, and
+  shows a copyable JSON box because a browser download can be blocked.
+- Refinement now saves after every basket (a timeout previously killed it one
+  basket short and threw away 12 minutes of model calls).
+- 45 of 47 baskets refined; 31 pinned to <=2.5s, median 1.3s.
+
+---
+
+# FIVE-ON-COURT EXCLUSION -- PLAN, 2026-08-29
+
+DJ corrected his own earlier version and the correction is the whole design:
+
+WRONG: "four of five confirmed, the roster names the fifth." A 15-player roster
+is not a closed set -- knowing four leaves eleven candidates, so nothing is
+forced.
+
+RIGHT: exclusion is not a way to DISCOVER a name, it is a way to CARRY one
+through fragmentation. The closed set is a LINEUP, not a roster:
+  1. at some moment all five of a team are identified (clicks, or a lucky read)
+  2. the tracker loses one and re-acquires her as a stranger
+  3. four of that lineup are still tracked and named; one body is on court,
+     unnamed; no substitution has happened
+  4. therefore that body IS the missing lineup member -- forced by COUNTING
+
+Why it survives identical uniforms, where appearance re-ID died (DECISIONS 11):
+it never looks at her. It looks at who is already accounted for.
+
+What it attacks: today a name dies at the next WINDOW (147 of them). With
+exclusion a name dies at the next SUBSTITUTION.
+[ESTIMATE, DJ] ~2,043 clicks -> ~150-300. First idea on the list that changes
+the order of magnitude.
+
+## THE SAFETY RULE (DJ's, and it is the whole thing)
+Assign ONLY when the arithmetic is exactly forced:
+  exactly 5 of that team on court, no more, no fewer
+  exactly 4 CONFIRMED (never candidate -- do not compound guesses)
+  exactly 1 unnamed
+  no substitution boundary crossed since the lineup was set
+Any of those uncertain -> she stays unknown and goes to the queue.
+
+Provenance: exclusion must NOT write CONFIRMED on its own authority. Its
+confidence is borrowed from the click that named the lineup plus the counting,
+so it inherits from that seed and goes through stage7's existing contradiction
+check -- which already refuses when one number would be in two places at once.
+That check is exclusion's natural safety net and is already written.
+
+## BUILD ORDER -- DJ's, and step 1 is the blocker
+"Player-vs-non-player first. Exclusion with refs in the pool will confidently
+name a referee."
+
+- [ ] STEP 1. WHICH BODIES ARE PLAYERS. Measure before building anything.
+      GROUND TRUTH IS ALREADY ON DISK, free: the human track labels in
+      {clip}_decisions.json give 21 non-players (19 ref, 2 bench) against ~46
+      numbered players across TEST1/HARD/TEST2.
+      The candidate signal is colour: color_tiebreak already builds TEAM COLOUR
+      CENTROIDS from confirmed crops on this footage, and DJ's hypothesis is
+      that a body matching NEITHER team is not a player.
+      THE HONEST RISK, stated first: my own measurement (2026-08-03) is that a
+      torso crop cannot be matched to an ABSOLUTE colour -- white and green kits
+      both came back muddy grey. classify_team survives that because it asks a
+      RELATIVE question (which of two centroids is nearer, by a margin).
+      "Far from BOTH" is closer to the absolute question that already failed.
+      So this must be MEASURED, not assumed. It may simply not separate.
+      Deliverable: a number -- of 21 known non-players, how many are correctly
+      refused, and how many of ~46 real players are wrongly refused. A player
+      wrongly refused is worse than a ref wrongly kept, because it deletes real
+      floor time.
+      DJ already measured MOTION and it fails: only 10% of tracks cover 25+ ft,
+      median 9.6 ft, and a coach walking the bench covered 26 ft. Not retrying it.
+
+- [ ] STEP 2. WHICH TEAM (per-team exclusion needs this). Same tool, and
+      touch_teams.py already does the measured-centroid version at 17/18 tracks.
+
+- [ ] STEP 3. WHEN THE LINEUP CHANGED. Substitutions happen at dead balls and we
+      ALREADY READ THE SCOREBOARD CLOCK (scoreboard_timeline.py). A stopped clock
+      is the honest boundary. A stale lineup produces a confident wrong name, so
+      miss one and we are wrong for minutes.
+
+- [ ] STEP 4. THE COUNTING ITSELF, with the four-part gate above. Pure logic,
+      testable without video.
+
+- [ ] STEP 5. PROVE IT BEFORE TRUSTING IT (DJ). Name a stretch by hand with the
+      reseed sheet, run exclusion over the same stretch, count agrees / abstains
+      / WRONG. Wrong must be ZERO -- one wrong name is worse than a hundred
+      abstentions, because it is a stat a coach believes.
+      Free bonus check: when exclusion assigns a name and a jersey read later
+      disagrees, that is a CAUGHT error, not a silent one.
+
+## NOT DOING HERE
+Nothing downstream of step 1 gets built until step 1 has a number. If colour
+cannot separate players from refs, exclusion needs a different gate and the rest
+of this plan changes.
+
+## STEP 1 RESULT: COLOUR DOES NOT SEPARATE PLAYERS FROM REFS -- MEASURED, 2026-08-30
+
+spikes/player_vs_nonplayer.py, on the human track labels already on disk:
+34 real players vs 19 real non-players (refs + bench), leave-one-out so no
+player is scored against a centroid she helped build, ambiguous dual-team
+numbers (HARD #3, #23) excluded from centroid building.
+
+DISTANCE TO THE NEAREST TEAM COLOUR CENTROID
+                  n    min    median   p90    max
+  players        34    4.7    22.7     41.4   63.7
+  non-players    19   10.1    34.9     55.9   63.4
+
+THE DISTRIBUTIONS OVERLAP END TO END. The closest non-player (10.1) sits nearer
+a team centroid than the MEDIAN player (22.7). The farthest player (63.7) is
+farther out than the farthest non-player (63.4).
+
+Threshold sweep -- every cut that catches a ref also deletes a real player:
+   cut 30 -> 13/19 refs caught, but 11/34 PLAYERS LOST
+   cut 50 ->  4/19 refs caught,      3/34 players lost
+   cut 60 ->  2/19 refs caught,      1/34 players lost
+   cut 70 ->  0/19 refs caught,      0/34 players lost   (i.e. useless)
+NO SAFE CUT EXISTS.
+
+This is the risk that was written down BEFORE the run, and it landed: matching a
+crop to an ABSOLUTE colour was already measured dead on 2026-08-03 (white and
+green kits both read as muddy grey). classify_team survives only because it asks
+which of two centroids is NEARER -- a relative question. "Far from both" is the
+absolute question again, and it fails again.
+
+VERDICT: colour is closed for player-vs-non-player, alongside motion (DJ,
+2026-08-29). Exclusion still needs a gate. Two routes remain, neither tried:
+
+  A. HUMAN REF LABELS -- already built, and far cheaper than it sounds.
+     roster.load_ref_tracks reads exactly this. The cost is not per window: refs
+     and coaches are FEW and LONG-LIVED. TEST1 needed 5 labels, HARD 12, TEST2
+     4. Call it ~10-20 clicks per game against the ~2,043 that naming costs
+     today. It is not elegant, but it is real, it exists, and it is ~1% of the
+     clicking budget.
+
+  B. ASK THE VISION MODEL "is this a player, a referee, or a coach?"
+     UNTRIED, and it plays to the model's STRENGTH rather than its weakness.
+     Reading a jersey number is fine detail on a small crop -- the thing the
+     reader is measurably bad at (§6: 0 confident reads on a full game, and the
+     same 120 crops read twice agreed on one). Striped shirt vs uniform vs
+     street clothes is a COARSE semantic call, which is what a VLM is actually
+     good at. Same 53-crop ground truth is already on disk, so this is one
+     cheap measurement, not a build.
+
+Next: measure B on the same 34 players / 19 non-players before building
+anything downstream of it.
+
+---
+
+# RELINKING -- ROADMAP, built on measurement, 2026-08-30
+
+Numbers below are MEASURED on cached artifacts (TEST1/HARD/TEST2, the only clips
+with human labels). Full_Game has no decisions file so it cannot be scored.
+
+## TWO CORRECTIONS TO THE PROBLEM STATEMENT -- read these first
+
+1. "122 track ids" IS MOSTLY CROWD. Only 43 of TEST1's 122 ever stand on the
+   court; 180 of 469 across all three clips. A relinker should never see the
+   other 289. Every fragmentation figure quoted before this was inflated by
+   spectators.
+
+2. JERSEY NUMBER IS NOT A VALID IDENTITY KEY, so the naive fragmentation count
+   is wrong by 29%. Of 28 same-number track pairs, only 17 are real splits; 8
+   are TWINS -- two different girls wearing the same number on OPPOSITE teams --
+   and 3 are duplicate ids on one body. Verified independently: HARD lists #3
+   and #23 on both rosters, TEST2 lists #1, #4 and #13.
+   Anything evaluating a relink fix by "same number" will score twins as
+   successes.
+
+Corrected scale: ~17 real relinks across 3 clips, ~0.65 per labelled player.
+A FLOOR, not the truth -- only 50-64% of on-court track-frames carry any label,
+and the unlabelled ones are fragments of somebody too.
+
+## WHAT THE GAPS ACTUALLY LOOK LIKE
+  time gap between a track dying and its replacement starting (n=16):
+     median 34 frames, p90 141, max 155
+     only 5 of 16 (31%) fall inside identity.MAX_GAP_FRAMES = 30
+  -> the current relink window is BLIND TO TWO THIRDS of the problem.
+
+  court distance across the gap:
+     SAME player (n=17):      median  4.2 ft, p90 15.3
+     DIFFERENT player (n=101): median 16.5 ft, p90 32.6
+  Real signal, badly overlapping tails: 10% of WRONG-player pairs are under
+  5 ft. Best single threshold 7.5 ft -> 61% of true relinks at 45% precision.
+
+## WHAT THAT MEANS -- position is a GATE, not a decision
+Production-realistic test (candidate pool = every on-court track starting in the
+window, labelled or not):
+    gap<=30,  10 ft:  nearest correct 4/5  (80%), median 1 competitor
+    gap<=60,  10 ft:  nearest correct 5/9  (56%)
+    gap<=150, 10 ft:  nearest correct 6/14 (43%), median 4 competitors
+Auto-accepting the nearest: 4 right / 1 wrong at gap<=30; 6 right / 7 WRONG at
+gap<=150.
+VELOCITY DOES NOT HELP and measurably hurts at long gaps -- extrapolating the
+last 5 frames pushed the correct candidate outside the gate 6 times instead of
+2. Players stop, cut and reverse; a linear projection over 2-5 s is noise.
+
+## THE ROADMAP
+
+- [ ] R1. SHORT-GAP POSITION RELINK. gap <= 30 frames AND <= 10 ft AND exactly
+      one candidate in range -> relink. Measured 4/5 with a median of ONE
+      competitor, so the "exactly one" clause is nearly free. Fixes ~31% of the
+      problem at high precision.
+      MUST produce CANDIDATE, never CONFIRMED -- identity.py's contract says
+      continuity can never reach CONFIRMED, and this is continuity.
+      Cheap, and the machinery (MAX_GAP_FRAMES, _match_lost) already exists.
+
+- [ ] R2. STOP COUNTING TWINS. Any evaluation harness must key on (number, team)
+      and refuse co-alive pairs, or it will score two opponents as a successful
+      relink. This is a correctness fix to MEASUREMENT, not to the pipeline, and
+      it comes before R3 because R3 is judged by it.
+
+- [ ] R3. THE LONG-GAP DISCRIMINATOR -- the real problem. 69% of gaps are beyond
+      any safe geometric window, and the measurement's own verdict is that what
+      is needed is "a discriminator that survives a 1-5 second gap, with
+      position as a gate, not the decision".
+      NOTE THE CONVERGENCE: that is exactly what five-on-court EXCLUSION is. It
+      does not look at her at all -- it counts who is already accounted for --
+      so a 5-second gap costs it nothing and identical uniforms cannot defeat
+      it. The fragmentation measurement and DJ's idea arrived at the same place
+      from opposite directions.
+      Blocked on player-vs-non-player, which is why that was step 1.
+
+- [ ] R4. THE 36% ALREADY BEING THROWN AWAY. 12 of 33 human clicks were
+      discarded because the clicked identity spanned several tracks. That is a
+      third of the clicking budget lost before any relink exists, and R1 would
+      recover some of it directly.
+
+## CLOSED, DO NOT RE-PROPOSE
+  appearance re-ID          DECISIONS 11 -- 122 -> 131 ids, WORSE
+  velocity extrapolation    measured here, hurts at long gaps
+  motion for player/non-player   DJ 2026-08-29
+  colour for player/non-player   measured 2026-08-30, no safe cut exists
+  better footage            DJ 2026-08-29, the film is Hudl and that is the job
+
+## THE BIGGEST FINDING OF THE SESSION -- "0 confident reads" WAS A STUBBED RUN
+
+HANDOFF_COMPUTE_2026_08_29 §6 opens with:
+    "23,288 candidates, 0 confident reads, 0 named [MEASURED]"
+and builds the whole naming pessimism on it. But §2's own timing table, line 56,
+labels that stage:
+    "ocr_confirm (reader stubbed) | 184 | 8.40"
+The reader was NOT RUNNING. Zero reads is what a stub returns. The handoff
+contradicts itself two sections apart, and §6's headline number is not evidence
+about the reader at all.
+
+VERIFIED ON DISK, on the REAL full-game film (phase2/out/
+Full_Game_9eb8bf2a_ocr_confirms.json, from a 150-frame local window with the
+vision reader live):
+    crops attempted            103
+    crops with any read         17
+    crops with a CONFIDENT read  9
+    candidates attempted        21
+    candidates with a confident read  5   (24%)
+
+So the reader DOES read this footage. But look at where those five went:
+    agree 0 | disagree 0 | no_confident_read 16 | NO_POSITION_HYPOTHESIS 5
+ALL FIVE CONFIDENT READS WERE THROWN AWAY -- not because they were wrong, but
+because no seed existed for them to agree with. identity.py returns
+"no_position_hypothesis" and the read is discarded.
+
+That is the same waste DECISIONS 4a-WIDE already measured on TEST1 (#5 @ 1.00
+and #24 @ 0.993, both correctly abstained for want of a hypothesis), now
+confirmed on full-game film with the new reader.
+
+WHAT THIS CHANGES. The naming bottleneck on this footage is NOT "the reader
+cannot read". It is that a read with nothing to agree with is binned. Inverting
+that -- keying identity ON the number rather than using the number to confirm a
+guess -- is the agent's rank 2, and it now has a measured basis.
+It needs an explicit contract decision from DJ, not a silent change: two
+confident reads from DIFFERENT crops at DIFFERENT times agreeing with each other
+(first = hypothesis, second = second signal). That is the same shape
+promote_via_second_signal already enforces.
+Dual-roster numbers (HARD #3/#23, TEST2 #1/#4/#13) would key two girls to one
+identity, so color_tiebreak must supply the team split -- measured 6/6 on HARD.
+
+## OTHER MEASURED RESULTS FROM THE AGENT RUN (all on cached artifacts)
+
+DEAD, newly measured -- do not spend a session on these:
+  COURT-FEET relink with a real speed limit. todo.md listed this as the untried
+  lever. It was run: HARD 3 correct / 5 wrong, TEST1 0/1 -- 37.5% precision,
+  indistinguishable from the 70%-wrong pixel version. Loosening to 25 ft/s
+  changed nothing. Geometry is not the missing ingredient.
+  NAIVE ONE-IN-ONE-OUT counting at a break: fires 0 times of 95 / 235 / 56.
+  Fragmentation is bursty, never tidy. (NOT the five-on-court idea -- the local
+  version of it.)
+  GAIT / HEIGHT / BUILD: on TEST1 the three true pairs rank 51st, 58th and 66th
+  of 75 impostor pairs. Anti-informative. Pose swamps stature at this crop size.
+  SHOES / HAIR: dead by inheritance -- the jersey number is a purpose-built
+  40px marker and it already loses to angle; a 15px shoe cannot win.
+
+ALIVE, with a caution for the exclusion plan:
+  On TEST1, "exactly one unnamed on-court body" holds in only 16% of frames, and
+  AT THE THREE ACTUAL RELINK MOMENTS the precondition was met 0 of 3 times --
+  two players were unnamed simultaneously each time. Per-team scoping may lift
+  this (it was measured un-scoped); if it does not clear ~40%, exclusion fires
+  too rarely to change the order of magnitude. MEASURE THIS BEFORE BUILDING.
+  Also: HARD's Milford "roster" is SIX numbers for a five-player team -- roster
+  is not a lineup, exactly as DJ said.
+
+  COURT-FEET AS A PRUNER (not an answerer) works: candidates per death fall from
+  median 6 (TEST1) / 18 (HARD) to 1-2, true partner survives 6 of 8. Use it to
+  RANK what a human is offered, never to refuse -- it deletes real relinks ~25%
+  of the time (box jitter implies 105 ft/s).
+
+  GMC WAS ONLY EVER TESTED ON THE WRONG CLIP. DECISIONS 11 ran on TEST1, which
+  pans 0.8 px/frame; HARD pans 3.6 (4.5x). gmc-only on TEST1: 117 ids vs 122,
+  mean life 122.7 vs 110.7, 1 merge. Worth one CPU pass on HARD before closing.
+
+  A FREE, LABEL-FREE ID-SWITCH METRIC now exists: match a candidate tracker's
+  boxes to the committed tracker's by IoU; if one candidate track absorbs two
+  committed tracks alive at the same time and spatially apart, it merged two
+  people -- provable with no human labels. The player-tracker plan called this
+  the "highest value item" and assumed it needed a labelling session. It did not.
+  Scored: mt09's 24% fragment win costs 2 merges / 709 merged frames (23.6 s).
+
+## BIGGER THAN RELINKING -- WHERE SEEDING HAPPENS
+stage4_seed_queue seeds on-court tracks ONLY at a window start; mid-window
+arrivals are seeded only if they already carry a human label. That is the
+structural reason naming ALL ~2,043 clicks still covers only ~24% of the game,
+and NO relinking idea on this list can fix it, because those bodies never enter
+the naming machinery at all. Combined with the open bug that full-game window 0
+starts on the film's black frames (nothing confirmed before frame 13,921 -- the
+first 7.7 minutes unnameable), fixing WHEN SEEDING HAPPENS is likely a cheaper
+3-4x than any relink here.
