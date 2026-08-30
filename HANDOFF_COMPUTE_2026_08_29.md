@@ -12,6 +12,11 @@ been done before this session, and six real bugs stood between it and working.
 
 **Nothing is running. `workersMax = 0`, `workersMin = 0`, zero workers.**
 
+**WHO OWNS WHAT (2026-08-29).** This handoff is for the COMPUTE thread: cost,
+wall clock, and getting shots to run at all. **Naming is a separate session** —
+DJ is building five-on-court exclusion there (§6). Do not start naming work
+here; do read §6, because it decides what compute is worth spending.
+
 ---
 
 ## 1. What a worker actually is [MEASURED 2026-08-23]
@@ -202,10 +207,17 @@ tested, NOT wired in — needs an accuracy diff first). Dollar cost [UNKNOWN] �
 rate-limiting rather than billing errors suggests a free tier; confirm in Google
 AI Studio.
 
-**NEXT NAMING IDEA, never tried** (grepped both DECISIONS files): **five-on-court
-exclusion.** Four of five confirmed => the fifth is determined by the roster, by
-logic rather than similarity, so identical uniforms do not defeat it. `stage7`
-already has the "one girl cannot be in two places" check, used defensively.
+**FIVE-ON-COURT EXCLUSION IS CLAIMED — DO NOT BUILD IT HERE.** DJ is building it
+in a separate naming session (2026-08-29). Recorded so two threads do not write
+the same thing twice, and so this one stays on compute.
+
+What it is, for context only: four of five confirmed => the fifth is determined
+by the roster, by LOGIC rather than similarity, so identical uniforms do not
+defeat it — which is why it survives where appearance re-ID died. Never tried
+(grepped both DECISIONS files). `stage7` already has the "one girl cannot be in
+two places" check, built to REFUSE a merge; exclusion is the same constraint used
+to CONCLUDE one. If it lands, it changes what the numbers in §6 mean, so re-read
+them rather than re-deriving them.
 
 `spikes/make_reseed_sheet.py` builds the ranked naming page: one card per
 identity, six crops across her time, floor seconds, what the reader tried, and a
