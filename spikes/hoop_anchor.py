@@ -204,11 +204,51 @@ def build_hoop_track(video_path, span_start, span_len, anchors):
     rim_ref900_near = _anchor_ref900(*anchors["near"], "near")
     kf_db = _kf_db_for_anchor[0] or _keyframe_db(video_path, KF, sift)
 
+    # THE SAME RULE, ON THE GPU WHERE THERE IS ONE.
+    #
+    # This loop is why a game cannot have shots. It is SIFT plus a FLANN match
+    # against EVERY keyframe, per frame, on the CPU; the single-keyframe CPU
+    # court anchor measured 47-49 s/frame on a worker, so this is [ESTIMATE]
+    # ~2,200 hours for 171,120 frames. Nothing else in the pipeline is close.
+    #
+    # gpu_anchor.GpuMultiAnchor runs the SAME rule -- every keyframe, keep the
+    # most inliers, same 1500 features, same 0.75 ratio, same 3 px RANSAC, same
+    # 30-inlier floor -- with the keyframes described once and the matching in
+    # torch. It is deliberately NOT the court anchor's cache: that matches the
+    # NEAREST keyframe, and sharing it would silently move the rim.
+    #
+    # Falls back to the CPU whenever there is no CUDA, so the laptop and the
+    # tests are untouched. CV_GPU_ANCHOR=0 forces the old path.
+    gpu_match = None
+    if os.environ.get("CV_GPU_ANCHOR", "1") != "0":
+        try:
+            _root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            if _root not in sys.path:
+                sys.path.insert(0, _root)
+            import gpu_anchor
+            if gpu_anchor.multi_available():
+                kf_imgs = s2.extract_frames(video_path, KF)
+                gpu_match = gpu_anchor.GpuMultiAnchor(
+                    kf_imgs, KF, NFEAT, RATIO, RANSAC_PX, MIN_INLIERS).match
+                print(f"[hoop_anchor] rim matching: GPU (kornia SIFT), "
+                      f"{len(KF)} keyframes described once")
+        except Exception as e:                  # any doubt -> the proven path
+            print(f"[hoop_anchor] GPU unavailable ({e}) -- using CPU SIFT")
+            gpu_match = None
+
     cap = cv2.VideoCapture(video_path)
     frame_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     frame_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    for _ in range(span_start):
-        cap.grab()
+    # seek, do not wind: on a whole game this loop starts at frame 0, but a
+    # CHUNKED rim pass starts deep in the film and winding there costs more than
+    # the work (measured 172 s for slice 9 of the tracking pass).
+    if span_start > 0:
+        cap.set(cv2.CAP_PROP_POS_FRAMES, span_start)
+        if int(cap.get(cv2.CAP_PROP_POS_FRAMES)) != span_start:
+            cap.release()
+            cap = cv2.VideoCapture(video_path)
+            for _ in range(span_start):
+                cap.grab()
     out = []
     matched_far = matched_near = 0
     rejected_implausible = 0
@@ -217,7 +257,7 @@ def build_hoop_track(video_path, span_start, span_len, anchors):
         if not ok:
             break
         f = span_start + i
-        m = _match_frame(frame, sift, kf_db)
+        m = gpu_match(frame) if gpu_match else _match_frame(frame, sift, kf_db)
         if m is None:
             out.append({"frame_index": f, "hoop_far_px": None, "hoop_near_px": None})
             continue

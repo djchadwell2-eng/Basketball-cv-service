@@ -130,7 +130,7 @@ def gather(clip, tracks_path, frm=None, to=None, results_dir=None):
                    "events_whole_game": total_frames}
 
 
-def _thumb(img, bb, h=150):
+def _thumb(img, bb, h=118):
     x1, y1, x2, y2 = [int(v) for v in bb]
     w, ht = x2 - x1, y2 - y1
     px, py = int(w * CARD_PAD), int(ht * CARD_PAD * 0.4)
@@ -142,7 +142,7 @@ def _thumb(img, bb, h=150):
         return None
     s = h / crop.shape[0]
     crop = cv2.resize(crop, (max(1, int(crop.shape[1] * s)), h))
-    ok, buf = cv2.imencode(".jpg", crop, [cv2.IMWRITE_JPEG_QUALITY, 82])
+    ok, buf = cv2.imencode(".jpg", crop, [cv2.IMWRITE_JPEG_QUALITY, 74])
     return base64.b64encode(buf.tobytes()).decode("ascii") if ok else None
 
 
@@ -167,15 +167,22 @@ def build(clip, tracks_path, frm=None, to=None, limit=400):
         c.pop("picks")
     cards = [c for c in cards if c["shots"]]
 
+    # A NUMBER IS NOT AN IDENTITY WHEN THERE ARE TWO TEAMS. Both rosters here
+    # carry a #24, so keying a pick by the number alone lit up BOTH buttons and
+    # would have written an ambiguous label -- the same collision color_tiebreak
+    # exists to resolve. Every entry gets a team-qualified id.
     roster = []
-    for t in doc.get("teams", []):
+    for ti, t in enumerate(doc.get("teams", [])):
         names = t.get("player_names") or {}
         for num in sorted(t.get("numbers", [])):
-            roster.append({"n": num, "team": t.get("name", ""),
+            roster.append({"id": f"{ti}:{num}", "n": num, "ti": ti,
+                           "team": t.get("name", "") or f"team {ti + 1}",
                            "colour": t.get("jersey_color", ""),
                            "name": names.get(str(num), "")})
     total_secs = round(sum(c["seconds"] for c in cards), 1)
     data = {"clip": clip, "cards": cards, "roster": roster,
+            "teams": [t.get("name", "") or f"team {i+1}"
+                      for i, t in enumerate(doc.get("teams", []))],
             "total_seconds": total_secs,
             "tracked_seconds_whole_game": round(totals["events_whole_game"] / 30.0, 1)}
     out = os.path.join(_ROOT, "results", clip, f"{clip}_reseed_sheet.html")
@@ -209,15 +216,19 @@ _PAGE = r"""<!doctype html><meta charset="utf-8"><title>__CLIP__ -- name the pla
  .meta .pct{color:var(--hot);font-weight:600}
  .shots{display:flex;gap:6px;flex-wrap:wrap;align-items:flex-start}
  .shot{position:relative}
- .shot img{height:150px;display:block;border-radius:4px;border:1px solid #2c3635}
+ .shot img{height:118px;display:block;border-radius:4px;border:1px solid #2c3635}
  .shot span{position:absolute;left:3px;bottom:3px;background:#000a;color:#fff;
             font-size:10px;padding:1px 4px;border-radius:3px}
- .nums{display:flex;gap:5px;flex-wrap:wrap;margin-top:9px}
+ .nums{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px}
+ .team{margin-top:9px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+       color:var(--dim)}
+ button.np{border-color:#5a4a3a;color:#e0c9a8}
  button{font:inherit;padding:5px 9px;border-radius:5px;border:1px solid #3a4948;
         background:#1e2827;color:var(--ink);cursor:pointer;font-size:13px}
  button:hover{border-color:var(--hot)}
  button.pick{background:var(--ok);border-color:var(--ok);color:#07130f;font-weight:700}
  button.skip{color:var(--dim)}
+ #sentinel{padding:20px;text-align:center;color:var(--dim);font-size:13px}
  .dl{position:fixed;right:18px;bottom:18px;background:var(--hot);border-color:var(--hot);
      color:#111;font-weight:700;padding:11px 18px;font-size:15px;border-radius:8px}
 </style>
@@ -226,6 +237,7 @@ _PAGE = r"""<!doctype html><meta charset="utf-8"><title>__CLIP__ -- name the pla
  <div class="bar"><div class="fill" id="fill"></div></div>
  <div class="stat">
    <span>named <b id="ndone">0</b> of <b id="ntot">0</b></span>
+   <span>marked not-a-player <b id="nonp">0</b></span>
    <span>floor time covered <b id="cov">0.0</b> min of <b id="covtot">0.0</b>
          (<b id="covpct">0%</b>)</span>
    <span>of everything the system tracked: <b id="seen">0%</b></span>
@@ -237,16 +249,21 @@ _PAGE = r"""<!doctype html><meta charset="utf-8"><title>__CLIP__ -- name the pla
 <script>
 const D = __DATA__;
 const picks = {};
+// NOT A PLAYER is a real answer, not a skip. DJ, using this on his own game:
+// "majority of the longest unknowns are coaches and non-players" -- of course
+// they are, a coach stands still on the sideline for minutes and so ranks top
+// by floor time, while a player is fragmented every time she is occluded. These
+// feed roster.load_ref_tracks, the path this project already uses to stop a
+// referee ever becoming a player, and they are the SAME click as naming.
+const NOTP = [["x:ref","referee"],["x:coach","coach / bench"],
+              ["x:crowd","crowd / not on court"],["x:two","two players merged"]];
 const key = c => c.window + ":" + c.identity;
 
-function render(){
-  const m = document.getElementById('main');
-  m.innerHTML = '';
-  D.cards.forEach(c => {
+const PAGE = 30;
+let shown = 0;
+function cardHTML(c, i){
     const share = D.total_seconds ? c.seconds / D.total_seconds : 0;
-    const el = document.createElement('div');
-    el.className = 'card' + (picks[key(c)] ? ' done' : '');
-    el.innerHTML =
+    return '<div class="card' + (picks[key(c)] ? ' done' : '') + '" id="c' + i + '">' +
       '<div class="meta">' +
         '<div class="big">' + c.seconds.toFixed(1) + 's</div>' +
         '<div class="pct">' + (share*100).toFixed(1) + '% of tracked time</div>' +
@@ -254,30 +271,67 @@ function render(){
         '<div>window ' + c.window + ' &middot; ' +
              (c.first/30/60).toFixed(1) + '&ndash;' + (c.last/30/60).toFixed(1) + ' min</div>' +
         '<div style="margin-top:6px">reader: ' + c.ocr.replace(/_/g,' ') + '</div>' +
-        '<div class="nums">' + D.roster.map(r =>
-            '<button class="' + (picks[key(c)]===r.n ? 'pick':'') + '" ' +
-            'onclick="pick(\'' + key(c) + '\',' + r.n + ')" title="' +
+        D.teams.map((tm, ti) =>
+          '<div class="team">' + tm + '</div><div class="nums">' +
+          D.roster.filter(r => r.ti === ti).map(r =>
+            '<button class="' + (picks[key(c)]===r.id ? 'pick':'') + '" ' +
+            'onclick="pick(\'' + key(c) + '\',\'' + r.id + '\')" title="' +
             (r.name||'') + ' &mdash; ' + r.team + '">' + r.n +
             (r.name ? ' ' + r.name.slice(0,9) : '') + '</button>').join('') +
-          '<button class="skip" onclick="pick(\'' + key(c) + '\',null)">skip</button>' +
+          '</div>').join('') +
+        '<div class="nums" style="margin-top:8px">' +
+          NOTP.map(x =>
+            '<button class="np' + (picks[key(c)]===x[0] ? ' pick':'') + '" ' +
+            'onclick="pick(\'' + key(c) + '\',\'' + x[0] + '\')">' + x[1] +
+            '</button>').join('') +
+          '<button class="skip" onclick="pick(\'' + key(c) + '\',null)">clear</button>' +
         '</div>' +
       '</div>' +
       '<div class="shots">' + c.shots.map(s =>
-        '<div class="shot"><img src="data:image/jpeg;base64,' + s.jpg + '">' +
-        '<span>' + (s.t/60).toFixed(1) + 'm</span></div>').join('') + '</div>';
-    m.appendChild(el);
-  });
+        '<div class="shot"><img loading="lazy" src="data:image/jpeg;base64,' + s.jpg + '">' +
+        '<span>' + (s.t/60).toFixed(1) + 'm</span></div>').join('') + '</div>' +
+      '</div>';
+}
+function more(){
+  const m = document.getElementById('main');
+  const upto = Math.min(shown + PAGE, D.cards.length);
+  let html = '';
+  for (let i = shown; i < upto; i++) html += cardHTML(D.cards[i], i);
+  document.getElementById('sentinel').insertAdjacentHTML('beforebegin', html);
+  shown = upto;
+  document.getElementById('sentinel').textContent =
+      shown < D.cards.length
+        ? 'loading ' + (shown+1) + '-' + Math.min(shown+PAGE, D.cards.length) +
+          ' of ' + D.cards.length + ' ...'
+        : 'all ' + D.cards.length + ' shown';
+}
+function render(){
+  document.getElementById('main').innerHTML = '<div id="sentinel"></div>';
+  shown = 0;
+  more();
+  new IntersectionObserver(es => {
+    if (es[0].isIntersecting && shown < D.cards.length) more();
+  }).observe(document.getElementById('sentinel'));
   stats();
 }
-function pick(k, n){
-  if (n === null) delete picks[k]; else picks[k] = n;
-  render();
+function pick(k, id){
+  if (id === null) delete picks[k]; else picks[k] = id;
+  // repaint ONLY this card. Re-rendering 2,029 cards (12,000 images) on every
+  // click freezes the browser, and a naming tool that stutters is a naming tool
+  // nobody finishes.
+  const i = D.cards.findIndex(c => key(c) === k);
+  const el = document.getElementById('c' + i);
+  if (el) { el.outerHTML = cardHTML(D.cards[i], i); }
+  stats();
 }
 function stats(){
-  let done = 0, secs = 0;
-  D.cards.forEach(c => { if (picks[key(c)]) { done++; secs += c.seconds; } });
+  let done = 0, secs = 0, nonp = 0;
+  D.cards.forEach(c => { const p = picks[key(c)];
+    if (p && !p.startsWith('x:')) { done++; secs += c.seconds; }
+    if (p && p.startsWith('x:')) nonp++; });
   const pct = D.total_seconds ? secs / D.total_seconds : 0;
   document.getElementById('ndone').textContent = done;
+  document.getElementById('nonp').textContent = nonp;
   document.getElementById('ntot').textContent = D.cards.length;
   document.getElementById('cov').textContent = (secs/60).toFixed(1);
   document.getElementById('covtot').textContent = (D.total_seconds/60).toFixed(1);
@@ -292,10 +346,17 @@ function stats(){
       : 'every card named';
 }
 function dl(){
-  const out = {clip: D.clip, seed_labels: {}, by_identity: {}};
-  D.cards.forEach(c => { const n = picks[key(c)];
-    if (n) { out.seed_labels[c.track] = n;
-             out.by_identity[key(c)] = {number: n, seconds: c.seconds}; } });
+  const out = {clip: D.clip, seed_labels: {}, ref_tracks: [], spliced_tracks: [],
+               by_identity: {}};
+  D.cards.forEach(c => { const p = picks[key(c)]; if (!p) return;
+    if (p === 'x:two') { out.spliced_tracks.push(c.track); }
+    else if (p.startsWith('x:')) { out.ref_tracks.push(c.track); }
+    else { const r = D.roster.find(z => z.id === p);
+           out.seed_labels[c.track] = r.n;
+           out.by_identity[key(c)] = {number: r.n, team: r.team,
+                                      seconds: c.seconds}; }
+    out.by_identity[key(c)] = out.by_identity[key(c)] ||
+        {not_a_player: p.slice(2), seconds: c.seconds}; });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([JSON.stringify(out,null,2)],{type:'application/json'}));
   a.download = D.clip + '_names.json'; a.click();
