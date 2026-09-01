@@ -54,6 +54,52 @@ This is not new behaviour; it is newly *quantified on real film*. `DECISIONS`
 §4a-WIDE measured the same waste on TEST1 (#5 @ 1.00, #24 @ 0.993, both
 correctly abstained for want of a hypothesis).
 
+### MEASURED 2026-08-31 — it is worse, and simpler, than described above
+
+Every one of Full_Game's 21 candidates has `position_hypothesis = None`. Not
+most — **all 21**. And five of them read at confidence 1.00, **two of those
+corroborated by a second crop** (the strongest evidence tier this system has):
+
+```
+w0 id2  track 3   : read #3  conf 1.00  single_crop_only
+w0 id14 track 15  : read #13 conf 1.00  single_crop_only
+w0 id42 track 206 : read #3  conf 1.00  CORROBORATED
+w0 id47 track 244 : read #24 conf 1.00  single_crop_only
+w0 id50 track 275 : read #33 conf 1.00  CORROBORATED
+```
+
+All five binned by one line in `identity.py`:
+`if expected is None: return "no_position_hypothesis"`.
+
+**Why every hypothesis is None: Full_Game has no `_decisions.json`.** No human
+has clicked it. `roster.seed_number_for` therefore returns None for every track,
+so every window-start seed confirms a body with no number attached.
+
+Compare a clip that HAS been clicked:
+
+| clip | candidates | with a hypothesis | agree |
+|---|---|---|---|
+| Full_Game (no labels) | 21 | **0** | **0** |
+| TEST1 | 5 | 3 | 0 |
+| HARD | 82 | 25 | **13** |
+
+**The consequence, stated plainly: on a game nobody has clicked, the reader can
+never confirm anything — by construction, no matter how well it reads.** Naming
+today cannot start from zero. It can only *agree* with a name a human already
+supplied.
+
+That is the whole naming problem in one sentence, and it reframes the rest of
+this roadmap.
+
+### This also corrects PRIORITY 3 below
+
+Seeding more bodies does **not** unlock naming on its own. A mid-window arrival
+seeded with `roster_number=None` is in exactly the position of the 21 above:
+visible, reviewable, and permanently unconfirmable by OCR. Re-seeding raises the
+BOX-SCORE ceiling (floor time is credited only to confirmed identities) and puts
+bodies into the review queue — both real — but the binding constraint on NAMING
+is the hypothesis, not the seeding moment.
+
 ### What to do about it
 
 Invert the relationship: let a number **establish** an identity instead of only
