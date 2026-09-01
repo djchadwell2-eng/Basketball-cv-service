@@ -7407,3 +7407,51 @@ the naming machinery at all. Combined with the open bug that full-game window 0
 starts on the film's black frames (nothing confirmed before frame 13,921 -- the
 first 7.7 minutes unnameable), fixing WHEN SEEDING HAPPENS is likely a cheaper
 3-4x than any relink here.
+
+## GMC ON HARD -- MEASURED AND CLOSED, 2026-08-31
+
+The hypothesis was that camera-motion compensation was judged on the wrong clip:
+DECISIONS 11 ran on TEST1 (0.8 px/frame pan) while HARD pans 3.6 (4.5x), so GMC
+had been measured exactly where it had least to offer.
+
+FIRST, WHY NOBODY HAD TESTED IT: spikes/reid_fragment_probe.py had
+`CLIP = clip_config.TEST1_CLIP` HARDCODED on line 32, and line 33 overwrote any
+ACTIVE_CLIP a caller set. The probe could not be pointed at another clip. Not an
+oversight -- the tool could not do it. Now takes --clip / CV_PROBE_CLIP.
+
+RESULT, scored with the new label-free ID-switch metric:
+
+              ids    mean life    MERGES   merged film
+  TEST1       117    116.2         1        12.3 s
+  HARD        252     76.1        16        76.1 s
+
+  HARD committed baseline: 260 ids, mean life 66.7
+
+Kill number set in advance: "ids drop >=15% with 0 new merges".
+  ids dropped 3.1%  -- FAIL
+  merges: 16        -- FAIL
+
+GMC IS CLOSED. On the pan-heavy clip it does not meaningfully reduce
+fragmentation and it glues sixteen pairs of people together across 76 seconds of
+film. The hypothesis was reasonable and it is refuted: more camera motion did
+not make GMC more useful, it made it more dangerous.
+
+A NOTE ON THE TEST1 MERGE, which is worse than "1" suggests: gmc-only there
+merged committed t49 with t67. Independent evidence from the possession work
+(jersey colour, eyeballed 2026-08-02) says t49 is Milford (white/red) and t67 is
+Little Miami (green/yellow) -- OPPOSITE TEAMS, glued for 12.3 s. A merge is not
+a tidy accounting error; it puts one team's floor time on the other.
+
+NEW STANDING TOOL: spikes/tracker_switch_metric.py. Match a candidate tracker's
+boxes to the committed tracker's by IoU; if one candidate id covers two
+committed tracks that are alive at the same time and genuinely apart (median IoU
+< 0.2 over >= 10 shared frames, which excludes one body detected twice), it
+merged two people. Provable with NO human labels. The player-tracker plan called
+ID-switch ground truth the "HIGHEST VALUE ITEM" and assumed it needed a
+labelling session.
+Scored on TEST1: buf60 0 merges (-1.6% ids) | gmc-only 1 (-4.1%) |
+yolov8x 2 / 16.8 s (-13.1%) | mt09 2 / 24.1 s (-23.8%).
+mt09's 24% fragment win now has its cost in numbers, not eyeballs.
+HONEST LIMIT: one-sided. The committed tracker is the reference and scores 0 by
+construction. This answers "is the candidate riskier than what we ship", never
+"how good is the baseline".

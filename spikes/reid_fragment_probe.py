@@ -29,7 +29,22 @@ sys.path.insert(0, os.path.join(_ROOT, "phase2"))
 
 import clip_config
 
-CLIP = clip_config.TEST1_CLIP
+# WHICH CLIP -- an argument, not a constant.
+# This was hardcoded to TEST1, and line 2 of the old version also OVERWROTE any
+# ACTIVE_CLIP a caller had set, so the probe could not be pointed anywhere else.
+# That is why DECISIONS 11's tracker comparison only ever ran on TEST1 -- not an
+# oversight, the tool could not do otherwise. It matters because TEST1 is the
+# LOW-PAN clip (0.8 px/frame against HARD's 3.6), and camera-motion compensation
+# was therefore measured exactly where it had least to offer.
+# Set CV_PROBE_CLIP=HARD (or pass --clip) to point it elsewhere.
+_CLIP_NAME = os.environ.get("CV_PROBE_CLIP", "TEST1")
+if "--clip" in sys.argv:
+    _CLIP_NAME = sys.argv[sys.argv.index("--clip") + 1]
+    i = sys.argv.index("--clip")
+    del sys.argv[i:i + 2]
+CLIP = clip_config.get_clip(_CLIP_NAME)
+if CLIP is None:
+    raise SystemExit(f"unknown clip {_CLIP_NAME!r}")
 clip_config.ACTIVE_CLIP = CLIP          # set BEFORE importing run_tracking (binds at import)
 
 import run_tracking                      # reuse the exact same span extraction
@@ -60,7 +75,7 @@ def main():
     assert os.path.exists(TRACKER_YAML), TRACKER_YAML
     os.makedirs(os.path.dirname(OUT_JSON), exist_ok=True)
 
-    print(f"[probe] extracting TEST1 span {CLIP.tracking_span_start}.."
+    print(f"[probe] extracting {CLIP.name} span {CLIP.tracking_span_start}.."
           f"{CLIP.tracking_span_start + CLIP.tracking_span_len} ...")
     subclip, fps, n = run_tracking.extract_subclip(
         CLIP.video_path, CLIP.tracking_span_start, CLIP.tracking_span_len)
