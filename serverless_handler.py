@@ -190,6 +190,46 @@ def _chunk_paths(clip: str, index: int):
             os.path.join(d, f"{index:03d}_oncourt.json"))
 
 
+def _ball_chunk_path(clip: str, index: int):
+    return os.path.join(CHUNK_DIR, clip, f"{index:03d}_ball.json")
+
+
+def _run_ball_chunk(cfg, doc: dict, start: int, length: int, index: int):
+    """Find the ball in THIS SLICE's frames, if the clip has a ball span.
+
+    WHY HERE AND NOT IN THE TAIL. Ball detection is per-frame and stateless --
+    it splits exactly like tracking does. Left in the tail it is one machine
+    doing 171,120 frames of inference, [ESTIMATE] ~43 minutes added to a job
+    that already carries the whole identity layer; here it is ~4 minutes on a
+    worker that is running anyway.
+
+    The ARCS are not built here: a shot can cross a slice boundary, so chains
+    are formed once over the merged detections. Detection is per-frame, arcs are
+    not, and only the per-frame half belongs in a slice.
+    """
+    ball_start = int(doc.get("ball_span_start") or 0)
+    ball_len = int(doc.get("ball_span_len") or 0)
+    if not ball_len:
+        return None
+    lo = max(start, ball_start)
+    hi = min(start + length, ball_start + ball_len)
+    if hi <= lo:
+        return None                       # this slice is outside the ball span
+    import ball_stages
+    import ball_spike
+    import tracking as trk
+    out = _ball_chunk_path(cfg.name, index)
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    progress(cfg.name, f"CHUNK {index}: ball detection {lo}..{hi}")
+    t = time.time()
+    ball_spike.detect(cfg, lo, hi - lo, trk.IMG_SIZE, cfg.ball_weights_path,
+                      out, os.path.join(os.path.dirname(out), f"{index:03d}_ball.mp4"))
+    progress(cfg.name, f"CHUNK {index}: ball done in {time.time() - t:.0f}s")
+    if not os.path.exists(out) or os.path.getsize(out) == 0:
+        raise IOError(f"chunk {index}: {out} did not land on the volume")
+    return out
+
+
 def run_chunk(clip: str, doc: dict, start: int, length: int, index: int) -> dict:
     """ONE SLICE of a game, on one worker.
 
@@ -236,10 +276,12 @@ def run_chunk(clip: str, doc: dict, start: int, length: int, index: int) -> dict
         if not os.path.exists(p) or os.path.getsize(p) == 0:
             raise IOError(f"chunk {index}: {p} did not land on the volume")
 
+    ball_dst = _run_ball_chunk(cfg, doc, start, length, index)
+
     dt = time.time() - t0
     progress(clip, f"CHUNK {index}: done in {dt:.0f}s")
     return {"index": index, "start": start, "length": length,
-            "seconds": round(dt, 1), "tracks": tracks_dst}
+            "seconds": round(dt, 1), "tracks": tracks_dst, "ball": ball_dst}
 
 
 def _header_of(path: str, limit: int = 65536) -> dict:
@@ -295,12 +337,20 @@ def merge_streamed(clip: str, ordered: list, kind: str, out_path: str, head: dic
     # winning, so nothing downstream can tell a merged game from a tracked one.
     if ordered:
         tp, op = _chunk_paths(clip, ordered[0]["index"])
+        first = {"tracks": tp, "oncourt": op,
+                 "ball": _ball_chunk_path(clip, ordered[0]["index"])}[kind]
         try:
-            src = _header_of(tp if kind == "tracks" else op)
+            src = _header_of(first)
             head = {**{k: v for k, v in src.items()
                        if k not in ("clip", "span_start", "span_len")}, **head}
         except (OSError, ValueError):
-            pass                       # a missing header is caught per-slice below
+            # A ball log without model/imgsz/conf fails the tail's reuse
+            # fingerprint, and the tail then RE-DETECTS the whole game in
+            # silence -- the chunking buying nothing and nothing saying so.
+            # Loud, because that is not a cosmetic loss.
+            progress(clip, f"MERGE: could not read {kind} header from "
+                           f"{os.path.basename(first)} -- the merged file will "
+                           f"be missing its recipe fields")
 
     with open(out_path, "w", encoding="utf-8") as out:
         out.write("{")
@@ -309,7 +359,8 @@ def merge_streamed(clip: str, ordered: list, kind: str, out_path: str, head: dic
         out.write('"frames":[')
         for c in ordered:
             tp, op = _chunk_paths(clip, c["index"])
-            path = tp if kind == "tracks" else op
+            path = {"tracks": tp, "oncourt": op,
+                    "ball": _ball_chunk_path(clip, c["index"])}[kind]
             if not os.path.exists(path):
                 raise FileNotFoundError(f"slice {c['index']} missing on the volume ({path})")
             with open(path, encoding="utf-8") as fh:
@@ -349,9 +400,11 @@ def merge_streamed(clip: str, ordered: list, kind: str, out_path: str, head: dic
                 if kind == "tracks":
                     for t in fr["tracks"]:
                         t["track_id"] += offset
-                else:
+                elif kind == "oncourt":
                     fr["tracks"] = {str(int(k) + offset): v
                                     for k, v in (fr.get("tracks") or {}).items()}
+                # "ball": nothing to renumber -- a ball detection carries no
+                # identity, so slices concatenate as they are.
                 if written:
                     out.write(",")
                 out.write(json.dumps(fr))
@@ -388,6 +441,27 @@ def merge_chunks(clip: str, doc: dict, chunks: list) -> dict:
 
     n_frames = merge_streamed(clip, ordered, "tracks", cfg.tracks_cache_path, head)
     merge_streamed(clip, ordered, "oncourt", oncourt_out, head)
+
+    # THE BALL, IF THE SLICES FOUND IT. Glued into the exact file and shape
+    # stage_ball_detect writes, so the tail's fingerprint check (clip, span,
+    # model, imgsz, conf -- all carried through from slice 0's header) sees a
+    # detections log that already covers the span and REUSES it instead of
+    # spending ~43 minutes of one machine re-detecting what ten already did.
+    ball_out = os.path.join(_ROOT, "spikes", "out", f"{clip}_ball_detections.json")
+    if all(os.path.exists(_ball_chunk_path(clip, c["index"])) for c in ordered):
+        os.makedirs(os.path.dirname(ball_out), exist_ok=True)
+        n_ball = merge_streamed(clip, ordered, "ball", ball_out, dict(head))
+        progress(clip, f"MERGE: ball detections {n_ball} frames -> {ball_out}")
+    else:
+        have = sum(1 for c in ordered if os.path.exists(_ball_chunk_path(clip, c["index"])))
+        if have:
+            # Refuse a PARTIAL ball log rather than glue a game with holes in it:
+            # a missing stretch does not crash, it silently loses every shot in
+            # that stretch.
+            progress(clip, f"MERGE: ball detections SKIPPED -- only {have} of "
+                           f"{len(ordered)} slices have one; the tail will "
+                           f"detect the ball itself rather than use a game with "
+                           f"holes in it")
 
     progress(clip, f"MERGE: {len(chunks)} slices -> {n_frames} frames "
                    f"({full_start}..{full_start + full_len})")
