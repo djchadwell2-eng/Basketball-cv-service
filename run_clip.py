@@ -139,10 +139,16 @@ def run(config):
         import ball_stages as bs
         _section("PHASE 5 -- ball detection (own fine-tuned weights)")
         det_json = bs.stage_ball_detect(config)
-        _section("PHASE 5 -- hoop anchor carry")
-        hoop_json = bs.stage_hoop_anchor(config)
+        # ARCS BEFORE THE RIM, deliberately. The arcs are built from ball
+        # detections alone and never look at the hoop; the hoop is consulted
+        # only inside shot_attempts, per arc segment. Carrying the rim through
+        # every frame first meant computing ~165,000 rim positions no shot would
+        # ever ask about -- 19.6 hours at a MEASURED 0.412 s/frame, which is the
+        # single reason a full game could not have shots. Same rim, same shots.
         _section("PHASE 5 -- ball trajectory (physics-gated arcs)")
         arcs_json = bs.stage_ball_trajectory(config, det_json)
+        _section("PHASE 5 -- hoop anchor carry (only where an arc is)")
+        hoop_json = bs.stage_hoop_anchor(config, only_frames=bs.arc_frames(arcs_json))
         _section("PHASE 5 -- shot attempts")
         sa_json = bs.stage_shot_attempts(config, arcs_json, hoop_json, det_json)
         _section("PHASE 5 -- shot locations + chart")

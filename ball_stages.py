@@ -81,7 +81,9 @@ def hoop_track_covers(doc, config):
     covers = (start is not None and length is not None
               and start <= config.ball_span_start
               and start + length >= config.ball_span_start + config.ball_span_len)
-    return same_anchors and covers
+    # a track carried at SELECTED frames covers only those; never reuse it as if
+    # it covered the span
+    return same_anchors and covers and doc.get("only_frames") is None
 
 
 def _hoop_lookup(hoop_doc, key):
@@ -144,15 +146,41 @@ def stage_ball_detect(config):
     return out_json
 
 
-def stage_hoop_anchor(config):
-    """Carry the config's two rim anchors through every frame of the ball
-    span (SIFT frame->keyframe + Hs_opt, hoop_anchor.build_hoop_track).
-    Writes {clip}_hoop_track.json in the spike's exact document shape."""
+def arc_frames(arcs_json, pad=15):
+    """Every frame an arc touches, padded a little either side.
+
+    This is the ONLY place the rim is ever consulted: shot_attempts looks it up
+    per arc segment (classify_shot) and nowhere else. The pad covers the segment
+    edges the classifier reaches for.
+    """
+    doc = _load(arcs_json)
+    want = set()
+    for chain in doc.get("chains", []):
+        if chain.get("verdict") != "arc":
+            continue
+        fs = [p[0] for p in chain.get("points", [])]
+        if not fs:
+            continue
+        for f in range(min(fs) - pad, max(fs) + pad + 1):
+            want.add(int(f))
+    return want
+
+
+def stage_hoop_anchor(config, only_frames=None):
+    """Carry the config's two rim anchors through the frames that need them
+    (SIFT frame->keyframe + Hs_opt, hoop_anchor.build_hoop_track).
+    Writes {clip}_hoop_track.json in the spike's exact document shape.
+
+    only_frames: carry the rim ONLY there. A whole game is 171,120 frames at a
+    MEASURED 0.412 s each -- 19.6 hours -- to answer a question that only arises
+    where an arc is, which is a few thousand frames. Same rim, same shots,
+    sooner. Callers that pass nothing keep the old whole-span behaviour.
+    """
     out_json = _out(config, "hoop_track.json")
     anchors = config.hoop_anchors
     if os.path.exists(out_json):
         doc = _load(out_json)
-        if hoop_track_covers(doc, config):
+        if only_frames is None and hoop_track_covers(doc, config):
             print(f"[ball_stages] REUSING {os.path.basename(out_json)} -- anchors match, "
                   f"span {doc['span_start']}..+{doc['span_len']} covers ball span "
                   f"{config.ball_span_start}..+{config.ball_span_len}")
@@ -161,9 +189,16 @@ def stage_hoop_anchor(config):
               f"mismatch vs config) -- re-carrying the hoop anchors")
     import hoop_anchor
     rim_far, rim_near, track, _KF, _Hs = hoop_anchor.build_hoop_track(
-        config.video_path, config.ball_span_start, config.ball_span_len, anchors)
+        config.video_path, config.ball_span_start, config.ball_span_len, anchors,
+        only_frames=only_frames)
     json.dump({"clip": config.name, "span_start": config.ball_span_start,
                "span_len": config.ball_span_len,
+               # A PARTIAL TRACK MUST NOT LOOK LIKE A FULL ONE. hoop_track_covers
+               # reads span_start/span_len and would happily reuse this for a
+               # later run that needs different frames, silently returning "no
+               # rim" where the rim was simply never carried.
+               "only_frames": (sorted(only_frames) if only_frames is not None
+                               else None),
                "rim_keyframe_far": anchors["far"][0], "rim_pixel_far": list(anchors["far"][1]),
                "rim_ref900_far": list(rim_far),
                "rim_keyframe_near": anchors["near"][0], "rim_pixel_near": list(anchors["near"][1]),
@@ -581,3 +616,36 @@ def stage_shot_outcome(config, sa_json, arcs_json, hoop_json, det_json):
     print(f"[ball_stages] wrote {out_json}  (all outcomes are candidate labels "
           f"feeding review -- never a bare made/missed stat)")
     return out_json
+
+
+# --- DEBUG OVERLAYS: eyeball artifacts, not pipeline outputs ----------------
+#
+# The ball layer renders THREE full-span videos -- detections, arcs, shot
+# attempts -- and each one first calls run_tracking.extract_subclip, which
+# re-encodes the span to a temp mp4. On a 15-second clip that is the whole point:
+# somebody watches it and confirms the ball was found. On a 95-minute game it is
+# [ESTIMATE] ~48 GB of writes into a container with a MEASURED 32.2 GB of disk,
+# so the shot layer does not run slowly, it runs out of room.
+#
+# Nothing downstream reads these files. They exist to be watched, and nobody
+# watches 95 minutes of drawn boxes.
+OVERLAY_MAX_FRAMES = 3000          # 100 s -- long enough for any clip meant to be watched
+
+
+def overlays_wanted(span_len, what="overlay"):
+    """Should a debug video be rendered for a span this long?
+
+    CV_BALL_OVERLAYS=1 forces them back on for a long span (for the one case
+    where somebody really does want to watch a chunk of a game), =0 forces them
+    off entirely.
+    """
+    forced = os.environ.get("CV_BALL_OVERLAYS")
+    if forced is not None:
+        return forced != "0"
+    if span_len > OVERLAY_MAX_FRAMES:
+        print(f"[ball_stages] SKIPPING the {what} video: {span_len} frames is "
+              f"past {OVERLAY_MAX_FRAMES}, and three of these would write "
+              f"~48 GB into 32 GB of disk. Nothing downstream reads it; set "
+              f"CV_BALL_OVERLAYS=1 if you really want to watch it.", flush=True)
+        return False
+    return True

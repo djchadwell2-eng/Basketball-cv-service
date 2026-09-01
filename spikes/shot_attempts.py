@@ -336,6 +336,12 @@ def main():
 
 def _render_overlay(clip_name, arcs_doc, hoop_by_frame, hoop_near_by_frame, results, out_dir):
     import cv2
+    # Nothing downstream reads this file; it exists to be watched, and nobody
+    # watches 95 minutes of drawn boxes. It also calls extract_subclip first,
+    # so rendering it re-encodes the whole span before drawing a single line.
+    import ball_stages
+    if not ball_stages.overlays_wanted(arcs_doc["span_len"], "shot-attempt"):
+        return None
     import clip_config
     import run_tracking
     CLIP = getattr(clip_config, f"{clip_name}_CLIP")

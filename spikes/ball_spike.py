@@ -106,7 +106,11 @@ def detect(clip, span_start, span_len, imgsz, model_path, out_json, out_video):
     w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     cap.release()
-    writer = cv2.VideoWriter(out_video, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
+    # An eyeball artifact, not an output -- see ball_stages.overlays_wanted.
+    # Three of these on a whole game is ~48 GB into 32 GB of container disk.
+    import ball_stages
+    writer = (cv2.VideoWriter(out_video, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
+              if ball_stages.overlays_wanted(span_len, "ball-detection") else None)
 
     frames_out = []
     n_with_det = 0
@@ -129,12 +133,14 @@ def detect(clip, span_start, span_len, imgsz, model_path, out_json, out_video):
         t_sec = frame_idx / fps
         cv2.putText(frame, f"f={frame_idx} t={t_sec:04.1f}s dets={len(dets)}",
                     (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
-        writer.write(frame)
+        if writer is not None:
+            writer.write(frame)
         frames_out.append({"frame_index": frame_idx, "t_sec": round(t_sec, 2),
                             "detections": dets})
         if i % 30 == 0:
             print(f"  ...{i}/{n}  ({len(dets)} dets this frame)", flush=True)
-    writer.release()
+    if writer is not None:
+        writer.release()
 
     doc = {"clip": clip.name, "span_start": span_start, "span_len": len(frames_out),
            "fps": fps, "conf_threshold": CONF, "imgsz": imgsz,

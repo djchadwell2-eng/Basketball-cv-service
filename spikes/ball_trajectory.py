@@ -361,6 +361,12 @@ def _render_overlay(video_path, span_start, span_len, chains, results, out_path)
     """Overlay: claimed arcs bright green (fitted curve + live marker),
     no-claim chains dim gray, junk faint dots. Honest picture of everything."""
     import cv2
+    # Nothing downstream reads this file; it exists to be watched, and nobody
+    # watches 95 minutes of drawn boxes. It also calls extract_subclip first,
+    # so rendering it re-encodes the whole span before drawing a single line.
+    import ball_stages
+    if not ball_stages.overlays_wanted(span_len, "arc"):
+        return None
     import clip_config
     import run_tracking
     subclip, fps, _n = run_tracking.extract_subclip(video_path, span_start, span_len)

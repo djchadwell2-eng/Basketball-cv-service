@@ -34,7 +34,7 @@ import sys
 import time
 
 
-def run(start=154008, frames=40, **_kwargs):
+def run(clip=None, start=154008, frames=40, **_kwargs):
     for p in ("/app", "/app/spikes", "/app/phase1", "/app/phase2"):
         if p not in sys.path:
             sys.path.insert(0, p)
@@ -44,12 +44,21 @@ def run(start=154008, frames=40, **_kwargs):
     import clips_config
     import gpu_anchor
 
-    clip = clips_config.ACTIVE
+    # BOTH SELECTORS, BEFORE THE STAGE IMPORTS. stage4_courtmap binds its VIDEO
+    # from clips_config.ACTIVE at IMPORT time, and _install_uploaded_clip
+    # reloads that module -- which resets ACTIVE to its default, TEST1. Reading
+    # ACTIVE here therefore returned TEST1 and the job died on
+    # "could not open video: C:\\Users\\djcha\\Downloads\\Test1.mp4".
+    # run_clip._sync_and_guard sets both and fails loud if they disagree; it is
+    # the sanctioned way and the fourth experiment to need it.
+    clip = clip or clips_config.ACTIVE
     cfg = clip_config.get_clip(clip)
     if cfg is None:
         return {"error": f"clip {clip} not installed"}
     if not cfg.hoop_anchors:
         return {"error": "no rims marked on this clip"}
+    import run_clip
+    run_clip._sync_and_guard(cfg)
 
     import hoop_anchor as HA
     import stage2_multikeyframe as s2

@@ -134,7 +134,16 @@ def _match_frame(frame, sift, kf_db):
     return None
 
 
-def build_hoop_track(video_path, span_start, span_len, anchors):
+def _span_frames(cap, span_start, span_len):
+    """(frame_index, image) for a contiguous span, from an open capture."""
+    for i in range(span_len):
+        ok, frame = cap.read()
+        if not ok:
+            return
+        yield span_start + i, frame
+
+
+def build_hoop_track(video_path, span_start, span_len, anchors, only_frames=None):
     """Carries BOTH hoop anchors (far + near) through every frame's SAME
     per-frame SIFT match -- one extra point projection per frame, no extra
     SIFT cost, since both anchors share the identical Hs_opt[pos] @ Hfk
@@ -142,7 +151,16 @@ def build_hoop_track(video_path, span_start, span_len, anchors):
     "near": (keyframe, (x,y))}. Return (rim_ref900_far, rim_ref900_near,
     [{frame_index, hoop_far_px, hoop_near_px, matched_kf, inliers, ratio}
     or {frame_index, hoop_far_px: None, hoop_near_px: None} on no-match],
-    KF, Hs_opt)."""
+    KF, Hs_opt).
+
+    only_frames: carry the rim ONLY at these frame indices instead of every
+    frame of the span. THE RIM IS ONLY EVER CONSULTED WHERE AN ARC IS --
+    shot_attempts.classify_shot looks it up per arc segment and nowhere else --
+    so carrying it through 171,120 frames computes ~165,000 rim positions that
+    no shot will ever ask about. At a MEASURED 0.412 s/frame that is 19.6 hours
+    to answer a question about maybe six thousand frames. Passing the arc frames
+    makes the same shots come out, sooner; the frames left out were read by the
+    debug overlay and nothing else."""
     print("[hoop_anchor] recovering optimized keyframe transforms (Hs_opt) ...")
     KF, ref_pos, Hs_opt, L_opt, tags = s4.run_optimization()
 
@@ -252,11 +270,16 @@ def build_hoop_track(video_path, span_start, span_len, anchors):
     out = []
     matched_far = matched_near = 0
     rejected_implausible = 0
-    for i in range(span_len):
-        ok, frame = cap.read()
-        if not ok:
-            break
-        f = span_start + i
+    wanted = None
+    if only_frames is not None:
+        wanted = sorted({int(x) for x in only_frames
+                         if span_start <= int(x) < span_start + span_len})
+        print(f"[hoop_anchor] carrying the rim at {len(wanted)} frame(s) of "
+              f"{span_len} -- the frames an arc actually asks about")
+    n_wanted = len(wanted) if wanted is not None else span_len
+    frames_iter = (s2.iter_frames(video_path, wanted) if wanted is not None
+                   else _span_frames(cap, span_start, span_len))
+    for f, frame in frames_iter:
         m = gpu_match(frame) if gpu_match else _match_frame(frame, sift, kf_db)
         if m is None:
             out.append({"frame_index": f, "hoop_far_px": None, "hoop_near_px": None})
@@ -276,8 +299,8 @@ def build_hoop_track(video_path, span_start, span_len, anchors):
                      "matched_kf": KF[pos], "inliers": inl, "ratio": round(ratio, 2)})
         matched_far += far_px is not None
         matched_near += near_px is not None
-        if i % 60 == 0:
-            print(f"  ...{i}/{span_len}", flush=True)
+        if len(out) % 60 == 0:
+            print(f"  ...{len(out)}/{n_wanted}", flush=True)
     cap.release()
     print(f"[hoop_anchor] far hoop found in {matched_far}/{len(out)} frames, "
           f"near hoop found in {matched_near}/{len(out)} frames "
