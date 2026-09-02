@@ -41,7 +41,20 @@ class IdentityState(str, Enum):
 
 
 # The only provenances allowed to reach CONFIRMED. Continuity is deliberately absent.
-_CONFIRMING_PROVENANCES = frozenset({"seed", "second_signal"})
+#
+# "read_established" (added 2026-08-31) is the third, and it exists because of a
+# measurement: on a game NOBODY HAS CLICKED, every identity carries
+# roster_number = None, so promote_via_second_signal returns
+# "no_position_hypothesis" for every read however good -- and the reader had in
+# fact read #3, #13, #24 and #33 at confidence 1.00, two of them corroborated on
+# a second crop. All discarded. A fresh game could never name anybody, by
+# construction, not for want of reading.
+# It is NOT a loosening of the lock. It still requires TWO independent confident
+# reads, from DIFFERENT crops at DIFFERENT times, agreeing with each other --
+# the same "first signal then second signal" shape seed+OCR already has, with
+# the first read playing the part the human click used to play. Continuity still
+# has no valid provenance here, and one read still cannot confirm anything.
+_CONFIRMING_PROVENANCES = frozenset({"seed", "second_signal", "read_established"})
 
 # Continuity-relink thresholds (produce CANDIDATE only, never CONFIRMED).
 MAX_GAP_FRAMES = 30        # a lost track can be relinked within ~1s (30fps)
@@ -179,6 +192,56 @@ class IdentityStateMachine:
         if label is not None:
             ident.evidence["label"] = label
         return True
+
+    def establish_via_reads(self, ident: Identity, number, confidence,
+                            *, corroborating_frames=None) -> str:
+        """Let the JERSEY ITSELF name a girl nobody has clicked.
+
+        WHY THIS EXISTS [MEASURED 2026-08-31]. Naming used to be able to start
+        only from a human click: seed() supplies roster_number, and every later
+        read is judged against it. On a game with no clicks, all 21 of
+        Full_Game's candidates carried roster_number = None, so every read --
+        including four at confidence 1.00 and two corroborated on a second crop
+        -- came back "no_position_hypothesis" and was binned. The reader was
+        never the problem; it had nothing to agree with.
+
+        WHAT IT REFUSES TO DO, which is most of it:
+          - it will NEVER overwrite a human's number. If roster_number is
+            already set, this is not the right path -- promote_via_second_signal
+            owns that case, so a read that disagrees with a click still raises a
+            swap flag instead of quietly winning.
+          - it will not act on ONE read. Two reads, from DIFFERENT crops at
+            DIFFERENT times, must agree. One picture read twice is one picture:
+            the reader's two known mistakes both came back UNANIMOUS at 1.00 off
+            a single clipped crop (44 read as 14, 10 read as 13), which is
+            exactly what a second crop catches and a repeat of the first cannot.
+          - it will not act on a number that is on BOTH rosters. HARD lists #3
+            and #23 on both, TEST2 lists #1, #4 and #13; establishing one of
+            those keys two different girls to one identity. The caller must
+            resolve the team first (color_tiebreak) or not call this.
+          - it will not act on a relinked CANDIDATE. Such an identity carries
+            frames inherited through continuity from a body nobody verified;
+            naming it would retroactively vouch for history no read ever saw.
+
+        Returns: 'established' | 'needs_second_crop' | 'no_confident_read'
+                 | 'already_has_hypothesis' | 'not_fresh'
+        """
+        from ocr_reader import OCR_CONFIRM_THRESHOLD          # the single autonomy dial
+        if number is None or confidence is None or confidence < OCR_CONFIRM_THRESHOLD:
+            return "no_confident_read"
+        if ident.roster_number is not None:
+            return "already_has_hypothesis"     # a click owns this identity
+        if ident.state is IdentityState.CANDIDATE:
+            return "not_fresh"                  # continuity-inherited history
+        if not corroborating_frames or len(set(corroborating_frames)) < 2:
+            return "needs_second_crop"          # one picture is one picture
+
+        ident.roster_number = number            # before confirming, so the gate
+        self.set_confirmed(ident, provenance="read_established")   # record carries it
+        ident.evidence = {"reason": "jersey read on two separate crops, agreeing",
+                          "jersey": number, "confidence": round(confidence, 2),
+                          "frames": sorted(set(corroborating_frames))[:4]}
+        return "established"
 
     def promote_via_second_signal(self, ident: Identity, number, confidence) -> str:
         """SANCTIONED second-signal path (jersey OCR). Applies the three outcomes to

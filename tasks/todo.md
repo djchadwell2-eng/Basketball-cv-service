@@ -7455,3 +7455,39 @@ mt09's 24% fragment win now has its cost in numbers, not eyeballs.
 HONEST LIMIT: one-sided. The committed tracker is the reference and scores 0 by
 construction. This answers "is the candidate riskier than what we ship", never
 "how good is the baseline".
+
+## OPTION C BUILT -- AND MEASURED FIRING ~ZERO, 2026-09-01
+
+BUILT: identity.establish_via_reads + a third provenance "read_established".
+A jersey may now name a girl nobody clicked, but only on TWO agreeing reads from
+DIFFERENT crops at DIFFERENT times, never over a human's number, never on a
+relinked CANDIDATE, and never on a dual-roster number. 417 tests pass, including
+the untouched identity-safety suite.
+ALSO FIXED: corroboration tried exactly ONE alternate crop, so "no second good
+photo" often meant "we only looked once". It now tries three.
+
+MEASURED ON THE UNCLICKED GAME (148435..+150), and it is honest to report this
+plainly: THE PATH FIRED ZERO TIMES. Two independent reasons, both real:
+
+1. CORROBORATION IS UNSTABLE RUN TO RUN. Same window, same code, two runs:
+   4 corroborated, then 0. The reader is non-deterministic and the second crop
+   is a coin flip on marginal footage. A gate that depends on it inherits that.
+
+2. HALF THIS GAME'S NUMBERS ARE ON BOTH TEAMS. Measured from the registry:
+     team A {1,3,4,5,10,11,12,13,14,22,23,24,32,33,44}
+     team B {0,1,2,3,4,5,11,14,23,24,30,33}
+     SHARED {1,3,4,5,11,14,23,24,33} -- NINE of eighteen
+   Of the five confident reads on this game (#3, #13, #3, #24, #33), FOUR are
+   dual-roster. The guard correctly refuses them: a read of "#3" names two
+   different girls at once.
+   => TEAM RESOLUTION IS NOT OPTIONAL FOR THIS PATH, it is a precondition.
+   touch_teams already does it from jersey colour at 17/18 tracks, but only for
+   bodies that TOUCH THE BALL. It would have to run for every on-court body.
+
+TIMING [MEASURED]: stage6 alone is ~9-10 min for a 150-frame window on CPU,
+dominated by the vision calls, and it scales with CANDIDATES not frames.
+
+VERDICT: Option C is built, safe and correct, and on this footage it is worth
+approximately nothing until team resolution lands. That is not a reason to
+revert it -- the machinery is the same for Option A, and the bar is one
+condition -- but it should not be counted as a win yet.

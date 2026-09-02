@@ -303,39 +303,58 @@ def main():
     # Cost is small and bounded: only candidates that ALREADY read get a second
     # look (9-17 per clip here), not the 30-odd who never read at all. Early
     # exit still applies to everyone else.
+    # TRY MORE THAN ONE OTHER PICTURE. The first version tried exactly one
+    # alternate crop and, if that crop happened to be illegible, wrote the
+    # candidate off as "single_crop_only". Measured across every run on disk,
+    # only 3 of 143 candidates ever reached "corroborated" (2.1%) -- and most of
+    # those failures are not "she has no second readable moment", they are "we
+    # looked once". Since the picks are already spread across her whole time on
+    # court, several alternates are usually available for free.
+    CORROBORATION_TRIES = 3
     corroboration = {}                       # (win,id) -> "corroborated" | ...
+    corrob_frames = {}                       # (win,id) -> [frames that agreed]
     verify_jobs = []
     for key, (_n, _c, f, _bb) in best.items():
-        alt = next(((g, gb) for (g, gb) in picked_by_key[key] if g != f), None)
-        if alt is None:
+        alts = [(g, gb) for (g, gb) in picked_by_key[key] if g != f][:CORROBORATION_TRIES]
+        if not alts:
             corroboration[key] = "single_crop_only"   # she has no other picture
-        else:
+        for alt in alts:
             verify_jobs.append((key, *alt))
     if verify_jobs:
         with ThreadPoolExecutor(max_workers=OCR_WORKERS) as ex:
             vres = list(ex.map(_attempt, verify_jobs))
-        conflicts = []
+        by_key = defaultdict(list)
         for key, f, bb, reads in vres:
-            first = best[key][0]
-            conf_reads = [(n, c) for (n, c) in reads
-                          if c >= ocr_reader.OCR_CONFIRM_THRESHOLD]
-            if not conf_reads:
-                # The second picture was not legible. That is NOT a conflict --
-                # most crops are unreadable, which is the whole reason this
-                # pipeline accumulates across a window. Kept, but marked so a
-                # human can see it rested on one picture.
-                corroboration[key] = "single_crop_only"
-                continue
-            second = max(conf_reads, key=lambda r: r[1])[0]
-            if second == first:
+            by_key[key].append((f, reads))
+        conflicts = []
+        for key, tries in by_key.items():
+            first_num, _c, first_frame, _bb = best[key]
+            agreed_on, disagreed_with, disagree_frame = None, None, None
+            for f, reads in tries:
+                conf_reads = [(n, c) for (n, c) in reads
+                              if c >= ocr_reader.OCR_CONFIRM_THRESHOLD]
+                if not conf_reads:
+                    continue                  # illegible crop: no evidence either way
+                second = max(conf_reads, key=lambda r: r[1])[0]
+                if second == first_num:
+                    agreed_on = f
+                    break                     # one agreeing picture is enough
+                disagreed_with, disagree_frame = second, f
+            if agreed_on is not None:
                 corroboration[key] = "corroborated"
+                corrob_frames[key] = [first_frame, agreed_on]
+            elif disagreed_with is not None:
+                # TWO legible pictures of one girl disagree. One is a misread and
+                # we cannot tell which, so she is NOT auto-confirmed -- she goes
+                # to the human queue, which is the point.
+                corroboration[key] = f"conflict_{first_num}_vs_{disagreed_with}"
+                conflicts.append((key, first_num, disagreed_with, disagree_frame))
             else:
-                # TWO legible pictures of one girl disagree. One of them is a
-                # misread and we cannot tell which, so she is NOT auto-confirmed
-                # -- she goes to the human queue, which is the point.
-                corroboration[key] = f"conflict_{first}_vs_{second}"
-                conflicts.append((key, first, second, f))
-        for (key, a, b_, f) in conflicts:
+                # Every other picture was illegible. NOT a conflict -- most crops
+                # are unreadable, which is the whole reason this stage
+                # accumulates across a window.
+                corroboration[key] = "single_crop_only"
+        for (key, _a, _b, _f) in conflicts:
             del best[key]
         if conflicts:
             print(f"[stage6] CORROBORATION rejected {len(conflicts)} read(s) -- a "
@@ -350,12 +369,39 @@ def main():
 
     # --- apply the three outcomes to the accumulated best read ---
     outcomes = {"agree": [], "disagree": [], "no_confident_read": [],
-                "no_position_hypothesis": []}
+                "no_position_hypothesis": [], "established": []}
+
+    # NUMBERS THAT ARE ON BOTH ROSTERS CANNOT ESTABLISH ANYTHING. HARD lists #3
+    # and #23 on both teams, TEST2 lists #1, #4 and #13. A read of one of those
+    # names two different girls at once, so it may CONFIRM a click (which
+    # already carries a team) but must never CREATE an identity. color_tiebreak
+    # is the tool that would resolve it; until it is wired in here, abstain.
+    dual = set()
+    for i, t1 in enumerate(CLIP.teams):
+        for t2 in CLIP.teams[i + 1:]:
+            dual |= set(t1.numbers) & set(t2.numbers)
+    if dual:
+        print(f"[stage6] numbers on BOTH rosters, never used to establish an "
+              f"identity: {sorted(dual)}")
+
     for key in candidates:
         ident = ident_of[key]
         b = best.get(key)
         num, conf, frame = (b[0], b[1], b[2]) if b else (None, None, None)
         res = machines[key[0]].promote_via_second_signal(ident, num, conf)
+        # A CONFIDENT READ WITH NOTHING TO AGREE WITH USED TO BE BINNED HERE.
+        # On a game nobody has clicked that is EVERY read: all 21 of Full_Game's
+        # candidates carried roster_number = None, and four reads at confidence
+        # 1.00 (two corroborated) were discarded [MEASURED 2026-08-31]. The
+        # jersey may now name her itself -- but only on two agreeing crops from
+        # different moments, and never on a dual-roster number.
+        if (res == "no_position_hypothesis"
+                and corroboration.get(key) == "corroborated"
+                and num not in dual):
+            res2 = machines[key[0]].establish_via_reads(
+                ident, num, conf, corroborating_frames=corrob_frames.get(key))
+            if res2 == "established":
+                res = "established"
         outcomes[res].append((key, b))
 
     # --- readability measurement ---
