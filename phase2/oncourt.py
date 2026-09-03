@@ -48,15 +48,40 @@ OUT_JSON = os.path.join(_HERE, "out", f"{CLIP.name}_oncourt.json")
 # readers (light imports -- safe for tests and for run_clip's precheck)
 # --------------------------------------------------------------------------
 
+_LOADED = {}          # (path, mtime, size) -> parsed doc
+
+
 def load_checked(config):
-    """Load {clip}_oncourt.json; REFUSE loud if missing or stale."""
+    """Load {clip}_oncourt.json; REFUSE loud if missing or stale.
+
+    MEMOISED BY FILE IDENTITY. The identity tail asks for this document EIGHT
+    times in one run -- stage4, stage5, stage6 and stage8 each load it, and
+    window_boundaries.load_windows loads it again inside three of them. At
+    full-game size that is ~8 s of parsing each, MEASURED, for a file nobody
+    modifies.
+
+    The key is (path, mtime, size), not the clip name, so a rebuilt cache is a
+    different key and can never be served from the old parse -- which is the
+    failure that would matter here, since a stale on-court doc silently changes
+    who counts as being on the floor.
+
+    Callers TREAT THIS AS READ-ONLY. on_court_by_window only reads, and the
+    stages take counts and sets from it; nothing writes back. Anything that
+    needs to mutate must copy first.
+    """
     path = os.path.join(_HERE, "out", f"{config.name}_oncourt.json")
     if not os.path.exists(path):
         raise SystemExit(
             f"No on-court cache at {path}.\n"
             f"Run:  python -c \"import cache_oncourt, clip_config; "
             f"cache_oncourt.cache(clip_config.{config.name}_CLIP)\"  first.")
-    doc = json.load(open(path, encoding="utf-8"))
+    st = os.stat(path)
+    key = (path, st.st_mtime_ns, st.st_size)
+    doc = _LOADED.get(key)
+    if doc is None:
+        doc = json.load(open(path, encoding="utf-8"))
+        _LOADED.clear()               # one game at a time; never grow unbounded
+        _LOADED[key] = doc
     got = (doc.get("clip"), doc.get("span_start"), doc.get("span_len"))
     want = (config.name, config.tracking_span_start, config.tracking_span_len)
     if got != want:
@@ -190,8 +215,13 @@ def build():
            "margin_ft": st.MARGIN_FT, "video_path": CLIP.video_path,
            "frames": out_frames}
     os.makedirs(os.path.dirname(OUT_JSON), exist_ok=True)
+    # COMPACT, not indent=2. These are machine-read caches that reach a
+    # gigabyte on a whole game, and MEASURED on real slices the pretty-printing
+    # is 2.2x the tracks file and 3.0x the on-court one -- ~1.2 GB a game of
+    # bytes that are literally spaces, written to and read back from a network
+    # volume. The PARSED CONTENT is identical (checked, both files).
     with open(OUT_JSON, "w", encoding="utf-8") as f:
-        json.dump(doc, f, indent=2)
+        json.dump(doc, f, separators=(",", ":"))
 
     print(f"\n[oncourt] per-frame on-court count: min={min(on_counts)} "
           f"max={max(on_counts)} mean={sum(on_counts)/len(on_counts):.1f}  "

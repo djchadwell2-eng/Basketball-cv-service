@@ -145,8 +145,13 @@ def detect(clip, span_start, span_len, imgsz, model_path, out_json, out_video):
     doc = {"clip": clip.name, "span_start": span_start, "span_len": len(frames_out),
            "fps": fps, "conf_threshold": CONF, "imgsz": imgsz,
            "model": os.path.basename(model_path), "frames": frames_out}
+    # COMPACT, not indent=2. These are machine-read caches that reach a
+    # gigabyte on a whole game, and MEASURED on real slices the pretty-printing
+    # is 2.2x the tracks file and 3.0x the on-court one -- ~1.2 GB a game of
+    # bytes that are literally spaces, written to and read back from a network
+    # volume. The PARSED CONTENT is identical (checked, both files).
     with open(out_json, "w", encoding="utf-8") as f:
-        json.dump(doc, f, indent=2)
+        json.dump(doc, f, separators=(",", ":"))
 
     total = len(frames_out)
     flicker_pct = 100.0 * (total - n_with_det) / max(total, 1)

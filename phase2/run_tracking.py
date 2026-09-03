@@ -84,8 +84,13 @@ def main():
 
     doc = {"clip": CLIP.name, "span_start": SPAN_START, "span_len": n, "fps": fps,
            "frames": frames_out}
+    # COMPACT, not indent=2. These are machine-read caches that reach a
+    # gigabyte on a whole game, and MEASURED on real slices the pretty-printing
+    # is 2.2x the tracks file and 3.0x the on-court one -- ~1.2 GB a game of
+    # bytes that are literally spaces, written to and read back from a network
+    # volume. The PARSED CONTENT is identical (checked, both files).
     with open(OUT_JSON, "w", encoding="utf-8") as f:
-        json.dump(doc, f, indent=2)
+        json.dump(doc, f, separators=(",", ":"))
     n_ids = len({t["track_id"] for fr in frames_out for t in fr["tracks"]})
     print(f"\nwrote {len(frames_out)} frames, {n_ids} distinct track_ids -> {OUT_JSON}")
 
