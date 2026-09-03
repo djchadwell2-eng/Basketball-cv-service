@@ -7534,3 +7534,58 @@ showing up unprompted in real data.
 
 TIMING [MEASURED]: TEST1 stage6 = 8,349 s (2.3 h) for 461 frames with the vision
 reader. Raising corroboration to 30 crops would add ~300 reads on this clip.
+
+## EXCLUSION MEASURED BEFORE BUILDING -- IT CANNOT FIRE, 2026-09-03
+
+spikes/exclusion_precondition.py. Team comes from jersey colour measured on the
+footage (touch_teams), scored against the human labels as a byproduct:
+TEST1 8/10, HARD 14/15, TEST2 5/5 = 27/30 (90%).
+
+### The frame-rate answer (the 40% kill number)
+  TEST1   0.0%   HARD 14.1%   TEST2 17.7%
+Below the 40% written down in advance. But frames is the WRONG metric and the
+kill number was set against the wrong thing: exclusion does not need to hold
+every frame, only at the moment a name would otherwise be lost.
+
+### The metric that actually matters -- and it is worse
+At every REAL relink moment (a known number's track dies, the same number
+reappears on a new track), is the arithmetic forced for that team?
+
+  HARD, 9 real relink moments:
+    #10  f1067   7 on court, 4 named, 3 unnamed
+    #3   f1003   6 on court, 3 named, 3 unnamed
+    #3   f1063   6 on court, 3 named, 3 unnamed
+    #44  f622    4 on court, 4 named, 0 unnamed
+    #44  f727    5 on court, 5 named, 0 unnamed
+    #20  f711    6 on court, 3 named, 3 unnamed
+    #13  f779    5 on court, 5 named, 0 unnamed
+    #1   f888    6 on court, 5 named, 1 unnamed
+    #1   f985    7 on court, 2 named, 5 unnamed
+  EXCLUSION WOULD HAVE FIRED: 0 of 9.
+  (TEST1 and TEST2 have 0 real relink moments to test, so HARD is the sample.)
+
+### THE ROOT CAUSE IS NOT NAMING, AND NOT REFEREES
+It is that WE CANNOT COUNT TO FIVE. Bodies per team per frame measured across
+the three clips run from 1 to 9, with SIX and SEVEN common on HARD (225 and 122
+team-frames). Six players on one team is impossible in basketball, so the count
+is wrong, not the game.
+An argument whose entire safety rests on "exactly five, exactly four named,
+exactly one unnamed" cannot be built on a count that reads six.
+
+Two contributors, both already known:
+  - the on-court classifier admits bench bodies (DECISIONS: TEST2 t18/t21 were
+    credited 8.7 s and 7.9 s of floor time from the bench)
+  - team assignment is 90%, and every error moves a body onto the wrong team,
+    breaking both teams' counts at once
+
+### WHAT THIS DOES AND DOES NOT KILL
+It does NOT kill the IDEA -- carrying a name by counting is still the only
+proposal that survives identical uniforms, and the reasoning is sound.
+It DOES kill building it now. The prerequisite is not "name more players" or
+"exclude referees"; it is AN ACCURATE ON-COURT COUNT PER TEAM. Until five reads
+as five, exclusion has nothing to stand on.
+
+HONEST LIMITS OF THIS MEASUREMENT: 9 relink moments on one clip, "named" means
+"a human labelled that track", and the 90% team assignment is itself part of
+what is being measured. But 0 of 9, with counts of six and seven at the moments
+themselves, is not a near miss.
