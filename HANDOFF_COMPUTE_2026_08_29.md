@@ -1,4 +1,4 @@
-# Handoff — compute, cost and speed (session ending 2026-08-29)
+# Handoff — compute, cost and speed (updated 2026-09-03)
 
 Same tagging rule as `HANDOFF_GPU_SESSION.md`, for the same reason:
 
@@ -126,16 +126,20 @@ window starting on a moment where the tracker sees nobody gets no seeds at all.
   used to die with the container.
 
 **Measured but NOT built**
-- **Compact JSON caches.** tracks 122.3 -> 56.0 MB per slice, on-court 77.5 ->
-  25.9 MB [MEASURED], parsed content identical. ~1.2 GB per game of volume
-  traffic that is literally spaces.
-- **Load each merged cache once.** The tail parses tracks **9x** and on-court
-  **8x**; ~19 s and ~8 s each at full size => ~4 min [MEASURED, scaled]. Needs a
-  check that no stage mutates the shared doc.
-- **Batch the GPU SIFT.** Of the 0.086 s/frame anchor, ~5 ms is decode, ~2.2 ms
-  RANSAC at 4,000 points [MEASURED] — so ~70 ms is GPU work at batch size 1 on a
-  card built for batches. [ESTIMATE] a 2x there is $2.20 and ~10 min off every
-  slice. Compare in FEET, not pixels.
+- ~~Compact JSON caches~~ — **DONE 2026-09-03.** tracks 122.3 -> 56.0 MB a slice,
+  on-court 77.5 -> 25.9 MB, parsed content identical.
+- ~~Load each merged cache once~~ — **PARTLY DONE 2026-09-03.** `oncourt.load_checked`
+  is memoised by (path, mtime, size), so a rebuilt cache is a different key and
+  can never be served stale. The tracks cache is still parsed per stage: each one
+  builds its own Track objects from it, so sharing needs more care than the
+  on-court document did.
+- **~~Batch the GPU SIFT~~ — NOT AVAILABLE, measured 2026-09-03.** kornia's
+  `ScaleSpaceDetector` hard-asserts a batch of exactly 1
+  (`KORNIA_CHECK_SHAPE(img, ["1", "C", "H", "W"])`), so the detector refuses
+  batches at the front door. The ~70 ms of batch-size-1 GPU work is real and
+  there is no batching lever on it. `spikes/exp_sift_batch.py` records this.
+  **The anchor is now effectively a fixed 0.086 s/frame**: the resolution sweep
+  is exhausted, subsampling was rejected on accuracy, batching is refused.
 - **The concurrency cap is 10** [MEASURED, the API refused 20]. Per-second
   billing means 25 workers cost the SAME and finish in 40% of the time. BUT
   finer TRACKING slices add seams and change the box score; the ANCHOR is
@@ -150,7 +154,55 @@ window starting on a moment where the tracker sees nobody gets no seeds at all.
 
 ---
 
-## 5. Shots still cannot run
+## 5. Shots CAN run now (was: cannot) — updated 2026-09-03
+
+The two blockers in this section are gone. Neither was fixed the way I first
+proposed, and both wrong turns are recorded below so nobody retakes them.
+
+**THE RIM IS NOW CARRIED ONLY WHERE AN ARC IS.** Tracing where the rim is
+actually read: arcs are built from ball detections alone and never look at it;
+`shot_attempts` consults it inside `classify_shot`, per arc segment; nothing else
+touches it but the debug overlay. Carrying it across the whole span computed a
+rim for every frame where nothing would ever ask — MEASURED 0.412 s/frame, 19.6
+hours a game. `run_clip` now builds arcs FIRST and carries the rim only at frames
+an arc touches (padded 15). PROVEN on TEST1's human-verified shots: same
+detections, same arcs, rim carried both ways, attempts IDENTICAL. A partial track
+records `only_frames` and `hoop_track_covers` refuses to reuse it as if it
+covered the span.
+
+**BALL DETECTION MOVED INTO THE SLICES.** It is per-frame and stateless, so it
+splits like tracking; it was ~43 minutes of one machine in the tail. Each slice
+now detects its own frames and the merge glues the logs into the exact file
+`stage_ball_detect` writes, so the tail's fingerprint sees a log covering the
+span and reuses it. Arcs stay whole-game — a shot can cross a slice boundary.
+A partial ball log is REFUSED rather than glued (a hole loses every shot in it).
+`tests/test_ball_chunk_merge.py` guards this, and it caught the first version:
+the merged log carried no model/imgsz/conf, so the tail would have silently
+re-detected all 171,120 frames every run.
+
+**THE THREE DEBUG VIDEOS ARE GATED.** Ball, arcs and shot attempts each rendered
+a full-span overlay, and each called `extract_subclip` first — so rendering one
+re-encoded the whole span before drawing a line. [ESTIMATE] ~48 GB into a
+MEASURED 32.2 GB of container disk: not slow, out of room.
+`ball_stages.overlays_wanted` skips past 3,000 frames; `CV_BALL_OVERLAYS=1`
+forces them back.
+
+**TWO WRONG TURNS, recorded so they are not retaken:**
+- **A GPU rim matcher is SLOWER and moves the rim.** `gpu_anchor.GpuMultiAnchor`
+  exists, unused, behind its flag. MEASURED 1.03 s/frame vs 0.412, and it placed
+  the rim ~1,800 px away: kornia's matcher finds ~5x more inliers than FLANN, so
+  "keep the most inliers" ranks the keyframes differently — 39 of 40 frames chose
+  a different keyframe.
+- **"~2,200 hours" for the CPU rim was wrong.** That was the COURT anchor's
+  47 s/frame at 4,000 features; the rim uses 1,500. It was 19.6 hours.
+
+### What shots cost now
+[ESTIMATE] rim ~4 min and ball ~4 min per slice, in parallel with work already
+happening. Shots stopped being a separate problem.
+
+---
+
+## 5b. The original blocker text (kept for context)
 
 `clips/Full_Game_9eb8bf2a.json` now carries **both rims** (near frame 166,842,
 far 154,008) and a whole-game ball span, so `run_clip` WILL fire the shot layer.
@@ -239,3 +291,29 @@ live coverage bar.
    corrected two conclusions that four measurements had not.
 5. **Rehearse on data already paid for.** `exp_tail_real.py` over slices 0-7
    found three of the six bugs for about 10 cents.
+
+
+---
+
+## 8. Where the clock stands (2026-09-03)
+
+| | measured / estimated |
+|---|---|
+| parallel phase (tracking + anchor + ball + rim) | ~35 min at 10 workers |
+| identity tail, skeleton | ~13 min |
+| shot maths (arcs, attempts, outcomes) | ~3 min |
+| jersey reading | set by NAMING, not by compute — see §6 |
+| **everything but the reader** | **~48 min** |
+
+**The only compute lever left that matters is WORKER COUNT.** The anchor is
+~24 min of every slice and is now fixed (§4). It is stateless per frame, so it
+splits as finely as you like with NO seams — unlike tracking, where every extra
+slice is another boundary that splits a player in two. Per-second billing means
+20 workers cost the SAME as 10.
+
+- cap is 10 [MEASURED — the API refused 20]
+- raising it is a support request, not engineering
+- at 20 workers the parallel phase halves: **~30 min all in**
+
+That is DJ's stated limit, with everything on except the reader. Under 30 needs
+the reader to be small, which is exclusion's job in the naming session.
