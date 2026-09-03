@@ -88,8 +88,28 @@ def detect(clip, span_start, span_len, imgsz, model_path, out_json, out_video):
     os.makedirs(os.path.dirname(out_json), exist_ok=True)
     print(f"[ball_spike] extracting {clip.name} span {span_start}..{span_start + span_len} "
           f"({span_len / 30.0:.1f}s) ...")
-    subclip, fps, n = run_tracking.extract_subclip(clip.video_path, span_start, span_len)
-    print(f"[ball_spike] {n} frames -> {subclip}")
+    # NO TEMP COPY, same reason as run_tracking: this re-encoded the span to an
+    # mp4 just to read it back, at a MEASURED 29.1 ms/frame, and the copy loses
+    # 1-3 detections per frame against the source. Ball detection is stateless
+    # per frame, so it simply reads the film.
+    _cap = cv2.VideoCapture(clip.video_path)
+    fps = _cap.get(cv2.CAP_PROP_FPS) or 30.0
+    if span_start > 0:
+        _cap.set(cv2.CAP_PROP_POS_FRAMES, span_start)
+        if int(_cap.get(cv2.CAP_PROP_POS_FRAMES)) != span_start:
+            _cap.release()
+            _cap = cv2.VideoCapture(clip.video_path)
+            for _ in range(span_start):
+                _cap.grab()
+
+    def _span_frames():
+        for _ in range(span_len):
+            ok, fr = _cap.read()
+            if not ok:
+                return
+            yield fr
+    n = span_len
+    print(f"[ball_spike] reading {n} frames straight from the film")
 
     model = YOLO(model_path)
     # BALL_CLASS=32 is COCO's numbering (stock models). A fine-tuned model
@@ -99,13 +119,14 @@ def detect(clip, span_start, span_len, imgsz, model_path, out_json, out_video):
                        if str(n).lower() in ("ball", "sports ball")), BALL_CLASS)
     print(f"[ball_spike] running {os.path.basename(model_path)} (imgsz={imgsz}, conf={CONF}, "
           f"class={model.names[ball_class]}[{ball_class}]) -- CPU ...")
-    results = model.predict(source=subclip, classes=[ball_class], imgsz=imgsz,
-                             conf=CONF, stream=True, verbose=False)
+    def _results():
+        for _fr in _span_frames():
+            yield model.predict(_fr, classes=[ball_class], imgsz=imgsz,
+                                conf=CONF, verbose=False)[0]
+    results = _results()
 
-    cap = cv2.VideoCapture(subclip)
-    w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    cap.release()
+    w = int(_cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    h = int(_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     # An eyeball artifact, not an output -- see ball_stages.overlays_wanted.
     # Three of these on a whole game is ~48 GB into 32 GB of container disk.
     import ball_stages
@@ -142,6 +163,7 @@ def detect(clip, span_start, span_len, imgsz, model_path, out_json, out_video):
     if writer is not None:
         writer.release()
 
+    _cap.release()
     doc = {"clip": clip.name, "span_start": span_start, "span_len": len(frames_out),
            "fps": fps, "conf_threshold": CONF, "imgsz": imgsz,
            "model": os.path.basename(model_path), "frames": frames_out}

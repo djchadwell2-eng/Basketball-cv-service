@@ -68,20 +68,45 @@ def extract_subclip(video_path, start, length):
 def main():
     os.makedirs(os.path.dirname(OUT_JSON), exist_ok=True)
     video = CLIP.video_path
-    print(f"Extracting span {SPAN_START}..{SPAN_START + SPAN_LEN} of {CLIP.name} ...")
-    subclip, fps, n = extract_subclip(video, SPAN_START, SPAN_LEN)
-    print(f"  wrote {n} frames -> {subclip}")
+    # NO TEMP COPY. This used to write the span to an mp4 and track THAT:
+    # decode the film, re-encode a copy, decode the copy. The encode measured
+    # 29.1 ms/frame -- about a third of a slice's cost -- and the copy is not
+    # the film: mp4v round-tripped frames differ from the source by up to 76
+    # grey levels, and the detector finds 1-3 FEWER people per frame on them.
+    # We were paying to make the detector's job harder.
+    cap = cv2.VideoCapture(video)
+    fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+    if SPAN_START > 0:
+        cap.set(cv2.CAP_PROP_POS_FRAMES, SPAN_START)
+        if int(cap.get(cv2.CAP_PROP_POS_FRAMES)) != SPAN_START:   # seek missed
+            cap.release()
+            cap = cv2.VideoCapture(video)
+            for _ in range(SPAN_START):
+                cap.grab()
 
-    print("Running YOLOv8m@1280 + ByteTrack (CPU, ~2s/frame)...")
+    def span_frames():
+        for _ in range(SPAN_LEN):
+            ok, frame = cap.read()
+            if not ok:
+                return
+            yield frame
+
+    print(f"Tracking span {SPAN_START}..{SPAN_START + SPAN_LEN} of {CLIP.name} "
+          f"straight from the film (no temp copy) ...")
     frames_out = []
-    for i, (_idx, _img, tracks) in enumerate(tracking.iter_tracks(subclip)):
+    for i, (_idx, _img, tracks) in enumerate(tracking.iter_tracks_over(span_frames())):
         frames_out.append({
             "frame_index": SPAN_START + i,
             "tracks": [{"track_id": t.track_id, "bbox": list(t.bbox)} for t in tracks],
         })
         if i % 20 == 0:
-            print(f"  ...{i}/{n}  ({len(tracks)} tracks)")
+            print(f"  ...{i}/{SPAN_LEN}  ({len(tracks)} tracks)")
 
+    cap.release()
+    # span_len is what was ACTUALLY read, not what was asked for -- a film that
+    # ends early must not claim frames it never had. _cache_covers compares this
+    # against the config, so an over-claim would publish a slice that lies.
+    n = len(frames_out)
     doc = {"clip": CLIP.name, "span_start": SPAN_START, "span_len": n, "fps": fps,
            "frames": frames_out}
     # COMPACT, not indent=2. These are machine-read caches that reach a
