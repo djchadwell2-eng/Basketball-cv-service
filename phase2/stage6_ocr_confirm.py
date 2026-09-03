@@ -314,15 +314,53 @@ def main():
     corroboration = {}                       # (win,id) -> "corroborated" | ...
     corrob_frames = {}                       # (win,id) -> [frames that agreed]
     verify_jobs = []
+    # A SECOND OPINION MUST COME FROM A DIFFERENT MOMENT, and it cannot come
+    # from picked_by_key.
+    #
+    # picked_by_key is BEST-CROPS-FIRST (sorted by box height) and spaced by
+    # OCR_STRIDE = 2 frames, so all ten picks are the frames where she is
+    # nearest the camera -- one moment. MEASURED on TEST1: the whole pick set
+    # spans a median of 0.8 s, the four crops corroboration used spanned 0.3 s,
+    # and 70 of 86 candidates had them under a second apart. Asking that set
+    # again is asking "is this the same pose?", which is why it corroborated
+    # 0 of 21 confident reads.
+    # The reader's measured failure mode is ANGLE (backs, side-ons), not size,
+    # so corroboration draws from her WHOLE track life instead, taking the
+    # usable crops farthest in time from the read being checked.
+    # Cost stays bounded: only candidates that ALREADY read get this, a handful
+    # per clip, at CORROBORATION_TRIES frames each.
+    corrob_picks = {}
     for key, (_n, _c, f, _bb) in best.items():
-        alts = [(g, gb) for (g, gb) in picked_by_key[key] if g != f][:CORROBORATION_TRIES]
-        if not alts:
-            corroboration[key] = "single_crop_only"   # she has no other picture
-        for alt in alts:
-            verify_jobs.append((key, *alt))
+        usable = [(g, bb) for (g, bb) in active_log[key]
+                  if bb and (bb[3] - bb[1]) >= MIN_OCR_HEIGHT and abs(g - f) >= 15]
+        usable.sort(key=lambda gb: -abs(gb[0] - f))     # farthest in time first
+        spread = []
+        for (g, bb) in usable:
+            if all(abs(g - h) >= 15 for (h, _b) in spread):   # not near each other
+                spread.append((g, bb))
+            if len(spread) >= CORROBORATION_TRIES:
+                break
+        if not spread:
+            corroboration[key] = "single_crop_only"   # no other moment exists
+        corrob_picks[key] = spread
+
+    need_frames = sorted({g for v in corrob_picks.values() for (g, _b) in v})
+    corrob_crops = {}
+    for g, im in s2mk.iter_frames(CLIP.video_path, need_frames):
+        for key, v in corrob_picks.items():
+            for (gg, bb) in v:
+                if gg == g:
+                    corrob_crops[(key, g)] = ocr_reader.jersey_crop(im, bb).copy()
+    verify_jobs = [(key, g, bb) for key, v in corrob_picks.items() for (g, bb) in v]
     if verify_jobs:
+        def _verify(job):
+            key, g, bb = job
+            crop = corrob_crops.get((key, g))
+            reads = (ocr_reader.read_jersey(crop, roster.ROSTER_NUMBERS)
+                     if crop is not None else [])
+            return key, g, bb, reads
         with ThreadPoolExecutor(max_workers=OCR_WORKERS) as ex:
-            vres = list(ex.map(_attempt, verify_jobs))
+            vres = list(ex.map(_verify, verify_jobs))
         by_key = defaultdict(list)
         for key, f, bb, reads in vres:
             by_key[key].append((f, reads))

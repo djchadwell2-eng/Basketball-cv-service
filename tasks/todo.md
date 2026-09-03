@@ -7491,3 +7491,46 @@ VERDICT: Option C is built, safe and correct, and on this footage it is worth
 approximately nothing until team resolution lands. That is not a reason to
 revert it -- the machinery is the same for Option A, and the bar is one
 condition -- but it should not be counted as a win yet.
+
+## WHY OPTION C KEPT FIRING ZERO -- IT WAS ARITHMETIC, 2026-09-03
+
+Three runs, three zeros, cause narrowed each time:
+  1. Full_Game     -- blocked by dual-roster numbers (9 of 18 shared) + unstable
+                      corroboration (4 then 0 on identical input)
+  2. TEST1         -- 0 corroborated of 21. Cause: the corroborating crops spanned
+                      a MEDIAN OF 0.3 s (70 of 86 candidates under 1 s apart),
+                      because picked_by_key is sorted BEST-CROPS-FIRST and spaced
+                      by OCR_STRIDE = 2 frames. It asked "is this the same pose?"
+                      three more times. FIXED: corroboration now draws from her
+                      WHOLE track life, >= 15 frames from the read and from each
+                      other.
+  3. TEST1 again   -- STILL 0, and this run explains it properly.
+
+THE MEASUREMENT THAT SETTLES IT [TEST1, reader live]:
+    291 crops attempted -> 10 confident reads = a 3.4% PER-CROP READ RATE
+    all 10 verdicts: single_crop_only. Not one CONFLICT -- every corroborating
+    crop was simply illegible, so no second opinion existed to agree or disagree.
+
+At 3.4% per crop, asking THREE more crops gives a 10% chance that any of them
+reads at all:
+    P(>=1 of 3 reads)  = 10%   -> expected 1.0 corroborations from 10 reads
+    we got 0. That is not a footage mystery, it is the expected value.
+To make corroboration land you need far more attempts, not better ones:
+    10 crops -> 30% | 20 -> 50% | 30 -> 65% | 50 -> 83%
+
+SO: Option C's bar is not wrong, it is UNDER-SAMPLED. Requiring two agreeing
+reads is sound; trying three crops to find the second one is not.
+
+AND THE READER IS NOT THE PROBLEM -- 8 OF THE 10 READS WERE VERIFIED CORRECT.
+Every one agreed with the human's own label:
+    t3 #13, t5 #23, t6 #5, t8 #14, t9 #24, t10 #30, t17 #32, t67 #32
+That is 8/8 correct on the reads that had a human answer to check against, at
+confidence 1.00. When this reader reads, it is right.
+
+A BONUS FINDING WORTH KEEPING: two tracks read #32 -- t67 (hypothesis #32,
+CONFIRMED correct) and t36 (no hypothesis). If both are really #32 they are the
+SAME GIRL, fragmented -- which is the number-as-relink-key idea (agent rank 2)
+showing up unprompted in real data.
+
+TIMING [MEASURED]: TEST1 stage6 = 8,349 s (2.3 h) for 461 frames with the vision
+reader. Raising corroboration to 30 crops would add ~300 reads on this clip.
