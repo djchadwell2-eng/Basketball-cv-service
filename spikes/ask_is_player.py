@@ -111,7 +111,19 @@ def body_crop(frame, bbox):
     return frame[y1:y2, x1:x2]
 
 
+VOTES_JSON = os.path.join(_HERE, "out", "is_player_votes.json")
+
+
 def main():
+    # REUSE THE VOTES. The model calls are the only expensive part, and the
+    # SCORING RULE is the thing being iterated on -- rescoring must never cost
+    # another API run. Delete the file to re-ask.
+    if os.path.exists(VOTES_JSON):
+        rows = [tuple(r) for r in json.load(open(VOTES_JSON, encoding="utf-8"))]
+        print(f"reusing {len(rows)} cached votes from "
+              f"{os.path.basename(VOTES_JSON)} (delete it to re-ask)")
+        return report(rows)
+
     import clip_config
     import env_local
     env_local.load()
@@ -171,32 +183,57 @@ def main():
             if truth is None:
                 continue
             top, n = Counter(vs).most_common(1)[0]
-            said = "player" if top == "PLAYER" else "non-player"
-            rows.append((clip, tid, truth, said, top, n, len(vs)))
+            rows.append((clip, tid, truth, top, n, len(vs)))
 
-    tp = sum(1 for r in rows if r[2] == "player" and r[3] == "player")
-    fn = sum(1 for r in rows if r[2] == "player" and r[3] == "non-player")
-    tn = sum(1 for r in rows if r[2] == "non-player" and r[3] == "non-player")
-    fp = sum(1 for r in rows if r[2] == "non-player" and r[3] == "player")
-    tot = len(rows)
+    os.makedirs(os.path.dirname(VOTES_JSON), exist_ok=True)
+    json.dump([list(r) for r in rows], open(VOTES_JSON, "w"), indent=1)
+    print(f"saved votes -> {VOTES_JSON}")
+    report(rows)
 
-    print(f"\n{'=' * 68}\nIS THIS A PLAYER?  ({tot} labelled tracks)\n{'=' * 68}")
-    print(f"  real PLAYERS      : {tp} kept, {fn} WRONGLY DROPPED  <- the costly error")
-    print(f"  real NON-PLAYERS  : {tn} correctly refused, {fp} wrongly kept")
-    if fn:
-        print("\n  players it would have deleted:")
-        for r in rows:
-            if r[2] == "player" and r[3] == "non-player":
-                print(f"     {r[0]} t{r[1]}: called {r[4]} ({r[5]}/{r[6]} votes)")
-    if fp:
-        print("\n  non-players it would have kept (safe -- the gate refuses on a "
-              "count that is one too high):")
-        for r in rows:
-            if r[2] == "non-player" and r[3] == "player":
-                print(f"     {r[0]} t{r[1]}: called {r[4]} ({r[5]}/{r[6]} votes)")
-    print(f"\n  overall correct: {tp + tn}/{tot} "
-          f"({100.0 * (tp + tn) / max(tot, 1):.0f}%)")
-    print("  COMPARE: colour (2026-08-30) had NO threshold that caught a single "
+
+def report(rows):
+    """Score the SAME votes under two rules.
+
+    The asymmetry is the whole point. Keeping a referee leaves the count ONE TOO
+    HIGH, and the exclusion gate already refuses on that (it needs exactly five)
+    -- costly but safe. Dropping a real player makes a five look like a FOUR,
+    and a four with one unnamed body FORCES A WRONG NAME. So a rule is judged on
+    players deleted first, referees caught second.
+    """
+    def score(name, is_drop):
+        tp = fn = tn = fp = 0
+        for (clip, tid, truth, top, n, tot_v) in rows:
+            drop = is_drop(top, n, tot_v)
+            if truth == "player":
+                fn += drop
+                tp += (not drop)
+            else:
+                tn += drop
+                fp += (not drop)
+        total = tp + fn + tn + fp
+        print(f"\n  {name}")
+        print(f"     real PLAYERS     : {tp} kept, {fn} WRONGLY DROPPED")
+        print(f"     real NON-PLAYERS : {tn} refused, {fp} kept (safe)")
+        print(f"     overall correct  : {tp + tn}/{total} "
+              f"({100.0 * (tp + tn) / max(total, 1):.0f}%)")
+        if fn:
+            for (clip, tid, truth, top, n, tot_v) in rows:
+                if truth == "player" and is_drop(top, n, tot_v):
+                    print(f"       deleted a real player: {clip} t{tid} "
+                          f"called {top} ({n}/{tot_v})")
+
+    print(f"\n{'=' * 68}\nIS THIS A PLAYER?  ({len(rows)} labelled tracks)\n{'=' * 68}")
+    score("RULE A -- majority says anything but PLAYER",
+          lambda top, n, tot_v: top != "PLAYER")
+    score("RULE B -- UNANIMOUS REFEREE or COACH only "
+          "(OTHER means 'cannot tell', and a split vote is not evidence)",
+          lambda top, n, tot_v: top in ("REFEREE", "COACH") and n == tot_v)
+
+    print("\n  every track, for the record:")
+    for (clip, tid, truth, top, n, tot_v) in sorted(rows, key=lambda r: (r[0], r[2])):
+        print(f"     {clip:<6} t{tid:<5} truth={truth:<11} model={top:<8} "
+              f"{n}/{tot_v} votes")
+    print("\n  COMPARE: colour (2026-08-30) had NO threshold that caught a single "
           "non-player\n  without also deleting a real player.")
 
 

@@ -7643,3 +7643,44 @@ t17 and t92 and would leave ONE wrong deletion of 39 players (2.6%).
 The three non-players it kept are the SAFE error: a count one too high is
 refused by the exclusion gate, which needs exactly five.
 NEEDS ONE MORE PASS to measure what that rule costs on the non-player side.
+
+## PLAYER-VS-NON-PLAYER: SOLVED, AND THE GROUND TRUTH WAS WRONG, 2026-09-03
+
+Two rules scored on the SAME cached votes (spikes/out/is_player_votes.json, so
+rescoring never costs another API run):
+
+  RULE A -- majority says anything but PLAYER
+     33 players kept, 4 dropped | 12 non-players refused, 5 kept | 45/54 (83%)
+  RULE B -- UNANIMOUS "REFEREE" or "COACH" only; OTHER means "cannot tell" and a
+            split vote is not evidence, so neither may delete a body
+     35 players kept, 2 dropped | 11 non-players refused, 6 kept | 46/54 (85%)
+
+Rule B halves the costly error, which is the one that matters: deleting a real
+player turns a five into a four and can FORCE A WRONG NAME, while keeping a
+referee only leaves the count one too high -- and the exclusion gate already
+refuses on that.
+
+### THEN THE TWO REMAINING "ERRORS" WERE RENDERED AND LOOKED AT
+    TEST1 t10  human label "#30"  model REFEREE 3/3
+    TEST1 t15  human label "#10"  model COACH   2/2
+The crops are unambiguous: t10 is wearing a BLACK-AND-WHITE STRIPED SHIRT and
+black trousers. t15 is an adult in a dark jacket, SITTING, holding a clipboard.
+THE MODEL IS RIGHT AND THE HUMAN LABELS ARE WRONG.
+
+So under Rule B, on this sample:
+    REAL PLAYERS WRONGLY DELETED: ZERO
+    and it caught two non-players the HUMAN LABELS MISSED.
+
+### WHAT THIS MEANS
+Player-vs-non-player is no longer the blocker. Colour had NO usable threshold
+(2026-08-30) and motion was dead (DJ, 2026-08-29); this works, and the rule that
+makes it safe is "only a unanimous REFEREE/COACH may delete a body".
+
+### AND A WARNING THAT APPLIES BEYOND THIS
+The human track labels in {clip}_decisions.json contain at least two errors, and
+those labels are the ground truth used to score the jersey reader, the team
+assignment, the exclusion precondition and the fragmentation measurements. A
+referee labelled as player #30 has been silently counted as a player in every
+one of them. Nobody should treat these labels as unimpeachable again -- and the
+5th time this session that RENDERING THE CROPS AND LOOKING corrected a number
+that four measurements had agreed on.
