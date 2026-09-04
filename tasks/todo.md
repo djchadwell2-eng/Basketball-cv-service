@@ -7589,3 +7589,57 @@ HONEST LIMITS OF THIS MEASUREMENT: 9 relink moments on one clip, "named" means
 "a human labelled that track", and the 90% team assignment is itself part of
 what is being measured. But 0 of 9, with counts of six and seven at the moments
 themselves, is not a near miss.
+
+## THE COURT FIX -- CHASED TO THE ROOT, AND THE FIRST ROUTE THAT WORKS, 2026-09-03
+
+DJ: "lets do the court fix". It turned out not to be a court fix at all.
+
+### What the count problem is NOT
+  NOT the geometry margin. The on-court test is
+  `-1.5 <= cx <= 84+1.5 and -1.5 <= cy <= 50+1.5`. Measured: the MEDIAN body sits
+  0.00 ft outside the painted lines, and TEST2's KNOWN BENCH tracks sit 0.16 and
+  0.51 ft out -- closer in than the slack a real player needs for stepping on
+  the line. No margin separates them.
+  NOT duplicate detections. Of the excess unlabelled bodies, 99.8% do NOT
+  overlap an already-counted player (IoU < 0.5). They are separate people.
+  In frames with SIX OR MORE on one team, the composition is 1014 named players
+  and 1392 UNLABELLED bodies (HARD) -- and 0 of those 44 unlabelled tracks
+  carries any human label.
+
+### What it IS
+Referees, coaches and bench players really are standing inside the court
+rectangle. The count is honest about bodies; it just does not know which bodies
+are PLAYERS. So "the court fix" is player-vs-non-player, which is exactly where
+DJ said to start on 2026-08-29. The measurement came all the way back to his
+build order.
+
+### ASKING THE VISION MODEL -- MEASURED 89%
+spikes/ask_is_player.py. Whole-body crops (not the jersey patch -- a striped
+shirt, a tracksuit and a kit are told apart by the silhouette), 3 crops spread
+across each track's life, majority vote, scored against the human labels.
+
+  55 labelled tracks
+  real PLAYERS      : 36 kept,  3 WRONGLY DROPPED   <- the costly error
+  real NON-PLAYERS  : 13 refused, 3 wrongly kept
+  overall 49/55 = 89%
+
+COMPARE COLOUR (2026-08-30): no threshold existed that caught a single
+non-player without also deleting a real player. This is the first route to work
+at all.
+
+WHY IT WORKS WHERE COLOUR AND MOTION DIED: both of those asked for a MEASUREMENT
+of the crop and then a threshold. This asks a SEMANTIC question, coarse enough
+that the answer does not depend on resolution -- the opposite of reading a 40px
+number, which the same model measurably struggles with.
+
+### A REFINEMENT THE ERRORS THEMSELVES POINT AT (not yet measured)
+The three players it deleted:
+    TEST1 t10  called REFEREE  3/3   <- confidently wrong, survives any rule
+    TEST1 t17  called COACH    1/2   <- NOT unanimous
+    TEST1 t92  called OTHER    3/3   <- OTHER means "cannot tell"
+So: DROP ONLY ON A UNANIMOUS "REFEREE" OR "COACH". OTHER is an abstention and
+must never delete a body; a split vote must never delete a body. That rule keeps
+t17 and t92 and would leave ONE wrong deletion of 39 players (2.6%).
+The three non-players it kept are the SAFE error: a count one too high is
+refused by the exclusion gate, which needs exactly five.
+NEEDS ONE MORE PASS to measure what that rule costs on the non-player side.
