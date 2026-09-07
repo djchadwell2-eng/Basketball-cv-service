@@ -7684,3 +7684,42 @@ referee labelled as player #30 has been silently counted as a player in every
 one of them. Nobody should treat these labels as unimpeachable again -- and the
 5th time this session that RENDERING THE CROPS AND LOOKING corrected a number
 that four measurements had agreed on.
+
+## THE PLAYER FILTER HELPS A LOT -- AND EXCLUSION STILL DOES NOT FIRE, 2026-09-04
+
+Rule B (unanimous REFEREE/COACH deletes; OTHER and split votes keep) applied to
+EVERY on-court body, then the count re-measured:
+
+  clip    refused        exactly five        MORE than five
+  TEST1   3 of 43        2.3%  (was 2.3)     1.6%  (was 1.6)
+  HARD    12 of 94      31.3%  (was 14.1)   32.8%  (was 74.9)
+  TEST2    4 of 43      49.6%  (was 25.6)   15.0%  (was 64.0)
+
+That is a real, large improvement: on HARD the impossible counts fall from 75%
+of team-frames to 33%, and on TEST2 from 64% to 15%. Exactly-five roughly
+doubles on both.
+
+BUT AT THE NINE REAL RELINK MOMENTS ON HARD, EXCLUSION STILL FIRES 0 OF 9.
+The counts there are 7,6,6,4,6,6,5,6,6 -- still mostly six. One case (#13 f779)
+reads exactly five, but all five are already named, so nothing is forced.
+
+### TEST1 CANNOT SUPPORT EXCLUSION AT ALL, AND IT IS THE FOOTAGE
+TEST1's mode is THREE bodies per team (473 of 813 team-frames); exactly five
+happens 2.3% of the time, before or after filtering. The camera pans across the
+floor and simply never holds all five of a team in shot. No filter can make five
+appear.
+=> EXCLUSION HAS A FOOTAGE PRECONDITION nobody had stated: the camera must hold
+all five of a team in frame at the moment the name would be lost. TEST1 fails
+it; HARD and TEST2 (wider) pass it far more often. This is a property of how a
+game is filmed, not something code can fix.
+
+### WHAT IS STILL INFLATING THE COUNT
+The filter removes referees and coaches. It cannot remove a BENCH PLAYER,
+because she IS a player -- the model says PLAYER and it is right. She is just
+not ON COURT. The geometry cannot separate her either: measured, bench tracks
+sit 0.16-0.51 ft outside the lines, inside the slack a real player needs.
+So the remaining question is NOT "is this a player" but "is this player PLAYING
+or SITTING", which is another coarse semantic question of exactly the kind the
+model just answered well -- and a seated body is a different POSE, not a
+different appearance.
+UNTRIED. It is the obvious next step and it directly targets the residual 33%.
