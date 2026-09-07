@@ -26,3 +26,8 @@ models/*
 # Only the clip video this proof actually runs
 video_assets/*
 !video_assets/Test1.mp4
+
+# Coach-facing output: the reseed sheet alone is 40 MB of embedded crops, and
+# the downloaded stills beside it are for a human to look at, not for a worker
+# to carry. Nothing in the image reads results/.
+results/
