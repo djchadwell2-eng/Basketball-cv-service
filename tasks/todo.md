@@ -7723,3 +7723,110 @@ or SITTING", which is another coarse semantic question of exactly the kind the
 model just answered well -- and a seated body is a different POSE, not a
 different appearance.
 UNTRIED. It is the obvious next step and it directly targets the residual 33%.
+
+---
+
+# COMPUTE SESSION 2026-09-07 -- the deploy was broken, and the anchor is the bill
+
+(This section is the COMPUTE track. The player/referee work above is the naming
+track and is untouched.)
+
+## What was actually wrong
+
+**The workers were never running the code we thought.** Commit `7fa0464`
+("read the film, not a copy of it") was pushed, called shipped, and its build
+FAILED at the push step -- so the single biggest saving of the last session had
+never existed in any image. Separately the endpoint template was pointed at
+`d99824b`, a commit with **no image at all**, so every job would have failed.
+
+Root cause: nothing ever checked. Every deploy was hand-typed, and the git log
+was treated as evidence about what the cloud is running. It is not.
+
+Fixed by `deploy_worker.py`, which asks the two things that actually know --
+the registry ("is this tag pullable?") and a live worker ("which image did you
+load?") -- and refuses at the first no. Verified: it rejects both `7fa0464`
+(built, never pushed to the registry) and `d99824b` (never pushed to GitHub).
+
+Deployed and CONFIRMED on a worker: `a308b306d9c6`.
+
+## The rehearsal [MEASURED 2026-09-07]
+
+2 slices + merge over frames 135,000..138,000 of the real game, shots ON, under
+its own clip name so it could not overwrite the game's existing slices.
+
+| stage | 1,500 frames | per frame | share |
+|---|---|---|---|
+| tracking | 29 s | 0.0193 s | 12% |
+| **on-court (SIFT camera anchor)** | **160 s** | **0.107 s** | **69%** |
+| ball detection | 43 s | 0.0287 s | 18% |
+| slice total | 233 s / 226 s | 0.155 s | |
+| merge + whole identity tail | 402 s | | |
+| **wall clock** | **12.9 min** (6.2 slices + 6.7 merge) | | |
+
+Cost ~$0.29 [computed from measured job seconds at the measured rate].
+
+**The rate is $1.109/GPU-hour, MEASURED** (RunPod's own `currentSpendPerHr`
+while one 4090 ran). Every earlier estimate used $1.33 and was ~17% high.
+
+## What the rehearsal proved works
+
+Ball detection inside the slices (686 of 1,500 frames saw the ball), the merge
+across a seam at frame 136,500, arcs formed over the merged log, 10 team
+possessions, 23 touches with court zones (paint 2 / midrange 10 / three 11).
+The six changes from last session run together without crashing.
+
+## What it proved is still broken (both PRE-EXISTING, not caused by this work)
+
+- **1 shot found, 0 shots located.** `shots_unlocated = 1`. The shot layer
+  worked; the on-court classifier abstained on the shooter at the release frame
+  ("track 1001433 classified OFF-court at frame 136004"). This is the same
+  failure already recorded as "empty TEST1 shot chart (oncourt abstention at
+  layup release)" -- now reproduced on the real game. Touches DO get zones, so
+  the court mapping is fine in general; it abstains specifically at release.
+- **0 named players.** Owned by the naming track.
+
+## The finding that matters for the $5 target
+
+The camera anchor is **69%** of slice cost. Full-game projection [ESTIMATE,
+extrapolated from the measured per-frame rates above]:
+
+| | GPU-hours | at $1.109/h |
+|---|---|---|
+| camera anchor | ~4.1 | **~$4.55** |
+| ball detection | ~1.0 | ~$1.09 |
+| tracking | ~0.25 | ~$0.28 |
+| merge + tail | ~0.9 | ~$1.00 |
+| **total** | **~6.3** | **~$7** |
+
+Trimming tracking and ball to zero still leaves ~$5.60. **Only the anchor can
+reach the $5 target.**
+
+## The lead, NOT yet acted on
+
+`HANDOFF_GPU_SESSION.md` measured anchor subsampling and concluded "not
+needed". Re-reading its own table: N=2 gives 0.76 ft max error and N=30 gives
+0.97 ft -- nearly identical. That means the error is the anchor's inherent
+frame-to-frame jitter, NOT the skipping. The conclusion was written when we
+believed the full anchor was affordable; at $4.55 a game it is the whole
+problem.
+
+The honest test is NOT "does the homography differ" (it does, by ~0.1 ft) but
+"does any ANSWER differ" -- on-court verdicts are a strict-majority vote per
+window, and shot zones are coarse. Proposed experiment (~$0.10): compute
+verdicts at N=1 (truth) and N=2/5/10 over one slice and count how many
+(window, track) verdicts change. Zero changes = proven identical on that span.
+
+NEEDS DJ'S APPROVAL -- it touches accuracy, and the standing rule is that
+anything altering output must be PROVEN identical, not assumed.
+
+## Also worth knowing
+
+- `rest.runpod.io` (admin API) now sits behind Cloudflare and 403s urllib's
+  default User-Agent with "error 1010". `api.runpod.ai` (jobs) does not care.
+  `deploy_worker.py` sets a UA; `run_chunked.py` needs no change.
+- The ball overlay .mp4 is written when a span is under 3,000 frames, so the
+  rehearsal left 272 MB of debug video on the volume. Real slices (17,112
+  frames) are over the cap and skip it -- but it means small test runs are not
+  representative of per-frame cost.
+- The whole identity tail logs ONE progress line, so a 7-minute tail and a hung
+  one look identical from outside. Not fixed.
