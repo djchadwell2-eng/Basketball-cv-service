@@ -7830,3 +7830,668 @@ anything altering output must be PROVEN identical, not assumed.
   representative of per-frame cost.
 - The whole identity tail logs ONE progress line, so a 7-minute tail and a hung
   one look identical from outside. Not fixed.
+
+# ============================================================================
+# POSE-GUIDED CROP SELECTION TEST (naming session, 2026-09-07)
+# ============================================================================
+# Plain English: the jersey-number reader is good when it gets a clear shot of
+# a player (8 out of 8 correct), but it only gets a clear shot 3.4% of the
+# time. The guess is that this is about which way the player is FACING, not
+# how big/close she is. This test checks that guess using pictures we already
+# have -- no new video watching needed.
+#
+# HOW: for every player number we already read successfully, grab the exact
+# picture that worked (a "WIN"). Then grab the OTHER close-up pictures of that
+# same player, from around the same time, that were NOT the one that worked (a
+# "LOSS"). Run a body-pose tool on both piles of pictures -- it finds shoulder
+# points on a person. Measure how far apart the two shoulders LOOK in the
+# picture: wide apart = squared up to the camera, close together = turned
+# sideways. Then check: do WIN pictures have wider shoulders than LOSS ones?
+#
+# KILL NUMBER (written down before running, per the handoff's own rule): if
+# WIN and LOSS shoulder-widths come out about the same, the idea is dead and
+# we say so -- crop-picking stays based on size like it is today.
+
+## Todo
+- [x] Write `spikes/pose_facing_test.py`: pull the WIN pictures from the
+      jersey-read results already saved on disk (5 clips: TEST1, TEST1_REG,
+      HARD, TEST2, Full_Game). No new reading, no new API calls.
+- [x] Same script: for each WIN, rebuild the short list of other pictures the
+      pipeline already considered for that same player (same picking rule it
+      always uses) and use the ones that were NOT the winner as LOSS examples.
+- [x] Run the pose tool (already installed, no download) on every WIN and LOSS
+      picture, save the raw shoulder measurements to
+      `spikes/out/pose_facing_test.json` so this never has to be re-run to be
+      re-checked.
+- [x] Print a plain table: how wide the shoulders are in WIN pictures vs LOSS
+      pictures, plus one summary number for "does facing predict a good read".
+- [x] State the verdict plainly -- promising (build it next) or dead (drop it,
+      stay with size-based picking) -- no in-between.
+
+## Mid-course correction (worth knowing, not just a footnote)
+The first version of the "rebuild the other pictures" step was WRONG and
+would have quietly compared some WIN pictures to the wrong LOSS pictures.
+Caught it by spot-checking one case before spending 20+ minutes running the
+slow part on bad data:
+- First attempt matched pictures to a player just by looking up her track
+  number. Looked plausible, but on TEST1 a "match" turned out to be someone
+  else's box 450 pixels away -- because a player's tracked number can change
+  partway through a clip (the software re-glues a broken track to a new
+  number), so looking up "track 5" doesn't always mean the same girl the
+  whole time.
+- Fixed by replaying the SAME step-by-step process the real pipeline uses to
+  keep track of who's who, instead of a shortcut lookup. That process only
+  runs safely one clip at a time (mixing clips in one run silently uses the
+  wrong clip's player list) so the script now runs each clip as its own
+  small program and combines the results after.
+- Even after that fix, kept double-checking and found a second, sneakier
+  version of the same problem: same picture NUMBER lining up by coincidence,
+  wrong picture CONTENT. Added a second check that the actual picture
+  position agrees, not just its number in the sequence.
+- Net effect: fewer usable examples than hoped, but the ones kept are now
+  verified correct instead of just plausible-looking.
+- Full_Game couldn't be used today -- its saved "who's on the court" file is
+  being actively rebuilt by a DIFFERENT session working on the camera-cost
+  problem right now (see the ANCHOR-SUBSAMPLE section right below this one).
+  Skipped rather than touched, so as not to collide with that work.
+
+## Review
+
+**Result: facing predicts a good read. [MEASURED]** 23 WIN pictures (the ones
+that gave a confident jersey number) vs 189 LOSS pictures (other close-up
+pictures of the SAME player around the same time that did NOT). Shoulders
+measured wider apart, on average, in the WIN pile (0.156) than the LOSS pile
+(0.124). Turned into one score from 0.5 (no difference) to 1.0 (perfect):
+**0.684**. That gap is big enough that it is very unlikely to be luck, even
+with a smallish sample.
+
+**Verdict: PROMISING. Worth building pose-guided crop selection next**, per
+the kill-number rule written down before running (0.65+ = build it, 0.55-
+= drop it, this landed at 0.684). Not an overwhelming slam-dunk -- 23 good
+examples is not a lot, and the number is closer to "clearly real" than to
+"obviously huge" -- but it clears the bar honestly, worm-and-all.
+
+**What actually got built today** (all reusable, not thrown away):
+- `spikes/pose_facing_test.py` -- runs again any time, reusing its saved
+  caches unless one of them is deleted.
+- 4 verified per-clip "which pictures did the pipeline actually consider"
+  files (`spikes/out/pose_facing_pool_{TEST1,TEST1_REG,HARD,TEST2}.json`).
+- The full picture-by-picture measurements: `spikes/out/pose_facing_test.json`.
+
+**Two bugs found and fixed before trusting the result** (see "mid-course
+correction" above for the full story) -- both would have quietly compared
+some good-read pictures to the WRONG other pictures:
+1. Looking a player up by her tracked number isn't safe -- that number can
+   change mid-clip when the software re-glues a broken track. Fixed by
+   replaying the real step-by-step tracking process instead of shortcutting.
+2. Even after that fix, a picture could match by its POSITION IN THE LIST
+   while actually being a different picture. Added a check that the actual
+   picture position agrees too, not just its slot number.
+Also hit and fixed a small crash at the very end (the pose tool's numbers
+weren't in a format that could be saved to a file) -- rewrote the script so
+the results print FIRST and get saved SECOND, so a save problem can never
+again throw away 15 minutes of already-finished work.
+
+**One thing worth a future look, not chased down today:** even on the three
+clips nobody touched this session (HARD, TEST2, TEST1_REG), roughly half of
+the saved "good jersey reads" couldn't be verified against the saved tracking
+data -- not just TEST1, which has a known reason (its tracking file is
+mid-edit). That's a bigger gap than one dirty file explains. Didn't dig
+further because it wasn't blocking today's yes/no question, but if a future
+session leans hard on any of these saved read results, that gap is worth
+understanding first.
+
+**Next step (not done today, needs a decision first):** actually change
+`phase2/stage6_ocr_confirm.py`'s crop-picking rule to prefer face-on pictures
+instead of just the biggest ones, then re-measure the real read rate (today's
+3.4%) on top of it. That is a real pipeline change, not a spike -- bigger
+than today's task.
+
+## Confidence check (DJ asked, 2026-09-08) -- what would make this trustworthy
+Ran three checks instead of just re-asserting confidence:
+1. **Does it hold per clip, not just pooled?** [MEASURED] Yes -- WIN beat LOSS
+   in all 4 clips separately (HARD 0.164 vs 0.149, TEST1_REG 0.148 vs 0.088,
+   TEST2 0.149 vs 0.106; TEST1 only has 1 WIN example so it's too small to
+   mean anything on its own). Not one clip carrying the whole result.
+2. **Is "facing score" secretly just "bigger/closer box"?** [MEASURED]
+   Correlation between box height and facing score across all 212 crops:
+   0.068 -- essentially none. WIN boxes ARE ~10% taller than LOSS on average
+   (expected, since the pipeline tries biggest crops first), but that size
+   gap isn't what's driving the facing-score gap.
+3. **Look at the actual pictures** (`spikes/render_pose_facing_examples.py`
+   -> `spikes/out/pose_facing_examples.jpg`), on purpose including the cases
+   that DON'T fit the story, not just the ones that do. Three of four rows
+   confirmed it by eye -- squared-on WINs looked squared-on, side-on LOSSes
+   looked side-on.
+
+**The fourth row LOOKED like the important finding, and it was WRONG.**
+RETRACTED 2026-09-09 -- see the correction below. Original claim: HARD track
+7 (#23), four picked frames, back squarely to camera, "23" readable by eye,
+no confident read on any -> "something else is missing easy numbers."
+
+### ⚠️ CORRECTION -- that claim was an artifact, not a finding
+[MEASURED 2026-09-09] Those four frames are attempt ROUNDS 7, 8, 9 and 10.
+That candidate's winning read landed on **round 1** (f705, the biggest
+crop), and stage6 has an EARLY EXIT -- "a candidate whose clearest crop
+reads confidently needs none of her remaining nine." **The reader never
+looked at those four frames.** It did not fail on a legible number; it had
+already succeeded and stopped. Nothing about the reader's ability was
+demonstrated. The claim was repeated twice (here and in the BUILD review)
+before being checked -- it was believed because it was eyeballed, and
+eyeballing a crop says nothing about whether the crop was ever submitted.
+
+### The same flaw was in the MEASUREMENT, and it ran the other way
+The pose test's LOSS pile was "every other picked crop", which silently
+mixed two very different things: crops the reader TRIED AND FAILED, and
+crops it NEVER ATTEMPTED because it had already exited early. Re-scored
+using only crops the reader genuinely attempted (rounds 1..win-round):
+
+| pile | n | mean facing |
+|---|---|---|
+| WIN (confident read) | 23 | 0.156 |
+| LOSS (tried, failed) | 34 | 0.102 |
+
+**Separation score 0.785, up from the 0.684 originally reported.** The flaw
+was DILUTING the result, not manufacturing it -- never-attempted crops carry
+roughly average facing (facing barely correlates with size, 0.068), so
+mixing them into the LOSS pile pulled its mean up and hid the real gap.
+The corrected number is stronger, which is exactly why it deserves the
+caveat: the honest sample is **34 real failures, not 189**, so the estimate
+is better-centred but less precise. Where the winning read came from:
+round 1 for 8 candidates, round 2 for 7, round 3+ for the other 9.
+
+**What this changes:** the facing signal is real and somewhat stronger than
+first reported (survives per-clip breakdown, survives the size-confound
+check, survives eyeballing, and survives the attempted-only re-scoring).
+What is NO LONGER supported is the claim that a second, separate reader
+weakness was demonstrated -- that rested entirely on the retracted row-4
+reading. There may well be other causes of missed reads; this test simply
+never showed one. Do not cite row 4 as evidence for anything.
+
+# ============================================================================
+# ANCHOR-SUBSAMPLE VERDICT TEST (compute session cont'd, 2026-09-07)
+# ============================================================================
+# Plain English: the camera-tracking step is 69% of what a game costs to run
+# ($4.55 of ~$7). The only way to hit DJ's $5 target is to check the camera
+# LESS often (every 2nd/5th/10th frame instead of every single one). An old
+# test said "not needed" -- but it only checked whether the camera MATH came
+# out slightly different (it does, by a fraction of a foot), never whether
+# the actual ON-COURT / OFF-COURT ANSWER for a real player ever flips. DJ's
+# own rule: an accuracy-trading shortcut is only allowed if it's PROVEN to
+# give the same answer, never assumed. This task is that proof, done as
+# cheaply as possible.
+#
+# TWO STAGES, priced separately -- do not spend on stage B without saying so:
+#
+# STAGE A -- $0, laptop only, ~10 minutes.
+#   We already have 150 frames (5 real seconds, frame 148,435-148,584) of the
+#   real game where the camera step already ran on EVERY frame and saved real
+#   on/off answers for real players (phase2/out/Full_Game_9eb8bf2a_oncourt.json
+#   + _tracks_raw.json) -- left over from an earlier session, free to reuse.
+#   Checked it: this stretch is an EASY moment for the camera (very confident
+#   match, steady). Good first smoke test, NOT proof by itself.
+#
+# STAGE B -- small spend, amount TBD after seeing Stage A, needs DJ's OK on
+#   the number before it runs.
+#   The old test found the real risk is at a HARD moment (camera swinging
+#   around, ~minute 33 of the game). We don't have that stretch's real
+#   answers sitting on the laptop for free, so getting it costs either (a) a
+#   long local wait (no camera, no GPU -- maybe an hour, $0), or (b) a small
+#   RunPod bill (fast, roughly what the last session guessed: ~$0.10-0.30).
+#   This step doesn't run until Stage A is done and DJ picks (a) or (b).
+
+## Todo
+- [x] Write ONE new file, `spikes/anchor_subsample_verdict_test.py`. It does
+      NOT touch `spikes/anchor_subsample_test.py` or any real pipeline file
+      (`phase2/oncourt.py` stays exactly as-is -- this script only CALLS it).
+- [x] The new script: load the real (every-frame) answers already saved for
+      frames 148,435-148,584, treat them as "the truth".
+- [x] Same script: rebuild the camera position for that same stretch but only
+      checking every 2nd, then every 5th, then every 10th frame, filling the
+      gaps the same way the old test already does (reuse that code, don't
+      reinvent it) -- then re-run the SAME on/off-court scorer the real
+      pipeline uses on the filled-in version.
+- [x] Count, per player per time-window: did the "checked less often" answer
+      ever disagree with the "truth" answer? Print the count plainly --
+      0 disagreements = safe on this stretch; any number above 0 = exactly
+      which window/player/frame it happened at, no rounding it away.
+- [x] Run it (Stage A, $0) and write the honest result here, tagged MEASURED.
+- [x] Report back before doing anything else -- Stage A alone is NOT proof
+      (it's an easy moment, short clip), so this task pauses here either way
+      until DJ says whether/how to fund Stage B.
+
+## Review
+
+[MEASURED] 2026-09-07, `spikes/anchor_subsample_verdict_test.py`, real game
+frames 148,435-148,584 (5 sec, 3 windows, 48 real window/player truth
+answers), $0 spent (laptop CPU only):
+
+| checking every | fill method | wrong answers |
+|---|---|---|
+| 2nd frame | reuse-last  | **0** |
+| 2nd frame | blend-both  | **0** |
+| 5th frame | reuse-last  | **0** |
+| 5th frame | blend-both  | **0** |
+| 10th frame | reuse-last | **1** (window 2, track 46: really OFF-court, came out ON) |
+| 10th frame | blend-both | **0** |
+
+Every 2nd and every 5th frame: perfect, either fill method. Every 10th frame:
+one wrong answer, but ONLY with the cheap "reuse-last" gap fill -- the
+smarter "blend-both" fill got every 10th frame right too, zero wrong answers.
+
+**What this means in dollars, IF it holds up** [ESTIMATE, not yet proven at a
+hard moment]: the camera step is ~$4.55 of a ~$7 game. Checking every 5th
+frame instead of every frame would cut that to ~$0.91 -- game total ~$3.36,
+comfortably under the $5 target. Even every 2nd frame (safest, most cautious
+choice) would bring the game to ~$4.75.
+
+**Why this is NOT the final answer yet:** this 5-second stretch is an EASY
+moment for the camera (camera barely moving, 500-860 matched points every
+frame). The known risk (from the earlier feet-based test) is at a HARD
+moment -- camera swinging fast, ~minute 33 of the game -- which this stretch
+does not test. One real disagreement already showed up here, on an easy
+stretch, with the simpler fill method -- so a hard stretch deserves the same
+honest check before anyone trusts this at full-game scale. That's Stage B,
+unfunded, waiting on DJ.
+
+**Bug note, not a change to production code:** the "reuse-last" (hold) fill
+losing to "blend-both" (interp) at N=10 says the failure mode is a stale
+camera position lagging real motion, which blending across the gap fixes.
+If subsampling ships, blend-both is the fill method to use, not reuse-last.
+
+## Review
+
+[MEASURED] 2026-09-08, `spikes/anchor_subsample_verdict_test.py HARDSPOT`,
+real game frames 59,400-60,300 (30 sec, minute 33, the confirmed hard/
+roaming moment), 15 windows, 240 real window/player truth answers, GPU spend
+~$0.04 to build the truth data, $0 for the comparison itself:
+
+| checking every | fill method | wrong windows (of 15) |
+|---|---|---|
+| 2nd frame | reuse-last  | 2 |
+| 2nd frame | blend-both  | **2** |
+| 5th frame | reuse-last  | 3 |
+| 5th frame | blend-both  | 2 |
+| 10th frame | reuse-last | 4 |
+| 10th frame | blend-both | 1 |
+
+**This contradicts Stage A. Even the mildest setting tested -- every 2nd
+frame, the smarter blend fill -- got 2 of 15 windows wrong here**, not zero.
+One specific case (track 2068, window 6) came out wrong in EVERY SINGLE
+combination tried, including every-2nd-frame+blend -- so this isn't an
+artifact of being too aggressive or using the naive fill; on this hard
+stretch, skipping ANY frames can flip a real call. A second case (track 592,
+window 3) was wrong in 5 of 6 combinations, only landing right once by what
+looks like luck in the blend math at N=10.
+
+**What this means:** Stage A's clean 0-wrong result was real but was
+measuring an easy, steady moment. Stage B proves the risk the caveat always
+named -- uniform subsampling ("just check every Nth frame everywhere") is
+NOT safe to adopt as tested. It is not proven identical, so per the standing
+rule it cannot ship as-is. The $5/game target is NOT solved by this lever in
+its current, simplest form.
+
+**What's still open, not decided here:**
+- Every game likely has BOTH calm stretches (Stage A's kind, where this
+  looks free) and rough ones (Stage B's kind, where it isn't) -- what
+  fraction of a real full game is which is [UNKNOWN], and would decide
+  whether an ADAPTIVE version (subsample only during calm stretches, anchor
+  every frame during fast camera motion) could still reach $5.
+- No production code has been touched. `run_chunked.py` /
+  `serverless_handler.py` still anchor every frame, exactly as before this
+  whole experiment. Nothing shipped, nothing regressed.
+- This needs DJ's read before choosing a next step -- reported to him
+  directly rather than picked here.
+
+# ----------------------------------------------------------------------------
+# STAGE B PROGRESS (2026-09-08) -- paused, needs a DJ decision
+# ----------------------------------------------------------------------------
+# DJ approved the small-spend path. Progress so far:
+#
+# - New file `clips/HARDSPOT.json`: same real game, same court/calibration,
+#   just points at a different 900-frame stretch (frames 59,400-60,300,
+#   minute 33 -- the "camera swinging around" spot the old feet-only test
+#   already flagged as the hard one). Ball detection turned off on purpose
+#   (not needed for this question, and it's ~18% of a slice's cost).
+# - Submitted ONE real job (mode "chunk", not the full chunk+merge+identity
+#   run) to build real tracking + every-frame camera answers for that
+#   stretch. [MEASURED] It finished: `ok: true`, image confirmed as the
+#   live one (a308b306d9c6), ball correctly skipped, processing time 126.9s.
+#   [ESTIMATE from that] roughly **$0.04** -- well inside the $0.10-0.30
+#   approved. That data now sits safely in RunPod's cloud storage (the
+#   "volume"), not lost, not costing anything further while it sits there.
+#
+# THE SNAG: getting those two answer files from RunPod's cloud storage down
+# onto the laptop needs a secret key pair (S3 API keys) that turned out to
+# NOT be saved anywhere on this laptop -- checked the project's settings
+# file, the web app's settings file, and the laptop's own environment. None
+# of the notes claiming this was already free and easy were tested until now.
+#
+# TWO WAYS TO FINISH, NEITHER STARTED -- needs DJ's pick:
+#   (a) DJ gets the keys from the RunPod website (Settings -> S3 API Keys,
+#       a few clicks) and hands them over -- then this finishes with no
+#       further spend at all.
+#   (b) One more small, safe code change (teach the worker to hand back a
+#       file's contents directly, read-only, same pattern already used for
+#       progress logs) + one more redeploy -- no action needed from DJ, but
+#       another ~10 minutes and touches the deploy system again (mistakes
+#       there are exactly what earlier sessions warned about, though the
+#       deploy-checking tool built this session catches the known ones).
+#
+# Nothing more spent until DJ picks (a) or (b).
+#
+# RESOLVED same day: DJ picked (a). RunPod shows TWO S3 key pairs on that
+# page -- an old one from Jul 31 and a new one DJ made just now ("Basketball-
+# CV-S3-V2"). Access key + secret are a MATCHED PAIR per row; DJ gave both
+# halves of the new row (the secret is only ever shown once at creation --
+# the access key stays visible/copyable anytime). Both saved to the repo's
+# own `.env.local` (confirmed gitignored, never committed) as
+# RUNPOD_S3_ACCESS_KEY / RUNPOD_S3_SECRET_KEY. Auth confirmed working, both
+# files downloaded for $0 (S3 reads don't spend GPU money):
+# `phase2/out/HARDSPOT_tracks_raw.json` (3.2 MB), `..._oncourt.json` (1.5 MB).
+# `spikes/anchor_subsample_verdict_test.py` generalized to take a clip name
+# (`sys.argv[1]`, defaults to Full_Game_9eb8bf2a so Stage A stays reproducible
+# unchanged) and now running locally, $0, against HARDSPOT's real 900-frame /
+# 15-window / 240-truth-pair hard-moment data. Result goes in the Review
+# section below once it finishes.
+
+# ============================================================================
+# BUILD: FACING-GUIDED CROP PICK (naming session, 2026-09-08)
+# ============================================================================
+# Plain English: DJ said go ahead and build the real version of the pose
+# test from earlier today. Turning the crop-picking rule in
+# phase2/stage6_ocr_confirm.py from "always grab the biggest picture" into
+# "grab a face-on picture, from among the few biggest" -- the tested idea
+# that showed a real (if not huge) pattern: 0.684 separation score, held up
+# across all 4 clips checked, not just one, and not explained by picture
+# size. See tasks/todo.md's POSE-GUIDED CROP SELECTION TEST section above
+# for the full measurement and the eyeballed pictures.
+
+## Todo
+- [x] Add an on/off switch (`CV_FACING_CROP_PICK`, default OFF) so nothing
+      about any existing clip or any of the 418 existing tests changes
+      unless someone deliberately turns it on.
+- [x] Change the picking rule: still look at the same few biggest pictures
+      in each time-slice (so cost stays bounded), but among those, prefer
+      whichever one is most face-on instead of automatically the biggest.
+      If the face-checker can't tell (blurry, no player found, etc.), fall
+      back to "biggest wins" exactly like today -- never guess.
+- [x] PROVE the switch being off changes nothing: ran the old rule and the
+      new rule side by side on all 200 real players in the HARD clip.
+      Zero differences.
+- [x] Ran the whole existing test suite (418 tests) after the change --
+      still all 418 passing, plus 8 new tests for the new logic (426 total).
+- [x] Ran the new "face-checking" step for real, on a real clip, to make
+      sure it doesn't crash and actually changes some picks when turned on.
+
+## Review
+
+**Done. All checks passed.** [MEASURED]
+
+**What changed:** `phase2/stage6_ocr_confirm.py` -- when a player's jersey
+number is about to be read, the pipeline picks up to 10 pictures of her
+spread across her time on screen. Before, it always grabbed the biggest
+(closest) picture in each time-slice. Now, with the switch on, it looks at
+the 3 biggest pictures in each slice and keeps whichever one faces the
+camera best, using the same face-checking tool proven out earlier today. If
+the face-checker can't tell (blurry, nobody found, etc.) it falls back to
+"biggest wins" exactly like before -- it can never guess.
+
+**The switch:** OFF by default. Nothing changes for anyone -- any existing
+clip, any existing test, any existing habit -- until someone deliberately
+sets `CV_FACING_CROP_PICK=1` before running stage6. That was a deliberate,
+low-cost safety choice, not something DJ was asked about, because there was
+only one reasonable answer: this touches a file with 418 tests riding on it,
+and there is no reason those should ever be allowed to change by accident.
+
+**Proof this is safe, in order of how much it matters:**
+1. Ran the OLD picking rule and the NEW one side by side, by hand, on all
+   200 real tracked players in the HARD clip. Zero differences. (The
+   strongest check -- real data, not made-up examples.)
+2. The full existing test suite: still 418 passing, untouched.
+3. 8 new tests added for the new logic itself (426 total now) -- including
+   one that pins "the switch being off must exactly reproduce the old
+   picker" as a permanent rule, so nobody can break that by accident later.
+4. Ran the real new code -- real pose model, real video, real players from
+   HARD -- with the switch ON. No crash. It scored 886 candidate pictures
+   across 270 real video frames and changed the pick in 148 out of several
+   hundred time-slices, so it is doing real work, not sitting there idle.
+
+**What was NOT done today (on purpose):** nobody has turned the switch on
+for a real, full run and checked whether the 3.4% read rate actually goes
+up. Today was "build it safely and prove it works," not "prove it helps at
+full scale." That is the natural next step, and it costs real OCR reads
+(this pipeline's reader is the paid Gemma API, not a free local one) --
+worth running deliberately, not as a side effect of a code change.
+
+**RETRACTED (2026-09-09):** this section originally ended with "a player
+whose number was perfectly readable across 4 squared-on frames, and the
+reader still missed all 4." **That was wrong** -- those four frames were
+attempt rounds 7-10 and the reader never submitted them, because it had
+already succeeded on round 1 and exited early. See the CORRECTION block in
+the POSE-GUIDED CROP SELECTION TEST section above. No second reader weakness
+was ever demonstrated; that does not mean none exists, only that this test
+did not show one.
+
+Re-scoring the same data using only crops the reader ACTUALLY attempted
+moved the separation score from 0.684 to **0.785** -- the flaw was hiding
+the signal, not creating it. Sample is smaller and honest: 34 real failures.
+
+## THE LIVE A/B RESULT -- NO BENEFIT. LEAVE IT OFF.
+
+[MEASURED 2026-09-09] TEST2, same code, same day, ONLY the flag differs.
+Two real runs against the paid reader (~25 min total, roughly 900-1,000 API
+calls, cost negligible -- pennies, not dollars).
+
+| metric | facing OFF | facing ON | |
+|---|---|---|---|
+| crops attempted | 161 | 156 | |
+| crops giving ANY read | 27 | **22** | worse |
+| crops giving a CONFIDENT read | 12 | **11** | worse |
+| **candidates named (the point)** | **11** | **11** | **same** |
+| auto-confirmed (AGREE) | 3 | 3 | same |
+| corroborated | 2 | 2 | same |
+| established (named with no click) | 0 | 0 | same |
+| review queue after | 32 | 32 | same |
+
+**125 slices had their crop swapped and NOT ONE product outcome changed.**
+Every number that matters -- who got named, who went to review, what got
+corroborated -- is identical. The per-crop read counts moved slightly the
+WRONG way, well inside the noise of a non-deterministic reader (Gemma,
+unanimous-of-3), so they are not evidence of harm either. The honest verdict
+is **no measurable effect**, not "better", not "worse".
+
+### WHY the 0.785 did not translate -- the lesson worth keeping
+The retrospective study asked *"among crops the reader tried, were the
+winners more face-on?"* -- and they were, clearly. But it never varied SIZE,
+because every crop it looked at had already been chosen for being big. The
+intervention does something the study never measured: it **trades size away
+for facing**. Size is also a legibility signal (DECISIONS 4b, the original
+montage diagnosis). So the change buys a better angle and pays for it with
+fewer pixels, and on this clip those cancelled out exactly.
+
+**A retrospective correlation does not license an intervention on the same
+variable, when intervening also changes something else.** That is the
+generalisable mistake here, and it was only caught because the A/B was run
+instead of trusting the 0.785.
+
+### Status
+- The flag stays **OFF by default** -- which is what it already was, so
+  nothing needs undoing and nothing is at risk.
+- The code, the 8 tests, and the byte-identical-when-off proof all stay:
+  they cost nothing when off, and the pose plumbing is reusable for the
+  corroboration-picker idea below (which attacks a DIFFERENT step, one that
+  is measurably starved rather than measurably neutral).
+- **Do not re-propose facing-based crop picking on the strength of the
+  0.785 alone.** It has now been tested live and did nothing. Re-open it
+  only with a version that does not sacrifice size -- e.g. facing as a
+  TIE-BREAK among equally-large crops, or a bigger shortlist -- and only
+  after the cheaper wins are taken.
+
+# ============================================================================
+# EXTERNAL REVIEW (ChatGPT) -- CHECKED AGAINST THE CODE, 2026-09-09
+# ============================================================================
+# DJ ran the audit-context doc past ChatGPT. Every claim below was verified
+# against the actual code/measurements before being accepted or rejected --
+# not taken on trust. Verdicts:
+
+## CONFIRMED, and one of them is a finding we MISSED
+
+1. **THE 30-MINUTE TARGET IS BUSTED BY THE SERIAL TAIL -- the biggest catch.**
+   [CONFIRMED by arithmetic on our own numbers.] The merge + identity tail is
+   ONE job on ONE machine (`run_chunked.run` submits a single `mode:"merge"`
+   job and waits) -- it cannot be split. Our own projection puts it at ~0.9
+   GPU-hours = **54 minutes of wall clock**. DJ's ceiling is 30 min. So even
+   a FREE camera stage would not hit the target. Every cost conversation so
+   far optimised dollars and silently assumed time would follow. It doesn't.
+
+   **It's worse than ChatGPT said, and this part is ours, not theirs.**
+   Recomputed from the rehearsal's own measured rate (0.155 s/frame, all
+   three per-frame stages): a full game across the 10-worker quota is
+   17,112 frames/worker x 0.155 s = **~44 min wall clock for the SLICE phase
+   alone**, before the tail starts. So the 30-min ceiling is currently missed
+   on TWO independent fronts. The slice half is fixable by buying more
+   parallel workers (embarrassingly parallel, same total $); the tail half is
+   not, and is the real wall.
+
+2. **The corroboration picker prefers time-distance over readability.**
+   [CONFIRMED in code] `phase2/stage6_ocr_confirm.py:497`:
+   `usable.sort(key=lambda gb: -abs(gb[0] - f))  # farthest in time first`,
+   filtered only by `MIN_OCR_HEIGHT`. So a perfect first read gets checked
+   against whatever crop is furthest away in time, readable or not. Given
+   corroboration is the gate that Option C (`establish_via_reads`) needs and
+   which has NEVER fired, this is a real and cheap target.
+
+3. **The jersey crop is a fixed percentage of the body box.**
+   [CONFIRMED in code] `phase2/ocr_reader.py:152` `jersey_crop()` always takes
+   width 15%-85%, height 15%-50% of the person box. Nothing pose-aware, so a
+   leaning/turning/occluded player gets a crop that may not contain her
+   number at all. Pose-guided torso framing is a genuine, unbuilt idea --
+   note it is DIFFERENT from the facing-guided PICK already built this session
+   (that chooses WHICH frame; this changes WHERE the crop is cut).
+
+4. **No cache of reader evidence across reruns.** [CONFIRMED] `ocr_reader.py`
+   has no cache of any kind. Every rerun re-pays for identical crops. Their
+   framing is right: cache keyed on the crop + reader version + settings, and
+   a cached answer must NOT count as a fresh independent vote (that would fake
+   corroboration, which is exactly the lock the identity layer depends on).
+
+5. **Abstention does not make errors independent.** [ACCEPTED, unmeasured]
+   Fair criticism of a claim in our own audit doc. Several stages can trust the
+   same bad track or the same misleading crop, so their failures correlate.
+   We have no measurement either way -- do not repeat the "independent, so
+   coverage compounds" claim as established until we do.
+
+6. **Their cost projections are arithmetically right** ($7.00 / $4.73 / $3.36
+   for every-frame / every-2nd / every-5th) and match our own $3.36 figure.
+   Their caveat is also right: those assume camera cost falls PROPORTIONALLY
+   with skipping, which is unverified -- frame decode still happens for
+   tracking, so the real saving is smaller than the ideal.
+
+7. **Don't reopen GPU SIFT batching.** [AGREES with us] kornia hard-asserts
+   batch size 1; already recorded as closed.
+
+## PARTLY WRONG / ALREADY DONE -- do not act on these as written
+
+8. **"OCR API calls are sequential, concurrency is the obvious fix."**
+   STALE -- it was already done. `stage6_ocr_confirm.py:419` sets
+   `OCR_WORKERS = 32` on the API path and both read loops run under
+   `ThreadPoolExecutor` (lines 435, 523). The "sequential, untried" note in
+   `HANDOFF_GPU_SESSION.md` predates that work. **BUT their underlying point
+   survives**: concurrency shortens the wait, it does not stop a GPU worker
+   being BILLED while it waits on someone else's API. Decoupling crop
+   selection (GPU) from reading (no GPU) is still a real, unbuilt saving --
+   and it matters more than it looks, because the 402 s tail we measured had
+   the Gemma reader OFF. Turning the reader on makes the tail worse, i.e.
+   pushes further past the 30-min ceiling in finding #1.
+
+9. **"Don't reject back-facing players."** Correct principle, doesn't apply to
+   what we built. The facing metric is shoulder SEPARATION -- wide = squared
+   up to camera, which is equally true of a back. A back-on player scores
+   HIGH, not low, and basketball numbers are on both sides. No change needed,
+   but the warning is worth keeping: any future "facing" work must not drift
+   into "front-facing only".
+
+## WHAT THIS CHANGES
+
+Nothing about the ship gate: naming is still the blocker, cost/time are not.
+But finding #1 means **the 30-minute promise has no path today** and that
+should stop being treated as a solved-by-parallelism problem. It is a
+SEPARATE unsolved problem from the $5 target, with a different root cause
+(one un-splittable serial stage), and it was never written down before now.
+
+# ============================================================================
+# TIME + COST: WHERE THE MONEY AND THE MINUTES ACTUALLY GO (2026-09-09)
+# ============================================================================
+# Two findings from reading the code today, both new, both change the plan.
+
+## FINDING 1: we rent a $1.11/hr RTX 4090 to do JSON bookkeeping [CONFIRMED]
+
+The merge + identity tail -- the ~54-minute serial stage that blocks the
+30-min target -- barely touches the GPU. Checked every stage it runs:
+
+  stage3_windows, stage4_seed_queue, stage5_player_events, stage7_merge,
+  stage8_box_score  ..... zero torch/cuda/YOLO references
+  ocr_reader (EasyOCR) .. explicitly `gpu=False` (phase2/ocr_reader.py:62)
+  stage6 pose model ..... only when CV_FACING_CROP_PICK is ON (default OFF)
+  stage2_generate_events  the ONE real GPU user: YOLO + SIFT anchor, but only
+                          on ~40 SAMPLED frames, not the game
+
+So essentially the whole tail is CPU/JSON/state-machine work, billed at 4090
+rates. It also writes a **1.19 GB** `player_events_merged.json` at full-game
+scale (seen on disk in results/, from the Aug 23 real run) -- that is I/O
+time, not compute.
+
+Two consequences, in opposite directions -- do NOT treat this as a free win:
+  * COST: the ~$1.00/game tail could be pennies on a CPU box. Real, but small.
+  * TIME: a cheap CPU box is SLOWER, which makes the 54 min WORSE. Moving the
+    tail to save $1 could push the wall clock further from 30 min.
+They trade against each other. Anyone proposing "just move the tail to CPU"
+must say which of the two targets they are choosing.
+
+## FINDING 2: the anchor has never been tuned, only counted [CONFIRMED]
+
+Every cost conversation so far asked "how OFTEN do we anchor?" (subsampling --
+now disproven). Nobody asked "how EXPENSIVE is one anchor?" Measured settings:
+
+  gpu_anchor.py:37   N_FEATURES = 4000
+  gpu_anchor.py:38   LOWE_RATIO = 0.9
+  resolution         FULL 1080p -- no downscale anywhere in the anchor path
+  observed           ~12,871 keypoints per keyframe in today's real run logs
+
+These numbers were never chosen by measurement; they are defaults that have
+never been questioned. SIFT detection cost scales with PIXEL COUNT and
+matching cost with FEATURE COUNT, so both are direct multipliers on the 69%
+of the bill.
+
+**Why this is a fundamentally safer lever than subsampling.** Subsampling
+failed because it STOPS MEASURING on some frames and guesses them by
+interpolation -- that is what flipped real verdicts at a hard moment. Making
+each anchor cheaper keeps every single frame individually measured. No gaps,
+no interpolation, no calm-vs-rough classification to get wrong. It either
+gives the same answer at lower resolution or it doesn't, and we can now
+prove which -- because today's work left us exactly the tool:
+`spikes/anchor_subsample_verdict_test.py` + real hard-moment ground truth
+already downloaded to phase2/out/HARDSPOT_*.json.
+
+## PLAN (proposed, NOT started -- needs DJ's go-ahead)
+
+- [ ] Generalise the verdict harness so it can test ANY anchor change, not
+      just "skip N frames" -- same real-verdict comparison, same HARDSPOT
+      ground truth, no production code touched.
+- [ ] Measure the anchor at reduced resolution (e.g. 75%, 50%) and reduced
+      feature counts (2000, 1000), on the HARD span, reporting BOTH
+      (a) seconds per frame and (b) how many real on/off-court verdicts change
+      versus anchoring at today's full settings.
+- [ ] Kill number, written first: any setting that changes even ONE verdict on
+      the hard span is rejected outright, exactly as uniform subsampling was.
+      Only a verdict-identical setting may be considered.
+- [ ] If something survives: recompute the $/game and the wall clock honestly,
+      and say plainly whether $5 and/or 30 min is reached. If nothing
+      survives, say the anchor is irreducible and stop proposing anchor work.
+- [ ] Runs on the LAPTOP for $0 -- the CPU anchor path is the same algorithm,
+      and the question is which SETTINGS agree, not how fast a 4090 is.
+      A GPU timing run is only worth buying AFTER a setting proves identical.
+
+## Review
+(filled in after it runs)

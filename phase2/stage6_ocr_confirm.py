@@ -44,6 +44,29 @@ MIN_OCR_HEIGHT = 90      # only attempt OCR on player boxes >= this tall (else u
 OCR_STRIDE = 2           # subsample the window's frames (CPU OCR is slow)
 MAX_ATTEMPTS = 10        # cap reads per candidate
 
+# FACING-GUIDED CROP PICK (spikes/pose_facing_test.py, 2026-09-08). MEASURED:
+# the reader's read rate is 3.4% per crop, and the recorded cause is ANGLE
+# (backs, side-ons) -- box size (below) is a proxy for "close to camera", not
+# "facing it". On 23 confident reads vs 189 other picked-but-unread crops of
+# the SAME players, a pose model's apparent shoulder width separated the two
+# piles at 0.684 (0.5 = no signal, 1.0 = perfect) -- consistent in the same
+# direction across all 4 clips checked, not a proxy for box size (correlation
+# 0.068), and confirmed by eye on real crops. NOT a complete fix: one player's
+# plainly-legible number went unread across 4 squared-on frames in a row, so
+# this removes ONE cause of missed reads, not the only one.
+# Default OFF -- every existing clip and all tests behave exactly as before;
+# turn on deliberately to test it on a real clip.
+FACING_CROP_PICK = bool(int(os.environ.get("CV_FACING_CROP_PICK", "0") or 0))
+FACING_SHORTLIST = 3     # only re-rank the N biggest boxes in a slice by facing
+                         # -- bounds the added pose cost, and matches what was
+                         # actually measured (reasonably-sized crops only)
+POSE_WEIGHTS = "yolo11x-pose.pt"   # same weights the measurement used
+POSE_IMGSZ = 1280                  # DECISIONS 20 proven optimum
+POSE_CONF = 0.25
+KP_CONF = 0.3            # below this a keypoint is a guess, not a reading
+IOU_MATCH = 0.3          # minimum overlap to say "this pose is that tracker box"
+L_SHO, R_SHO = 5, 6      # COCO keypoint order
+
 
 def load(path):
     with open(path, encoding="utf-8") as f:
@@ -60,6 +83,126 @@ def load(path):
     # against the 3.85 GB of worker memory this project has ever proven.
     doc.pop("frames", None)
     return frames, doc
+
+
+# --------------------------------------------------------------------------
+# FACING-GUIDED CROP PICK -- pure selection logic first (no images, testable
+# by hand), then the pose-model I/O that feeds it. See FACING_CROP_PICK above
+# for why this exists and what it does and doesn't fix.
+# --------------------------------------------------------------------------
+
+def _group_by_slice(frs):
+    """frs: [(frame, bbox), ...] frame-ordered, already size-eligible.
+    -> {slice_idx: [(frame, bbox), ...]}, each list in frame order, slice
+    indices inserted in ascending order -- SAME grouping the plain size-only
+    picker always used, just not reduced to one entry per slice yet."""
+    if not frs:
+        return {}
+    span_lo, span_hi = frs[0][0], frs[-1][0]
+    width = max(1, span_hi - span_lo + 1)
+    groups = defaultdict(list)
+    for (f, bb) in frs:
+        s = min(MAX_ATTEMPTS - 1, (f - span_lo) * MAX_ATTEMPTS // width)
+        groups[s].append((f, bb))
+    return groups
+
+
+def _biggest(frs_in_slice):
+    """today's rule: the tallest box in the slice, earliest frame on a tie
+    (max() keeps the first-seen maximum, and frs_in_slice is frame-ordered)."""
+    return max(frs_in_slice, key=lambda fb: fb[1][3] - fb[1][1])
+
+
+def _best_by_facing(frs_in_slice, facing_of, shortlist=FACING_SHORTLIST):
+    """Among the `shortlist` biggest boxes in this slice, keep whichever has
+    the best facing score. Falls back to _biggest (today's rule) if nothing
+    in the shortlist has a usable score -- same abstain-to-today's-behaviour
+    this file uses everywhere else. facing_of: (frame, bbox) -> float | None.
+    """
+    by_size = sorted(frs_in_slice, key=lambda fb: -(fb[1][3] - fb[1][1]))
+    top = by_size[:shortlist]
+    scored = [(fb, facing_of(fb)) for fb in top]
+    scored = [(fb, s) for (fb, s) in scored if s is not None]
+    if not scored:
+        return by_size[0]
+    return max(scored, key=lambda fbs: fbs[1])[0]
+
+
+def _iou(a, b):
+    ax1, ay1, ax2, ay2 = a
+    bx1, by1, bx2, by2 = b
+    ix1, iy1 = max(ax1, bx1), max(ay1, by1)
+    ix2, iy2 = min(ax2, bx2), min(ay2, by2)
+    inter = max(0.0, ix2 - ix1) * max(0.0, iy2 - iy1)
+    if inter <= 0:
+        return 0.0
+    area_a = max(0.0, ax2 - ax1) * max(0.0, ay2 - ay1)
+    area_b = max(0.0, bx2 - bx1) * max(0.0, by2 - by1)
+    return inter / max(1e-6, area_a + area_b - inter)
+
+
+def _pose_people(model, img):
+    res = model.predict(img, imgsz=POSE_IMGSZ, conf=POSE_CONF, verbose=False)[0]
+    people = []
+    if res.keypoints is None:
+        return people
+    kxy = res.keypoints.xy.cpu().numpy()
+    kcf = res.keypoints.conf.cpu().numpy() if res.keypoints.conf is not None else None
+    boxes = res.boxes.xyxy.cpu().numpy()
+    for i in range(len(kxy)):
+        people.append({"kp": kxy[i], "box": boxes[i],
+                       "kpc": kcf[i] if kcf is not None else [1.0] * len(kxy[i])})
+    return people
+
+
+def _facing_score(bbox, people):
+    """Best IoU match in `people`, then normalised apparent shoulder width
+    (wide = squared to the camera, narrow = side-on), or None if nothing
+    matches closely enough or the shoulders aren't confidently seen. Same
+    method measured in spikes/pose_facing_test.py (separation 0.684)."""
+    best_iou, best = 0.0, None
+    for p in people:
+        iou = _iou(bbox, p["box"])
+        if iou > best_iou:
+            best_iou, best = iou, p
+    if best is None or best_iou < IOU_MATCH:
+        return None
+    lc, rc = best["kpc"][L_SHO], best["kpc"][R_SHO]
+    if lc < KP_CONF or rc < KP_CONF:
+        return None
+    lx, rx = best["kp"][L_SHO][0], best["kp"][R_SHO][0]
+    h = float(best["box"][3] - best["box"][1])
+    return float(abs(lx - rx)) / max(h, 1e-6)
+
+
+def _facing_scores_for_shortlists(slices_by_key, video_path, shortlist=FACING_SHORTLIST):
+    """Runs the pose model once per unique video frame any candidate's
+    size-shortlist actually needs, and returns facing_of: (frame, bbox) ->
+    float | None. A slice with only one eligible frame needs no scoring (it
+    has no alternative to pick over) so those are skipped, same as the
+    budget/attempt logic elsewhere in this file: bounded cost, never the
+    whole candidate pool."""
+    need = defaultdict(list)             # frame -> [bbox, ...]
+    for groups in slices_by_key.values():
+        for g in groups.values():
+            if len(g) < 2:
+                continue
+            top = sorted(g, key=lambda fb: -(fb[1][3] - fb[1][1]))[:shortlist]
+            for (f, bb) in top:
+                need[f].append(bb)
+    if not need:
+        return lambda fb: None
+
+    from ultralytics import YOLO
+    model = YOLO(POSE_WEIGHTS)
+    scores = {}                          # (frame, bbox-as-tuple) -> float | None
+    for f, im in s2mk.iter_frames(video_path, sorted(need)):
+        people = _pose_people(model, im)
+        for bb in need[f]:
+            scores[(f, tuple(bb))] = _facing_score(bb, people)
+    print(f"[stage6] FACING_CROP_PICK: scored {len(scores)} shortlisted crop(s) "
+          f"on {len(need)} frame(s)", flush=True)
+    return lambda fb: scores.get((fb[0], tuple(fb[1])))
 
 
 def main():
@@ -161,52 +304,70 @@ def main():
                      and _on_court(k)]
 
     # --- PICK frames per candidate first (bbox data only, no images yet) ---
-    picked_by_key = {}
-    attempted_cands = set()
+    # BEST CROP IN EACH SLICE OF HER TIME (attempt policy v3).
+    #
+    # v2 sorted by box height and required picks to be OCR_STRIDE=2 frames
+    # apart. Size is the right legibility proxy (montage diagnosis,
+    # DECISIONS 4b) but two frames is a fifteenth of a second, so "spread"
+    # was never enforced in any meaningful sense: the ten biggest boxes are
+    # the ten frames where she was nearest the camera, which are usually
+    # consecutive.
+    #
+    # MEASURED on real on-court tracks from DJ's game: the ten attempts span
+    # 1.6 s at the median against a 4.3 s tracked life, and 30% of players
+    # get ALL TEN inside a single second. Ten pictures of one instant, at one
+    # angle. If her back is turned for that second, every attempt fails and
+    # she is recorded as unreadable -- when she was only ever shown once.
+    #
+    # A jersey number is unreadable because of ANGLE far more often than
+    # because of size: the crop montage is full of backs, side-ons, arms and
+    # a referee, next to a perfectly crisp 23. Attempts are therefore spread
+    # over her whole time on screen -- her frames are cut into MAX_ATTEMPTS
+    # slices, and (FACING_CROP_PICK off) the LARGEST box in each is taken, so
+    # every attempt is a different moment and each is still the best look
+    # available then. Measured effect: 2.2x wider window, same number of
+    # attempts, same cost.
+    #
+    # FACING_CROP_PICK on: within each slice, the biggest box no longer wins
+    # automatically -- the FACING_SHORTLIST biggest are re-ranked by pose-
+    # measured facing, on the MEASURED finding that size predicts "close to
+    # camera", not "facing it" (see the constant's comment above). Falls back
+    # to the plain biggest wherever pose has nothing to say, same as v3.
+    #
+    # Still ordered biggest-first afterwards, so the early rounds (and the
+    # early exit) still spend on her clearest look.
+    slices_by_key = {}
     for key in candidates:
         frs = [(f, bb) for (f, bb) in active_log[key]
                if bb and (bb[3] - bb[1]) >= MIN_OCR_HEIGHT]
-        # BEST CROP IN EACH SLICE OF HER TIME (attempt policy v3).
-        #
-        # v2 sorted by box height and required picks to be OCR_STRIDE=2 frames
-        # apart. Size is the right legibility proxy (montage diagnosis,
-        # DECISIONS 4b) but two frames is a fifteenth of a second, so "spread"
-        # was never enforced in any meaningful sense: the ten biggest boxes are
-        # the ten frames where she was nearest the camera, which are usually
-        # consecutive.
-        #
-        # MEASURED on real on-court tracks from DJ's game: the ten attempts span
-        # 1.6 s at the median against a 4.3 s tracked life, and 30% of players
-        # get ALL TEN inside a single second. Ten pictures of one instant, at one
-        # angle. If her back is turned for that second, every attempt fails and
-        # she is recorded as unreadable -- when she was only ever shown once.
-        #
-        # A jersey number is unreadable because of ANGLE far more often than
-        # because of size: the crop montage is full of backs, side-ons, arms and
-        # a referee, next to a perfectly crisp 23. Attempts are therefore spread
-        # over her whole time on screen -- her frames are cut into MAX_ATTEMPTS
-        # slices and the LARGEST box in each is taken, so every attempt is a
-        # different moment and each is still the best look available then.
-        # Measured effect: 2.2x wider window, same number of attempts, same cost.
-        #
-        # Still ordered biggest-first afterwards, so the early rounds (and the
-        # early exit) still spend on her clearest look.
-        if not frs:                     # never big enough to try: no attempts
+        slices_by_key[key] = _group_by_slice(frs)
+
+    facing_of = None
+    if FACING_CROP_PICK:
+        facing_of = _facing_scores_for_shortlists(slices_by_key, CLIP.video_path)
+
+    picked_by_key = {}
+    attempted_cands = set()
+    overridden_by_facing = 0
+    for key in candidates:
+        groups = slices_by_key[key]
+        if not groups:                  # never big enough to try: no attempts
             picked_by_key[key] = []
             continue
-        span_lo, span_hi = frs[0][0], frs[-1][0]        # active_log is frame-ordered
-        width = max(1, span_hi - span_lo + 1)
-        best_in_slice = {}
-        for (f, bb) in frs:
-            s = min(MAX_ATTEMPTS - 1, (f - span_lo) * MAX_ATTEMPTS // width)
-            cur = best_in_slice.get(s)
-            if cur is None or (bb[3] - bb[1]) > (cur[1][3] - cur[1][1]):
-                best_in_slice[s] = (f, bb)
-        picked = sorted(best_in_slice.values(),
-                        key=lambda fb: -(fb[1][3] - fb[1][1]))[:MAX_ATTEMPTS]
+        winners = []
+        for g in groups.values():
+            default = _biggest(g)
+            w = _best_by_facing(g, facing_of) if facing_of is not None else default
+            if w != default:
+                overridden_by_facing += 1
+            winners.append(w)
+        picked = sorted(winners, key=lambda fb: -(fb[1][3] - fb[1][1]))[:MAX_ATTEMPTS]
         picked_by_key[key] = picked
         if picked:
             attempted_cands.add(key)
+    if facing_of is not None:
+        print(f"[stage6] FACING_CROP_PICK: swapped the biggest crop for a more "
+              f"face-on one in {overridden_by_facing} slice(s)", flush=True)
 
     # --- NOW cut only the crops actually picked (targeted, single pass) -----
     # KEEP THE CROP, NOT THE FRAME. This used to hold every picked frame in one
