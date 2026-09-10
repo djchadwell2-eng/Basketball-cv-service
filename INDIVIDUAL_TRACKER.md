@@ -171,6 +171,52 @@ the pose plumbing is reusable for lead #1 and #2 below.)*
 
 ---
 
+## 4b. THE FAMILY THAT IS NOW CLOSED — three null results, one cause
+
+[MEASURED 2026-09-09] Three separate interventions, all on the theme *"pick
+better crops for the reader"*, all measured on TEST2 against live controls:
+
+| # | intervention | mechanism verified? | outcome |
+|---|---|---|---|
+| 1 | pick **face-on** crops (§4) | yes — 125 crops swapped | **null** (11 named either way) |
+| 2 | pick **bigger** crops for the second opinion | yes — +19–24% taller, 36/36 better, spread 34→85 frames | **null** (corroborated 2 either way) |
+| 3 | try **more** crops for the second opinion (3→12) | yes — crops actually tried went 3.00→9.25 per candidate | **null** (corroborated still 2) |
+
+Every one changed what it claimed to change — verified deterministically, not
+assumed — and **not one moved a product outcome.**
+
+**The cause, and it is the useful part: crops of one player are NOT
+independent samples.** Intervention 3 was designed to test exactly this. The
+independence model predicted 3→12 tries would lift corroboration from ~18% to
+~55%, and it fit the baseline data *exactly* (predicted 17–22%, observed
+15–20%), which is what made it credible. Tripling the crops actually spent
+produced **zero** extra corroborations. The model is refuted.
+
+**Whether a jersey can be read is a property of the PLAYER-STRETCH** — her
+angle, occlusion, distance, motion over that passage of play — **not of which
+frame you sample from it.** If she is readable, an early crop reads. If she is
+not, re-ranking, re-sizing and re-sampling all fail together, because they are
+all drawing from the same unreadable stretch.
+
+**Consequence — do not propose a fourth variant of "choose crops
+differently."** The levers that survive change something else:
+- what a crop **contains** (torso framing — §7 #2, and the fixed 15–50% box is
+  measurably slicing numbers in half)
+- the **reader** itself
+- the **confirmation bar**
+- or skip reading entirely (§7 #3 — lineup constraints need no jersey at all)
+
+**Methodological note that outranks all three results:** two runs with
+*identical* configuration produced **11 vs 13 named players**. The reader is
+non-deterministic (unanimous-of-3) and early-exit compounds it, so **a single
+run per arm cannot detect an effect smaller than ~2 candidates.** All three
+nulls above are "no effect detectable at this sample size", not "provably zero"
+— though #2 and #3 also failed on a *deterministic* mechanism-to-outcome link,
+which is stronger evidence than the noisy count alone. Any future A/B here
+needs repeated runs or a full-game-scale clip.
+
+---
+
 ## 5. The blocker that got SOLVED: player vs referee
 
 Five-on-court exclusion needs an accurate count of players per team. The
@@ -235,15 +281,17 @@ Two things this established:
 
 ## 7. Open leads, ranked (nothing here is built)
 
-**#1 — Fix which crops get the SECOND OPINION.** [VERIFIED flaw in code]
-`phase2/stage6_ocr_confirm.py:497` sorts corroboration candidates by
-`-abs(g - f)` — **time distance only**. It ignores size *and* facing, both of
-which the main picker uses. This is the step gating `establish_via_reads`
-(§3), i.e. the only path to naming a girl with **zero clicks** — the single
-most valuable thing in this workstream. Cheapest of these, machinery already
-in the tree.
+**#1 — ~~Fix which crops get the SECOND OPINION~~ — DONE, and NULL. See §4b.**
+The flaw was real and is fixed (the picker now ranks by legibility, and the
+old rule provably clustered its picks instead of spreading them). It changed
+**no outcome**. Kept on because it is free and strictly better mechanically,
+but it is not a fix. **The whole family it belongs to is now closed** — see
+§4b before proposing anything about which crops get read.
 
 **#2 — Frame the torso by pose landmarks, not a fixed percentage.**
+**Now the top lead**, because §4b closed everything that competes with it.
+This is the only remaining idea that changes what a crop *contains* rather
+than which crop gets picked.
 `ocr_reader.jersey_crop` takes a fixed 15–85% × 15–50% box. Rendered against
 a real player leaning forward, **the number is sliced in half by the crop edge
 in 3 of 4 frames** — visible in `spikes/out/`-rendered montages. This is a
@@ -282,7 +330,10 @@ still low, but it is not the same experiment that already failed.
 | **Naive one-in-one-out counting** | Fires **0 times of 95 / 235 / 56**. Fragmentation is bursty, never tidy |
 | **Gait / height / build** | True pairs rank 51st, 58th, 66th of 75 impostors — anti-informative |
 | **Colour for player-vs-non-player** | Ranges overlap end to end; no threshold catches a referee without deleting a real player |
-| **Facing-based crop picking** | Tested live, **no effect** (§4). Only re-open in a form that does not trade away size |
+| **Facing-based crop picking** | Tested live, **no effect** (§4) |
+| **Re-ranking second-opinion crops (by size or otherwise)** | Mechanism proven better, outcome **null** (§4b) |
+| **Trying MORE second-opinion crops** | 3→12 tries, crops spent tripled, outcome **null** — refuted the independence model outright (§4b) |
+| **Any further "pick crops differently" idea** | The whole family is closed by §4b's shared cause. Change crop *content*, the reader, or the bar instead |
 | **Higher resolution / tiling** | Resolution sweep exhausted, 1280 optimal |
 | **Better camera / footage** | Hudl is a fixed product constraint |
 

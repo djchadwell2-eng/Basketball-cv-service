@@ -471,7 +471,31 @@ def main():
     # those failures are not "she has no second readable moment", they are "we
     # looked once". Since the picks are already spread across her whole time on
     # court, several alternates are usually available for free.
-    CORROBORATION_TRIES = 3
+    # HOW MANY alternate crops to try. Stays at 3 -- raising it was TESTED AND
+    # REFUTED on 2026-09-09, and the refutation is worth more than the setting.
+    #
+    # The prediction: if each crop reads independently at rate p, corroboration
+    # succeeds at 1-(1-p)^TRIES, so 3 -> 12 tries should lift TEST2 from ~18%
+    # to ~55%. The observed 2-of-10 at TRIES=3 fit that model exactly (predicted
+    # 17-22%), which is what made it credible.
+    # The test: TRIES=12 on TEST2. Verified deterministically that the cap was
+    # really binding -- crops actually tried per candidate went 3.00 -> 9.25
+    # (HARD 2.65 -> 6.90), so the run genuinely spent 3x the reads.
+    # THE RESULT: corroborated stayed at **2**. Zero extra corroborations for
+    # three times the calls.
+    #
+    # WHAT THAT MEANS, and it closes a whole family of ideas: crops of one
+    # player are NOT independent samples. Whether her number can be read is a
+    # property of the PLAYER-STRETCH -- angle, occlusion, distance, motion --
+    # not of which frame you happen to sample from it. If she is readable an
+    # early crop reads; if she is not, neither re-ranking the crops
+    # (CORROB_PICK_BY_SIZE, null) nor sampling more of them (this, null) nor
+    # choosing them by facing (2026-09-09, null) recovers her.
+    # Three independent interventions on WHICH/HOW MANY crops all measured
+    # null. Do not propose a fourth. The remaining levers change what a crop
+    # CONTAINS (torso framing -- the fixed 15-50% box is measurably slicing
+    # numbers in half), or the reader, or the confirmation bar.
+    CORROBORATION_TRIES = int(os.environ.get("CV_CORROBORATION_TRIES", "3") or 3)
     corroboration = {}                       # (win,id) -> "corroborated" | ...
     corrob_frames = {}                       # (win,id) -> [frames that agreed]
     verify_jobs = []
@@ -490,11 +514,50 @@ def main():
     # usable crops farthest in time from the read being checked.
     # Cost stays bounded: only candidates that ALREADY read get this, a handful
     # per clip, at CORROBORATION_TRIES frames each.
+    #
+    # RANK BY LEGIBILITY, NOT BY DISTANCE IN TIME (CORROB_PICK_BY_SIZE).
+    # The two `>= 15` guards below ALREADY guarantee a different moment: one
+    # keeps every pick 15+ frames from the read being checked, the other keeps
+    # the picks 15+ frames from each other. Temporal diversity is therefore a
+    # property of the CONSTRAINTS, and the sort adds none of it -- all the sort
+    # decides is WHICH of the eligible crops get spent.
+    # Sorting by -abs(g - f) spends them on the two ends of her track, which is
+    # exactly where a player tends to be furthest from the camera and smallest.
+    # Size is this project's proven legibility proxy (DECISIONS 4b) and the main
+    # picker already uses it; this step was the one place that ignored it
+    # completely.
+    #
+    # MEASURED 2026-09-09, deterministically, on HARD/TEST2/TEST1_REG (36 of 36
+    # candidates, no reader calls so no noise): the new rule picks crops
+    # **+19-24% taller**, 36 better / 0 worse -- AND it *increases* temporal
+    # spread (34 -> 85 frames mean). The old comment claimed it drew "from her
+    # WHOLE track life"; in practice sorting by distance takes the farthest
+    # crop and then its immediate neighbours, CLUSTERING all three picks at one
+    # end of the track ~1 second apart. So the old rule was not doing what it
+    # said, and the new rule is strictly better on BOTH axes.
+    #
+    # ⚠ BUT IT DOES NOT MOVE THE OUTCOME. Corroboration succeeded 2 of 10-13 in
+    # every TEST2 run on 2026-09-09 regardless of this flag. Sampling MORE crops
+    # was then tried as the follow-up and also came back null (see
+    # CORROBORATION_TRIES above) -- which together say the crops of one player
+    # are not independent samples, so no re-pick of them recovers a stretch the
+    # reader cannot read.
+    # Kept ON anyway: free, strictly better on both measured axes, and it costs
+    # nothing to leave a better crop in place. It is NOT a fix, and must not be
+    # cited as one.
+    # NOT facing: facing was A/B'd on 2026-09-09 and changed nothing, because
+    # buying facing there meant paying in box size. Here size is not being
+    # traded away -- it is introduced where there was no legibility signal at
+    # all, and spread improves too.
+    CORROB_PICK_BY_SIZE = bool(int(os.environ.get("CV_CORROB_BY_SIZE", "1") or 0))
     corrob_picks = {}
     for key, (_n, _c, f, _bb) in best.items():
         usable = [(g, bb) for (g, bb) in active_log[key]
                   if bb and (bb[3] - bb[1]) >= MIN_OCR_HEIGHT and abs(g - f) >= 15]
-        usable.sort(key=lambda gb: -abs(gb[0] - f))     # farthest in time first
+        if CORROB_PICK_BY_SIZE:
+            usable.sort(key=lambda gb: -(gb[1][3] - gb[1][1]))   # most legible first
+        else:
+            usable.sort(key=lambda gb: -abs(gb[0] - f))          # farthest in time first
         spread = []
         for (g, bb) in usable:
             if all(abs(g - h) >= 15 for (h, _b) in spread):   # not near each other
