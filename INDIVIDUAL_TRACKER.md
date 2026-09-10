@@ -257,15 +257,60 @@ this produces confident wrong names at 50% precision on exactly the population
 it was meant to rescue. It also *lost* 6 existing reads, so as-is it is a net
 regression on both axes.
 
-**But the failure mode is specific, not diffuse — and there is a principled
-fix.** The model does not abstain when the digits are invisible; it supplies a
-plausible roster number, and does so *consistently*, so unanimous-of-3 cannot
-catch it (all three reads share the same missing evidence). The fix that
-matches this codebase's own established principle is **split-halves
-agreement**: divide the frames into two disjoint sets, read each independently,
-and accept only if they agree. A genuine read off a visible number should
-survive that; a guess conditioned on nothing should not be stable across
-disjoint evidence. **UNTRIED — this is the top open experiment.**
+**The failure mode is specific, not diffuse.** The model does not abstain when
+the digits are invisible; it supplies a plausible roster number, *consistently*,
+so unanimous-of-3 cannot catch it — all three reads share the same missing
+evidence.
+
+### SPLIT-HALVES: tested. Helps, does not reach the bar.
+Frames split into two DISJOINT interleaved sets, read independently, accepted
+only on agreement — this codebase's own corroboration principle applied to the
+multi-frame case. Costs 2 calls, not 3, so it is *cheaper* than unanimous-of-3.
+
+[MEASURED, HARD, same 27 candidates]: precision on new names **50% → 67%**, and
+**it caught the exact case it was built for** — w1 id11's pure invention split
+`A=44 / B=None` and was rejected.
+
+**But two confident-wrong names survived it**, and they reveal a second,
+harder failure:
+
+| | model said | truth | |
+|---|---|---|---|
+| w0 id19 | 24 | **20** | both halves agreed |
+| w0 id49 | 24 | **23** | both halves agreed, and it overrode a CORRECT single-frame read |
+
+Both are second-digit errors resolving to the same number. Split-halves cannot
+catch these because both halves see the *same partially-legible* digits and
+complete them the same wrong way. It separates "no evidence" from "evidence";
+it cannot separate "evidence" from "misleading evidence."
+
+**A contrast gate was hypothesised for these (they look like dark, low-contrast
+jerseys) and REFUTED** [MEASURED]: wrong answers averaged *higher* crop contrast
+(46.0) than right ones (42.8), and one wrong answer scored 64.8 — above 11 of
+the 12 correct reads. There is no contrast threshold that separates them.
+
+**Net on HARD with split-halves: 3 correct gains, 2 confident wrong names,
+7 lost reads. Still not shippable as a DISCOVERY mechanism.**
+
+### THE SAFE FORM OF THIS IDEA — use it as a CORROBORATOR, not a discoverer
+The same run's other half is the useful part, and it was nearly overlooked:
+
+| multi-frame vs an EXISTING single-frame read | n |
+|---|---|
+| agreed | 7 |
+| contradicted | 2 (one of which multi-frame was RIGHT — it caught #13 that should have been #44) |
+| went quiet | 7 |
+
+**Confirming 7 of 16 is ~44%, against the current second-crop corroboration's
+~15–20% (§4b).** And in this form the confabulation problem structurally cannot
+bite: it only ever runs on a candidate that ALREADY has a read, and it may only
+CONFIRM or CONFLICT — never originate a name. A confabulated answer becomes a
+conflict, which routes to a human, which is the correct outcome. It also
+surfaces genuine single-frame errors (id63) that nothing else catches.
+
+**This is the recommended next build** — it attacks the measurably starved step
+(§4b) without touching the abstention guarantee (§1). [ESTIMATE: the 44% vs
+18% comparison is across different clips at small n; needs a same-clip test.]
 
 **Also worth noting:** the number 44 was over-represented in HARD's answers
 (4 of 15) and is the number the one confabulation produced. A first-item-prompt

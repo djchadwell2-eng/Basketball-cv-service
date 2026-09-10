@@ -52,7 +52,11 @@ MIN_OCR_HEIGHT = 90
 N_FRAMES = 8          # frames of one player shown in a single call
 MIN_GAP = 8           # frames apart, so they are genuinely different moments
 READS = 3             # same unanimous-of-3 bar the single-frame reader uses
-CACHE = os.path.join(_HERE, "out", f"multiframe_{CLIP}.json")
+# Two disjoint halves must independently agree (see the block in main()).
+# Costs 2 calls instead of 3, so it is CHEAPER than unanimous-of-3, not dearer.
+SPLIT_HALVES = bool(int(os.environ.get("CV_SPLIT_HALVES", "1") or 0))
+CACHE = os.path.join(_HERE, "out",
+                     f"multiframe_{CLIP}{'_halves' if SPLIT_HALVES else ''}.json")
 
 PROMPT = (
     "These {n} photos are the SAME basketball player, from different moments "
@@ -197,6 +201,38 @@ def main():
                                             interpolation=cv2.INTER_CUBIC))
             if len(crops) < 2:
                 continue
+            # SPLIT-HALVES. The measured failure mode (HARD w1 id11) is not a
+            # wobbly read -- it is the model supplying a plausible roster number
+            # when the digits are invisible, CONSISTENTLY, so asking the same
+            # pictures three more times returns the same invention with full
+            # marks. Every read shares the same missing evidence, which is
+            # exactly the hole unanimous-of-3 cannot see into.
+            # This is the codebase's own corroboration principle applied to the
+            # multi-frame case: split the frames into two DISJOINT halves, read
+            # each independently, and accept only if the halves agree. A read
+            # taken off a number that is actually visible should survive being
+            # shown half the evidence; a guess conditioned on nothing has no
+            # reason to land on the same number twice.
+            # Interleaved (0,2,4.. / 1,3,5..) rather than first-half/second-half
+            # so both halves span her whole stretch -- a chronological split
+            # would make the halves disagree merely by covering different
+            # moments, which is a different question than the one being asked.
+            half_a = crops[0::2]
+            half_b = crops[1::2]
+            if SPLIT_HALVES and len(half_a) >= 2 and len(half_b) >= 2:
+                a = ask(client, ocr_reader.GEMMA_MODEL, half_a, roster.ROSTER_NUMBERS)
+                b = ask(client, ocr_reader.GEMMA_MODEL, half_b, roster.ROSTER_NUMBERS)
+                if a is not None and a == b:
+                    # both halves, independently, saw the same number
+                    results[key] = [a, 1.0, len(crops), "halves_agree"]
+                else:
+                    results[key] = [None, 0.0, len(crops),
+                                    f"halves_disagree_{a}_vs_{b}"]
+                print(f"  [{i}/{len(jobs)}] w{key[0]} id{key[1]}: "
+                      f"A={a} B={b} -> {results[key][0]}", flush=True)
+                json.dump({json.dumps(list(k)): v for k, v in results.items()},
+                          open(CACHE, "w", encoding="utf-8"), indent=1)
+                continue
             votes = [ask(client, ocr_reader.GEMMA_MODEL, crops, roster.ROSTER_NUMBERS)
                      for _ in range(READS)]
             named = [v for v in votes if v is not None]
@@ -222,7 +258,8 @@ def report(results, single, truth, ocr):
     THRESH = ocr["ocr_confirm_threshold"]
     buckets = {"rescued": [], "wrong_new": [], "still_none": [],
                "agreed": [], "contradicted": [], "lost": []}
-    for key, (num, conf, ncrops) in results.items():
+    for key, row in results.items():
+        num, conf = row[0], row[1]      # rows carry a 4th field under SPLIT_HALVES
         t = truth.get(key)
         s = single.get(key)
         confident = num is not None and conf >= THRESH
