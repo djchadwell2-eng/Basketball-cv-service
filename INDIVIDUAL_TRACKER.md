@@ -217,6 +217,77 @@ needs repeated runs or a full-game-scale clip.
 
 ---
 
+## 4c. MULTI-FRAME READING — real upside, unsafe as built (2026-09-09)
+
+**The idea (from an outside reviewer):** show the model a STRETCH of frames of
+one player in a single call and let it piece the number together, instead of
+picking one frame and discarding the rest.
+
+**Why §4b does not close it.** §4b's conclusion — readability is a property of
+the player-stretch — was established with every frame judged ON ITS OWN. If a
+model integrates across frames, the available information is the UNION of what
+is visible, not the best single frame. All three §4b interventions were
+different answers to "which single frame?"; this one stops asking. Genuinely
+untested. (Not the same as `ocr_reader`'s existing sheet path, which packs
+twelve DIFFERENT players into one call for cost and takes twelve answers out.)
+
+**Result on HARD** (27 labelled candidates, consistent caches, 8 frames/call,
+same unanimous-of-3 bar) [MEASURED]:
+
+| | |
+|---|---|
+| rescued (single-frame failed, multi-frame **correct**) | 1 |
+| **wrong (single-frame failed, multi-frame CONFIDENTLY WRONG)** | **1** |
+| still abstained | 9 |
+| agreed with an existing read | 9 |
+| **contradicted an existing read — and multi-frame was RIGHT** | 1 |
+| **went quiet (lost a read the single-frame reader had)** | **6** |
+
+**Precision on new names: 1/2 = 50%.** Both disputed cases were rendered and
+eyeballed rather than trusted to labels:
+- **w0 id63 — multi-frame was RIGHT and the pipeline was wrong.** Jersey plainly
+  reads 44; multi said 44, label says 44, the single-frame reader had said 13.
+  It fixes real errors.
+- **w1 id11 — multi-frame CONFABULATED.** Dark jersey, running, back to camera,
+  motion-blurred; **no number is visible in any of the 8 frames.** The model
+  answered **44 at confidence 1.00**. Label says 10.
+
+**VERDICT: cannot ship as built.** A wrong name is worse than no name (§1), and
+this produces confident wrong names at 50% precision on exactly the population
+it was meant to rescue. It also *lost* 6 existing reads, so as-is it is a net
+regression on both axes.
+
+**But the failure mode is specific, not diffuse — and there is a principled
+fix.** The model does not abstain when the digits are invisible; it supplies a
+plausible roster number, and does so *consistently*, so unanimous-of-3 cannot
+catch it (all three reads share the same missing evidence). The fix that
+matches this codebase's own established principle is **split-halves
+agreement**: divide the frames into two disjoint sets, read each independently,
+and accept only if they agree. A genuine read off a visible number should
+survive that; a guess conditioned on nothing should not be stable across
+disjoint evidence. **UNTRIED — this is the top open experiment.**
+
+**Also worth noting:** the number 44 was over-represented in HARD's answers
+(4 of 15) and is the number the one confabulation produced. A first-item-prompt
+bias was hypothesised on TEST1 ("3", 4 of 12, and first in the sorted roster)
+and then **disconfirmed** — HARD's roster starts with 0 and 0 was never
+answered. Number-frequency bias remains [UNKNOWN], worth watching.
+
+**⚠ TEST1 CANNOT SCORE THIS, OR ANYTHING.** Discovered while running it:
+TEST1's three caches are from three different generations —
+`decisions.json` Jul 28, `ocr_confirms.json` Sep 3 15:34, `tracks_raw.json`
+Sep 3 **16:15**, i.e. tracking was re-run 41 minutes AFTER the results scored
+against it. Track ids no longer denote the same girls, so every label points at
+the wrong person. The first multi-frame scoring on TEST1 reported three
+confident contradictions of "verified" reads; rendering the crops showed the
+model was right all three times and the labels were stale. **A consequence
+that reaches further: the handoff's "8 for 8" reader claim cannot be
+reproduced on TEST1 today.** It may have been valid when computed, but its
+inputs no longer agree. HARD and TEST2 were checked and ARE internally
+consistent.
+
+---
+
 ## 5. The blocker that got SOLVED: player vs referee
 
 Five-on-court exclusion needs an accurate count of players per team. The
