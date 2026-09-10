@@ -435,6 +435,68 @@ still low, but it is not the same experiment that already failed.
 
 ---
 
+## 7b. THE REAL DENOMINATOR: fragmentation, not window resets (2026-09-10)
+
+**The click story in §2 is wrong about the CAUSE, and it matters.** Every
+handoff says a name dies at the window boundary, 147 of them a game. Measured:
+a track appears in a mean of **1.21 windows** — tracks **die before they ever
+reach a boundary**. Letting a confirmed name ride a continuous track across
+boundaries was tested and saves **17% (HARD) / 0% (TEST2)**. The window policy
+is not what costs the clicks.
+
+**What costs them:** one girl becomes **1.7–2.4 separate tracks per 15–20
+seconds** of film [MEASURED, HARD + TEST2, against human labels]. That is
+hundreds of fragments per player over a game.
+
+**Why this reframes everything above.** Clicking, jersey reading and exclusion
+are all paid **PER FRAGMENT**. Reading fires ~18–43% per candidate; exclusion
+needs a lucky camera; a click buys one fragment. None of them can win while the
+denominator is that large — §4/§4b/§4c were all attempts to raise a numerator.
+**Fragmentation is the single quantity under all of them.**
+
+### The lever that was sitting on the shelf — and why it stays there
+`phase2/bytetrack_mt09.yaml` (match_thresh 0.8 → 0.9) carries its own header:
+*"the single biggest fragmentation-reduction lever measured to date (122→93
+ids, +35% lifespan)... NOT adopted — pending the ID-switch eyeball check."*
+That check was believed to need a human labelling session, so it never ran.
+`spikes/tracker_switch_metric.py` (built 2026-09-07) answers exactly that
+question with **no labels**; nobody had connected the tool to the config it
+unblocks. Run at last, on HARD, matched spans [MEASURED]:
+
+| | ids | mean lifespan |
+|---|---|---|
+| committed | 260 | 66.7 |
+| mt09 | **186 (−28%)** | **104.2 (+56%)** |
+| | | **21 MERGES** |
+
+**The fragmentation win is real and reproduces. It is bought by gluing girls
+together: 21 merges over 3,522 frames — 117 seconds of misattributed floor
+time, the longest single merge running 10.7 s.**
+
+**VERDICT: REJECTED.** A fragment costs a click; a merge puts one girl's floor
+time on another and **nothing downstream can tell**. The original author's
+caution was correct, and now it has a number. `spikes/mt09_switch_check.py`
+reruns it in one command.
+
+### The pattern this completes
+GMC was closed at **16 merges** on HARD; mt09 is closed at **21**. Two
+independent attempts to cut fragmentation by **loosening association** both
+bought ids with merges at similar rates. **Loosening the tracker is a closed
+family.** What is untried is reducing fragmentation by ADDING INFORMATION
+rather than relaxing a threshold — and the honest state there is that the
+obvious candidate (appearance re-ID) is already closed on identical uniforms,
+while court-position relink measured 37.5% alone but does work as a *pruner*
+(6–18 candidates per death → 1–2). Whether several weak signals combined clear
+the bar is **[UNKNOWN]** and is the open question.
+
+⚠ **TEST1 is unusable for tracker work too.** Its committed cache covers frames
+300–449 while its ClipConfig says 120–581, so a probe tracking the config's
+span produced a candidate covering 3× more film and a meaningless "+58% ids".
+Third symptom of the same rot (§4c). `mt09_switch_check.py` now takes its span
+from the committed cache, never the config.
+
+---
+
 ## 8. Closed — do not re-propose
 
 | idea | why it's closed |
@@ -450,6 +512,8 @@ still low, but it is not the same experiment that already failed.
 | **Re-ranking second-opinion crops (by size or otherwise)** | Mechanism proven better, outcome **null** (§4b) |
 | **Trying MORE second-opinion crops** | 3→12 tries, crops spent tripled, outcome **null** — refuted the independence model outright (§4b) |
 | **Any further "pick crops differently" idea** | The whole family is closed by §4b's shared cause. Change crop *content*, the reader, or the bar instead |
+| **bytetrack match_thresh 0.9 (mt09)** | 28% fewer ids, but **21 merges / 117 s of misattributed floor time** (§7b) |
+| **Loosening tracker association generally** | GMC 16 merges, mt09 21 merges — two independent tries, same failure (§7b) |
 | **Higher resolution / tiling** | Resolution sweep exhausted, 1280 optimal |
 | **Better camera / footage** | Hudl is a fixed product constraint |
 
