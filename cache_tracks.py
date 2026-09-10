@@ -20,9 +20,18 @@ sys.path.insert(0, os.path.join(_ROOT, "phase2"))
 def cache(config):
     """Track the config's span and write tracks to config.tracks_cache_path."""
     config.validate()                         # malformed config: refuse before tracking
+    import importlib
     import clip_config
     clip_config.ACTIVE_CLIP = config          # set BEFORE importing run_tracking (binds at import)
     import run_tracking                        # reads ACTIVE_CLIP at import -> this config
+    # ...but only on the FIRST import. run_tracking binds CLIP/SPAN_START/
+    # SPAN_LEN at module level, and a serverless worker is REUSED between jobs:
+    # the second job's `import` is a no-op, so it would re-track the previous
+    # job's span and write the previous job's header. MEASURED 2026-09-10: a
+    # 900-frame job on a warm worker did exactly that and was only caught by
+    # _cache_covers refusing to publish it. run_chunked sends ten spans of one
+    # clip, so this is the normal case, not an edge case.
+    importlib.reload(run_tracking)
     print(f"[cache_tracks] {config.name}: span {config.tracking_span_start}.."
           f"{config.tracking_span_start + config.tracking_span_len} "
           f"-> {config.tracks_cache_path}")

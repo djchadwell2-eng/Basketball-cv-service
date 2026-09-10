@@ -21,11 +21,16 @@ for _p in (_ROOT, os.path.join(_ROOT, "spikes"),
 def cache(config):
     """Classify the config's cached tracks; write {clip}_oncourt.json."""
     config.validate()                         # malformed config: refuse before classifying
+    import importlib
     import clip_config
     clip_config.ACTIVE_CLIP = config          # set BEFORE imports (bind at import)
     import clips_config as cc
     cc.ACTIVE = config.name                    # builder CALIBRATES -> sync BOTH configs
     import oncourt                             # binds ACTIVE_CLIP at import -> this config
+    # Same warm-worker trap as cache_tracks: oncourt binds CLIP and OUT_JSON at
+    # module level, so on a reused worker the second job would write the FIRST
+    # job's output path. Reload after ACTIVE_CLIP is set, never before.
+    importlib.reload(oncourt)
     print(f"[cache_oncourt] {config.name}: tracks {config.tracks_cache_path}")
     oncourt.build()
 
